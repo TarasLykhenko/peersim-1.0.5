@@ -1,0 +1,72 @@
+# network size
+SIZE 5
+
+# parameters of periodic execution
+CYCLES 200000
+CYCLE 10
+
+# parameters of message transfer
+# delay values here are relative to cycle length, in percentage,
+# eg 50 means half the cycle length, 200 twice the cycle length, etc.
+MINDELAY 0
+MAXDELAY 0
+# drop is a probability, 0<=DROP<=1
+DROP 0
+
+random.seed 1234567890
+network.size SIZE
+simulation.endtime CYCLE*CYCLES
+simulation.logtime CYCLE
+
+################### protocols ===========================
+
+protocol.link peersim.core.IdleProtocol
+
+protocol.type example.saturn.TypeProtocol
+
+protocol.eventual example.eventual.EventualProtocol
+protocol.eventual.step CYCLE
+protocol.eventual.transport tr
+protocol.eventual.linkable link
+
+protocol.urt example.saturn.PointToPointTransport
+protocol.urt.mindelay 0
+protocol.urt.maxdelay 100
+protocol.urt.type_protocol type
+
+protocol.tr UnreliableTransport
+protocol.tr.transport urt
+protocol.tr.drop DROP
+
+################### initialization ======================
+### Set node type
+init.0 example.saturn.InitTypeProtocol
+init.0.ndatanodes 5
+init.0.type_protocol type
+
+### Creates graph and sets latencies
+init.1 example.saturn.WireTopology
+init.1.topology_path example/topologies
+init.1.topology_file five_nodes_azure_vector.top
+init.1.protocol link
+init.1.type_protocol type
+
+### Inits queues based on graph
+init.2 example.eventual.InitEventualProtocol
+init.2.dictionary dictionaries/filtered-facebook-links;Kmin2;Kmax2;servers5.json
+init.2.eventual_protocol eventual
+init.2.keys_node 1000
+init.2.clients_cycle 1
+init.2.max_clients -1
+
+init.sch CDScheduler
+init.sch.protocol eventual
+init.sch.randstart
+
+################ control ==============================
+
+control.0 example.eventual.StateEventualProtocolController
+control.0.protocol eventual
+control.0.step CYCLE
+control.0.output_file output/optimal5
+
