@@ -20,6 +20,7 @@ package example.genericsaturn;
 
 import example.genericsaturn.datatypes.DataObject;
 import peersim.config.Configuration;
+import peersim.core.CommonState;
 import peersim.core.Control;
 import peersim.core.Network;
 import peersim.core.Node;
@@ -188,7 +189,11 @@ public class StateTreeProtocolController implements Control {
     public boolean execute() {
         iteration++;
         //TODO tirar comment
-        //downServer();
+        System.out.println("Iteration: " + iteration + " | time: " + CommonState.getTime());
+        if (iteration == targetCyclesToPartition) {
+            partitionConnections();
+        }
+
         if (iteration != cycles) {
             if (iteration % takeStatisticsEvery != 0) {
                 return false;
@@ -267,7 +272,7 @@ public class StateTreeProtocolController implements Control {
         print("Total ops since last %: " + (totalOps - totalOpsPrevious));
         print("CURRENT POINT & Total ops since last %: " + currentPoint + " - " + (totalOps - totalOpsPrevious));
         this.totalOpsPrevious = totalOps;
-        print("% of reads: " + ((double) ( (aggregateReads+aggregateRemoteReads) * 100) / (double) totalOps));
+        print("% of reads: " + ((double) ((aggregateReads + aggregateRemoteReads) * 100) / (double) totalOps));
         print("% of updates: " + ((double) (aggregateUpdates * 100) / (double) totalOps));
         print("% of local reads: " + ((double) (aggregateReads * 100) / (double) totalOps));
         print("% of remote reads: " + ((double) (aggregateRemoteReads * 100) / (double) totalOps));
@@ -312,32 +317,8 @@ public class StateTreeProtocolController implements Control {
         }
     }
 
-    private boolean hasPartitioned = false;
-    private boolean hasUnpartitioned = false;
-
-    private void downServer() {
-        if (hasUnpartitioned) {
-            return;
-        }
-        if (!hasPartitioned) {
-            if (iteration != targetCyclesToPartition) {
-                return;
-            }
-            partitionConnections(true);
-            hasPartitioned = true;
-        } else {
-            if (iteration != targetCyclesToUnpartition) {
-                return;
-            }
-
-            partitionConnections(false);
-            //System.out.println("it: " + iteration + " | Unpartitioned DC " + partitionedNode);
-            //System.out.println("cycles = " + cycles);
-            hasUnpartitioned = true;
-        }
-    }
-
-    public void partitionConnections(boolean toPartition) {
+    private void partitionConnections() {
+        System.out.println("Partitioning at iteration " + iteration + ", time " + CommonState.getTime());
         try (BufferedReader br = new BufferedReader(new FileReader(partitionsFile))) {
             String line = br.readLine();
             int counter = 0;
@@ -349,16 +330,8 @@ public class StateTreeProtocolController implements Control {
                         Node src = Network.get(counter);
                         Node dst = Network.get(i);
 
-                        TreeProtocol srcTree = (TreeProtocol) src.getProtocol(pid);
-                        TreeProtocol dstTree = (TreeProtocol) dst.getProtocol(pid);
-                        if (toPartition) {
-                            srcTree.setPartitionTarget(dst);
-                            dstTree.setPartitionTarget(src);
-                        } else {
-                            srcTree.unpartitionTarget(dst);
-                            dstTree.unpartitionTarget(src);
-                        }
-
+                        // TODO Ta hardcoded
+                        PointToPointTransport.partitionTable.get(src.getID()).put(dst.getID(), targetCyclesToUnpartition * 10);
                     }
                 }
                 line = br.readLine();

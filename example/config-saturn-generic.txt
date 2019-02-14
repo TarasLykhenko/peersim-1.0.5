@@ -3,14 +3,14 @@ SIZE 9
 
 # parameters of periodic execution
 # CYCLES 200000
-CYCLES 800
+CYCLES 1000
 CYCLE 10
 
 # parameters of message transfer
 # delay values here are relative to cycle length, in percentage,
 # eg 50 means half the cycle length, 200 twice the cycle length, etc.
-MINDELAY 0
-MAXDELAY 0
+MINDELAY 2
+MAXDELAY 8
 # drop is a probability, 0<=DROP<=1
 DROP 0
 
@@ -32,7 +32,7 @@ client_update_levels_percentages [80,15,5]
 # percentage clients that use objects up to a given distance
 # eg. with [50,50], half clients will only use objects from the local DC
 # and the other half will use objects from both local and the DCs 1 level away
-client_locality_percentage [0,0,100]
+client_locality_percentage [90,8,2]
 
 clients_eager_percentage 20
 ########################################
@@ -98,5 +98,5 @@ control.0.step CYCLE
 control.0.output_file output/optimal5
 control.0.partitions_file example/saturn-configs/four_nodes_three_brokers_partition.top
 control.0.statistics_window 100
-control.0.when_to_partition 10
-control.0.when_to_unpartition 110
+control.0.when_to_partition 20
+control.0.when_to_unpartition 80

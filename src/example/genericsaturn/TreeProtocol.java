@@ -217,53 +217,16 @@ public class TreeProtocol extends StateTreeProtocolInstance
     }
 
     private void sendMessage(Node src, Node dst, Object msg, int pid) {
-        /*
-        if (partitionConnections.contains(dst)) {
-            OutwardsPartitionObject obj = new OutwardsPartitionObject(src, dst, msg, pid);
-            if (outwardsPartitionedMessages == null) System.out.println("wat");
-            if (dst == null) System.out.println("kappa");
-            if (outwardsPartitionedMessages.get(dst) == null) System.out.println("dafuq");
-            outwardsPartitionedMessages.get(dst).add(obj);
-            return;
-        }
-        */
-        //    System.out.println("Sending message");
-
         ((Transport) src.getProtocol(FastConfig.getTransport(pid)))
                 .send(src, dst, msg, pid);
     }
 
 //--------------------------------------------------------------------------
 
-    private Set<Node> partitionConnections = new HashSet<>();
-    private Map<Node, List<OutwardsPartitionObject>> outwardsPartitionedMessages = new ConcurrentHashMap<>();
-    //Map<Node, List<InwardsPartitionObject>> inwardsPartitionedMessages = new HashMap<>();
-
-    public void setPartitionTarget(Node target) {
-        //inwardsPartitionedMessages.put((Node) target.clone(), new ArrayList<>());
-        outwardsPartitionedMessages.put(target, new ArrayList<>());
-        partitionConnections.add(target);
-        System.out.println("Partitioning to " + target.getID());
-    }
-
-    public void unpartitionTarget(Node target) {
-        partitionConnections.remove(target);
-        for (OutwardsPartitionObject obj : outwardsPartitionedMessages.get(target)) {
-            sendMessage(obj.src, obj.dest, obj.msg, obj.pid);
-        }
-        outwardsPartitionedMessages.get(target).clear();
-    }
-
     /**
      * This is the standard method to define to process incoming messages.
      */
     public void processEvent(Node node, int pid, Object event) {
-        /*
-        if (isPartitioned) {
-            inwardsPartitionedMessages.add(new InwardsPartitionObject(node, pid, event));
-            return;
-        }
-        */
         /* ************** DATACENTERS ****************** */
         if (event instanceof DataMessage) {
             //System.out.println("DATA MESSAGE");

@@ -2,16 +2,17 @@ package example.genericsaturn;
 
 import example.genericsaturn.datatypes.DataObject;
 import peersim.config.Configuration;
+import peersim.core.CommonState;
 import peersim.core.Network;
 import peersim.core.Node;
 import peersim.graph.Graph;
+import peersim.util.ExtendedRandom;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 
 public class GroupsManager {
@@ -23,7 +24,7 @@ public class GroupsManager {
     private final int type;
     private final int levels;
 
-    private Random random = new Random();
+    private ExtendedRandom random = CommonState.r;
 
     private Map<Long, Map<Integer, Set<StateTreeProtocol>>> nodeToLevelNeighbours = new HashMap<>();
 

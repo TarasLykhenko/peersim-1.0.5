@@ -6,13 +6,14 @@ import example.genericsaturn.datatypes.ReadOperation;
 import example.genericsaturn.datatypes.RemoteReadOperation;
 import example.genericsaturn.datatypes.UpdateOperation;
 import peersim.config.Configuration;
+import peersim.core.CommonState;
+import peersim.util.ExtendedRandom;
 import sun.security.krb5.Config;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -50,7 +51,7 @@ public class Client {
     private final Set<DataObject> possibleDataObjects;
     private final Map<Integer, Set<DataObject>> dataObjectsPerLevel;
 
-    private Random randomGenerator = new Random();
+    private ExtendedRandom randomGenerator = CommonState.r;
     private final int id;
     private final boolean isEager;
     private int counter;
