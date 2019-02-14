@@ -35,6 +35,7 @@ import java.io.PrintWriter;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -258,23 +259,25 @@ public class StateTreeProtocolController implements Control {
             }
         }
 
-        print("Average processing time(" + nNodes + "nodes): " + (new Double(aggregateProcessing) / new Double(nNodes)));
-        print("Average metadata size for full repliction: " + aggregateFullMetadata / new Double(nNodes));
-        print("Average metadata size for partial repliction: " + aggregatePartialMetadata / new Double(nNodes));
+        print("Average processing time(" + nNodes + "nodes): " + ((double) aggregateProcessing / (double) nNodes));
+        print("Average metadata size for full repliction: " + aggregateFullMetadata / (double) nNodes);
+        print("Average metadata size for partial repliction: " + aggregatePartialMetadata / (double) nNodes);
         int totalOps = aggregateUpdates + aggregateReads + aggregateRemoteReads;
         print("Total ops: " + totalOps);
         print("Total ops since last %: " + (totalOps - totalOpsPrevious));
         print("CURRENT POINT & Total ops since last %: " + currentPoint + " - " + (totalOps - totalOpsPrevious));
         this.totalOpsPrevious = totalOps;
-        print("% of updates: " + (new Double(aggregateUpdates * 100) / new Double(totalOps)));
-        print("% of local reads: " + (new Double(aggregateReads * 100) / new Double(totalOps)));
-        print("% of remote reads: " + (new Double(aggregateRemoteReads * 100) / new Double(totalOps)));
-        print("% (remote reads/total reads): " + (new Double(aggregateRemoteReads * 100) / new Double(totalOps - aggregateUpdates)));
+        print("% of reads: " + ((double) ( (aggregateReads+aggregateRemoteReads) * 100) / (double) totalOps));
+        print("% of updates: " + ((double) (aggregateUpdates * 100) / (double) totalOps));
+        print("% of local reads: " + ((double) (aggregateReads * 100) / (double) totalOps));
+        print("% of remote reads: " + ((double) (aggregateRemoteReads * 100) / (double) totalOps));
+        print("% (remote reads/total reads): " + ((double) (aggregateRemoteReads * 100) / (double) (totalOps - aggregateUpdates)));
         print("Total clients: " + totalClients);
         print("Total sent Migrations: " + totalSentMigrations);
         print("Total received Migrations: " + totalReceivedMigrations);
         print("Pending clients: " + totalPendingClients);
         print("Total clients + pending clients: " + (totalClients + totalPendingClients));
+        debugPercentages();
         print("Observer end =======================");
         print("");
         print("");
@@ -286,6 +289,17 @@ public class StateTreeProtocolController implements Control {
         }
         return false;
         /*return (stats.getStD()<=accuracy && CommonState.getTime()>0); */
+
+    }
+
+    private void debugPercentages() {
+        int totalCount = 0;
+        for (Map.Entry<Integer, Integer> entry : Client.levelsToCount.entrySet()) {
+            totalCount += entry.getValue();
+        }
+        for (Map.Entry<Integer, Integer> entry : Client.levelsToCount.entrySet()) {
+            print("% lvl " + entry.getKey() + ": " + ((double) (entry.getValue() * 100) / totalCount));
+        }
 
     }
 

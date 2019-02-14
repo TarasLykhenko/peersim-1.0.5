@@ -69,8 +69,6 @@ public class WireTopology extends WireGraph {
     }
 
     public void wire(Graph graph) {
-        System.out.println("YO!");
-
         try (BufferedReader br = new BufferedReader(new FileReader(path + "/" + topology))) {
             String line = br.readLine();
             int counter = 0;

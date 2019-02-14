@@ -79,9 +79,9 @@ public class Client {
 
 
     Operation nextOperation() {
-        int readOrUpdate = randomGenerator.nextInt(100);
+        int readOrUpdate = randomGenerator.nextInt(101);
 
-        if (isBetween(readOrUpdate, 0, READ_PERCENTAGE)) {
+        if (isBetween(readOrUpdate, 0, READ_PERCENTAGE )) {
             return doRead();
         } else {
             return doUpdate();
@@ -110,35 +110,21 @@ public class Client {
         for (int i = 0; i < levelPercentages.length; i++) {
             currentSum += levelPercentages[i] * 100;
             if (chosenValue < currentSum) {
+                debugPercentages(i);
                 return i;
             }
         }
         throw new RuntimeException("Well..the odds didn't work correctly.");
     }
-    /*
-    Operation nextOperation() {
-        int localRead = READ_PERCENTAGE * 100;
-        int remoteRead = localRead + (REMOTE_READ_PERCENTAGE * 100);
-        int update = remoteRead + (UPDATE_PERCENTAGE * 100);
 
-        DataObject dataObject = chooseRandomDataObject();
+    static Map<Integer, Integer> levelsToCount = new HashMap<>();
 
-        Operation operation = null;
-        int num = randomGenerator.nextInt(10000);
-        if (isBetween(num, 0, localRead)) {
-            operation = new ReadOperation(dataObject.getTotalCounter());
-        } else if (isBetween(num, localRead + 1, remoteRead + 1)){
-            operation = new RemoteReadOperation(dataObject.getTotalCounter());
-        } else if (isBetween(num, remoteRead + 1, update)) {
-            // TODO isto deve tar mal feito
-            operation = new UpdateOperation(dataObject.getTotalCounter(), 1, 1, dataObject.getUniqueId());
-        } else {
-            System.out.println("ERROR generating operation for client: " + id + ". Random value: " + num);
-        }
-
-        return operation;
+    private void debugPercentages(int level) {
+        levelsToCount.putIfAbsent(level, 0);
+        Integer currentVal = levelsToCount.get(level);
+        currentVal++;
+        levelsToCount.put(level, currentVal);
     }
-    */
 
     private DataObject chooseRandomDataObject(int level) {
         return dataObjectsPerLevel.get(level).stream()

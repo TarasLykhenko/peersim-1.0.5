@@ -88,7 +88,7 @@ public class InitTreeProtocol implements Control {
         generateDataObjects(datacenters);
         generateClients(datacenters);
 
-        debugPrintStatus(datacenters);
+        // debugPrintStatus(datacenters);
 
         return false;
     }
@@ -145,7 +145,7 @@ public class InitTreeProtocol implements Control {
                         clients.add(new Client(totalClients, false, allDataObjectsOfNeighbours, datacenter, localityDistance));
                     }
                 }
-                datacenter.setClients(clients);
+                datacenter.addClients(clients);
             }
         }
     }
@@ -195,7 +195,7 @@ public class InitTreeProtocol implements Control {
         Set<Long> nodesGroupIds = datacentersGroup.stream()
                 .map(StateTreeProtocol::getNodeId)
                 .collect(Collectors.toSet());
-        System.out.println("Group: " + nodesGroupIds);
+        // System.out.println("Group: " + nodesGroupIds);
         for (int i = 0; i < numberObjectsToCreate; i++) {
             result.add(new DataObject(level, nodesGroupIds, i, counter++));
         }

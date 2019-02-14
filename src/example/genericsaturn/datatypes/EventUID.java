@@ -4,22 +4,25 @@ import java.util.UUID;
 
 public class EventUID {
 
-    long key;
-    int epoch;
-    int timestamp;
-    boolean remoteRead;
-    long latency;
-    long src;
-    long dst;
-    boolean isMigration = false;
-    long migrationTarget;
-    UUID identifier;
+    private int epoch;
+    private int timestamp;
+    private long latency;
+    private long src;
+    private long dst;
+    private boolean isMigration = false;
+    private long migrationTarget;
 
-    public EventUID(long key, int timestamp, int epoch, boolean remoteRead, long lat, long src, long dst) {
-        this.key = key;
+    private Operation operation;
+    private UUID identifier;
+
+    public Operation getOperation() {
+        return operation;
+    }
+
+    public EventUID(Operation operation, int timestamp, int epoch, long lat, long src, long dst) {
+        this.operation = operation;
         this.timestamp = timestamp;
         this.epoch = epoch;
-        this.remoteRead = remoteRead;
         this.latency = lat;
         this.src = src;
         this.dst = dst;
@@ -67,14 +70,6 @@ public class EventUID {
         this.latency = latency;
     }
 
-    public long getKey() {
-        return key;
-    }
-
-    public void setKey(long key) {
-        this.key = key;
-    }
-
     public int getTimestamp() {
         return timestamp;
     }
@@ -91,25 +86,21 @@ public class EventUID {
         this.epoch = epoch;
     }
 
-
-    public boolean getRemoteRead() {
-        return remoteRead;
-    }
-
-    public void setRemoteRead(boolean remoteRead) {
-        this.remoteRead = remoteRead;
-    }
-
     public String toString() {
-        return "<" + key + ", " + timestamp + ">";
+        return "<" + operation.getKey() + ", " + timestamp + ">";
     }
 
     public String toStringFileFormat() {
-        return key + "," + timestamp;
+        return operation.getKey() + "," + timestamp;
     }
 
     public EventUID clone() {
-        return new EventUID(key, timestamp, epoch, remoteRead, latency, src, dst);
+        return new EventUID(new Operation(operation.getType(), operation.getKey()),
+                timestamp,
+                epoch,
+                latency,
+                src,
+                dst);
     }
 
 }

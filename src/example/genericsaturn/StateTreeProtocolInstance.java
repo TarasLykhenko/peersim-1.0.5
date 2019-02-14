@@ -20,6 +20,7 @@ package example.genericsaturn;
 
 import example.genericsaturn.datatypes.DataObject;
 import example.genericsaturn.datatypes.EventUID;
+import example.genericsaturn.datatypes.Operation;
 import example.genericsaturn.datatypes.PendingEventUID;
 import example.genericsaturn.datatypes.VersionVector;
 import peersim.config.Configuration;
@@ -162,7 +163,7 @@ public class StateTreeProtocolInstance
     public void cloneMetadataQueue(Queue<EventUID> metadataQueueInit) {
         metadataQueue = new LinkedList<>();
         for (EventUID event : metadataQueueInit) {
-            metadataQueue.add(new EventUID(event.getKey(), event.getTimestamp(), event.getEpoch(), event.getRemoteRead(), event.getLatency(), event.getSrc(), event.getDst()));
+            metadataQueue.add(new EventUID(event.getOperation(), event.getTimestamp(), event.getEpoch(), event.getLatency(), event.getSrc(), event.getDst()));
         }
     }
 
@@ -197,11 +198,11 @@ public class StateTreeProtocolInstance
     }
 
     public boolean isAlreadyDelivered(EventUID event) {
-        return deliveredRemoteReads.contains(event.getKey() + "," + event.getTimestamp());
+        return deliveredRemoteReads.contains(event.getOperation().getKey() + "," + event.getTimestamp());
     }
 
     public void addRemoteRead(EventUID event) {
-        deliveredRemoteReads.add(event.getKey() + "," + event.getTimestamp());
+        deliveredRemoteReads.add(event.getOperation().getKey() + "," + event.getTimestamp());
     }
 
     @Override
@@ -307,8 +308,8 @@ public class StateTreeProtocolInstance
     }
 
     @Override
-    public void setClients(Set<Client> clientList) {
-        this.clients = clientList;
+    public void addClients(Set<Client> clientList) {
+        clients.addAll(clientList);
     }
 
     public void setClientsCycle(int clientsCycle) {
@@ -368,11 +369,10 @@ public class StateTreeProtocolInstance
     }
 
     public void processQueue(Vector<EventUID> queue, long id) {
-     //   System.out.println("Processing queue");
         for (EventUID event : queue) {
             if (event.isMigration() && id == event.getMigrationTarget()) {
                 acceptClient(event.getIdentifier());
-            } else if (isInterested(id, event.getKey())) {
+            } else if (isInterested(id, event.getOperation().getKey())) {
                 // System.out.println("Adding metadata!");
                 addMetadata(event);
             }
@@ -461,7 +461,7 @@ public class StateTreeProtocolInstance
         //System.out.println("PROCESSING EVENT!");
         //System.out.println("Processing event "+event.getKey()+","+event.getTimestamp()+" from: "+event.getSrc()+" to: "+event.getDst()+" with latency: "+event.getLatency()+
         //		" tool "+(getEpoch() - event.getEpoch())+" cycles");
-        if (event.getRemoteRead()) {
+        if (event.getOperation().getType() == Operation.Type.REMOTE_READ) {
             if (!isAlreadyDelivered(event)) {
                 averageProcessing = (averageProcessing + (getEpoch() - event.getEpoch()));
                 countProcessed++;
@@ -519,7 +519,7 @@ public class StateTreeProtocolInstance
     @Override
     public void addMetadata(EventUID event) {
         if (metadataQueue.isEmpty()) {
-            if (data.seenEvent(event.getKey(), event.getTimestamp())) {
+            if (data.seenEvent(event.getOperation().getKey(), event.getTimestamp())) {
                 addProcessedEvent(event);
             } else {
                 metadataQueue.add(event);
@@ -537,11 +537,11 @@ public class StateTreeProtocolInstance
     @Override
     public void addData(EventUID event, Object datum) {
         averageLatency = averageLatency + event.getLatency();
-        data.addEvent(event.getKey(), event.getTimestamp());
+        data.addEvent(event.getOperation().getKey(), event.getTimestamp());
         boolean matches = true;
         while (!metadataQueue.isEmpty() && (matches)) {
             EventUID head = metadataQueue.peek();
-            if (data.seenEvent(head.getKey(), head.getTimestamp())) {
+            if (data.seenEvent(head.getOperation().getKey(), head.getTimestamp())) {
                 metadataQueue.poll();
                 addProcessedEvent(event);
             } else {

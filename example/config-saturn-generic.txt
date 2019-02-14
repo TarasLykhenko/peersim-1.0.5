@@ -3,7 +3,7 @@ SIZE 9
 
 # parameters of periodic execution
 # CYCLES 200000
-CYCLES 250
+CYCLES 800
 CYCLE 10
 
 # parameters of message transfer
@@ -18,6 +18,31 @@ random.seed 1234567890
 network.size SIZE
 simulation.endtime CYCLE*CYCLES
 simulation.logtime CYCLE
+
+
+########### CLIENT CONFIGS #############
+clients_per_datacenter 400
+
+client_read_percentage 95
+client_update_percentage 5
+
+client_read_levels_percentage [80,15,5]
+client_update_levels_percentages [80,15,5]
+
+# percentage clients that use objects up to a given distance
+# eg. with [50,50], half clients will only use objects from the local DC
+# and the other half will use objects from both local and the DCs 1 level away
+client_locality_percentage [0,0,100]
+
+clients_eager_percentage 20
+########################################
+
+total_objects_per_datacenter 1000
+levels 3
+levels_percentage [80,15,5]
+type type
+tree tree
+##########################################
 
 ################### protocols ===========================
 
@@ -75,27 +100,3 @@ control.0.partitions_file example/saturn-configs/four_nodes_three_brokers_partit
 control.0.statistics_window 100
 control.0.when_to_partition 10
 control.0.when_to_unpartition 110
-
-
-########### CLIENT CONFIGS #############
-clients_per_datacenter 10
-
-client_read_percentage 95
-client_update_percentage 5
-
-client_read_levels_percentage [70,20,10]
-client_update_levels_percentages [70,20,10]
-
-# percentage clients that use objects up to a given distance
-# eg. with [50,50], half clients will only use objects from the local DC
-# and the other half will use objects from both local and the DCs 1 level away
-client_locality_percentage [50,50]
-
-clients_eager_percentage 20
-########################################
-
-total_objects_per_datacenter 6
-levels 3
-levels_percentage [33,33,34]
-type type
-tree tree

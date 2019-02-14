@@ -14,7 +14,6 @@ import peersim.edsim.EDProtocol;
 import peersim.transport.Transport;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -72,69 +71,74 @@ public class TreeProtocol extends StateTreeProtocolInstance
      * Every client attempts to do something.
      */
     private void doDatabaseMethod(Node node, int pid, Linkable linkable) {
-        for (Client client : clients) {
+        Iterator<Client> it = clients.iterator();
+        while (it.hasNext()) {
+            Client client = it.next();
             Operation operation = client.nextOperation();
+            EventUID event = new EventUID(operation, client.timestamp(), getEpoch(),0, node.getID(), 0);
+            analyzeEvent(node, event);
 
-            EventUID event = new EventUID(operation.getKey(), client.timestamp(), getEpoch(), false, 0, node.getID(), 0);
-
-            if (operation instanceof ReadOperation) {
-                int key = operation.getKey();
-
-                if (!isInterested(node.getID(), key)) {
-                    //remote read
-                    this.incrementRemoteReads();
-                    event.setRemoteRead(true);
-                } else {
-                    this.incrementLocalReads();
-                    event = null;
-                }
-            } else if (operation instanceof UpdateOperation) {
-                incrementUpdates();
-                UpdateOperation update = (UpdateOperation) operation;
-                addFullMetadata(update.getMetadataFull());
-                addPartialMetadata(update.getMetadataPartial());
+            // If there isn't a remote operation, continue
+            if (event.getOperation().getType() == Operation.Type.READ) {
+                continue;
             }
 
-            // If there is a remote operation
-            if (event != null) {
-                boolean startedMigration = false; // Just want to start the migration process once
-                for (int i = 0; i < linkable.degree(); i++) {
-                    Node peern = linkable.getNeighbor(i);
-                    EventUID eventToSend = event.clone();
-                    eventToSend.setLatency(((Transport) node.getProtocol(FastConfig.getTransport(pid))).getLatency(node, peern));
-                    eventToSend.setDst(peern.getID());
-                    // XXX quick and dirty handling of failures
-                    // (message would be lost anyway, we save time)
+            // If it's a remote read, migrate the client
+            if (event.getOperation().getType() == Operation.Type.REMOTE_READ) {
+                migrateClientStart(client, event, node, linkable, pid);
+                it.remove();
+            }
 
-                    if (!peern.isUp()) {
-                        return;
-                    }
+            for (int i = 0; i < linkable.degree(); i++) {
+                Node peern = linkable.getNeighbor(i);
+                EventUID eventToSend = event.clone();
+                eventToSend.setLatency(((Transport) node.getProtocol(FastConfig.getTransport(pid))).getLatency(node, peern));
+                eventToSend.setDst(peern.getID());
+                // XXX quick and dirty handling of failures
+                // (message would be lost anyway, we save time)
 
-                    if (event.getRemoteRead() && startedMigration == false) {
-                  //      startedMigration = true;
-                  //      migrateClientStart(client, event, node, linkable, pid);
-                    }
+                if (!peern.isUp()) {
+                    return;
+                }
 
-                    TypeProtocol ntype = (TypeProtocol) peern.getProtocol(typePid);
-                    //if ((getEpoch() % ntype.getFrequency(node.getID())) == 0 ){
-                    switch (ntype.getType()) {
-                        case DATACENTER:
-                            if (isInterested(peern.getID(), operation.getKey())) {
-                                //System.out.println("Sending event "+eventToSend.getKey()+","+eventToSend.getTimestamp()+" (epoch "+getEpoch()+") from: "+eventToSend.getSrc()+" to: "+eventToSend.getDst()+" with latency: "+eventToSend.getLatency());
-                                sendMessage(node, peern, new DataMessage(eventToSend, "data", getEpoch()), pid);
-                            }
-                            break;
-                        case BROKER:
-                            sendMessage(node, peern, new MetadataMessage(eventToSend, getEpoch(), node.getID()), pid);
+                TypeProtocol ntype = (TypeProtocol) peern.getProtocol(typePid);
+                //if ((getEpoch() % ntype.getFrequency(node.getID())) == 0 ){
+                switch (ntype.getType()) {
+                    case DATACENTER:
+                        if (isInterested(peern.getID(), operation.getKey())) {
+                            //System.out.println("Sending event "+eventToSend.getKey()+","+eventToSend.getTimestamp()+" (epoch "+getEpoch()+") from: "+eventToSend.getSrc()+" to: "+eventToSend.getDst()+" with latency: "+eventToSend.getLatency());
+                            sendMessage(node, peern, new DataMessage(eventToSend, "data", getEpoch()), pid);
+                        }
+                        break;
+                    case BROKER:
+                        sendMessage(node, peern, new MetadataMessage(eventToSend, getEpoch(), node.getID()), pid);
 
-                    }
                 }
             }
         }
     }
 
+    private void analyzeEvent(Node node, EventUID event) {
+        if (event.getOperation().getType() == Operation.Type.READ) {
+            long key = event.getOperation().getKey();
+
+            if (isInterested(node.getID(), key)) {
+                this.incrementLocalReads();
+            } else {
+                //remote read
+                this.incrementRemoteReads();
+                event.getOperation().setType(Operation.Type.REMOTE_READ);
+            }
+        } else if (event.getOperation().getType() == Operation.Type.UPDATE) {
+            incrementUpdates();
+            UpdateOperation update = (UpdateOperation) event.getOperation();
+            addFullMetadata(update.getMetadataFull());
+            addPartialMetadata(update.getMetadataPartial());
+        }
+    }
+
     private void doBrokerMethod(Node node, int pid, Linkable linkable) {
-    //    System.out.println("Doing broker!");
+        //    System.out.println("Doing broker!");
         for (int i = 0; i < linkable.degree(); i++) {
             Node peern = linkable.getNeighbor(i);
             TypeProtocol ntype = (TypeProtocol) peern.getProtocol(typePid);
@@ -162,14 +166,13 @@ public class TreeProtocol extends StateTreeProtocolInstance
         for (int i = 0; i < Network.size(); i++) {
             Node node = Network.get(i);
 
-            /*
-            // Do not migrate to partitioned DCs
-            if (((TreeProtocol) node.getProtocol(tree)).isPartitioned) {
+            //TODO Epa isto atm é necessario porque os brokers tambem podem ser visto como
+            // destino de migrações. Este if resolve o problema
+            if (((TypeProtocol) node.getProtocol(typePid)).getType() == Type.BROKER) {
                 continue;
             }
-            */
 
-            if (isInterested(node.getID(), event.getKey()) && node.isUp()) {
+            if (isInterested(node.getID(), event.getOperation().getKey()) && node.isUp()) {
                 interestedNodes.add(node);
             }
         }
@@ -188,11 +191,6 @@ public class TreeProtocol extends StateTreeProtocolInstance
         // Generate Migration Label;
         EventUID migrationLabel = event.clone();
         migrationLabel.setMigration(true, bestNode.getID());
-
-        // Remove client from originalDC and send it to new DC
-        TreeProtocol originalDCProtocol = (TreeProtocol) originalDC.getProtocol(tree);
-        clients.remove(client);
-
 
         // Send client to target
         TreeProtocol targetDCProtocol = (TreeProtocol) bestNode.getProtocol(tree);
@@ -229,7 +227,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
             return;
         }
         */
-    //    System.out.println("Sending message");
+        //    System.out.println("Sending message");
 
         ((Transport) src.getProtocol(FastConfig.getTransport(pid)))
                 .send(src, dst, msg, pid);
@@ -288,7 +286,6 @@ public class TreeProtocol extends StateTreeProtocolInstance
             //    System.out.println("Received migration for " + msg.destinationId + ", I am node " + node.getID());
             Vector<EventUID> vec = new Vector<>();
             vec.add(msg.event);
-            System.out.println("MIGRATION");
             if (msg.epoch == this.getEpoch()) {
                 this.addQueueToQueue(vec, msg.senderId);
             } else {
@@ -296,7 +293,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
             }
         } else if (event instanceof QueueMessage) {
             QueueMessage msg = (QueueMessage) event;
-        //    System.out.println("Node "+node.getID()+" has received a queue "+msg.queue.toString()+" from Node "+msg.senderId);
+            //    System.out.println("Node "+node.getID()+" has received a queue "+msg.queue.toString()+" from Node "+msg.senderId);
             if (msg.type == Type.DATACENTER) {
                 this.processQueue(msg.queue, node.getID());
                 //System.out.println("queue node "+node.getID()+": "+metadataQueue.toString());

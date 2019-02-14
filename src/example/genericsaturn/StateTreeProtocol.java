@@ -112,7 +112,7 @@ public interface StateTreeProtocol {
     //Client methods
     //--------------------------------------------------------------------------
 
-    void setClients(Set<Client> clientList);
+    void addClients(Set<Client> clientList);
 
     void setClientsCycle(int clientsCycle);
 
