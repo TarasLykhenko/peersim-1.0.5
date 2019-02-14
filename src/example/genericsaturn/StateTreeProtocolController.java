@@ -69,8 +69,8 @@ public class StateTreeProtocolController implements Control {
     private static final String PAR_ACCURACY = "accuracy";
     private static final String PAR_PARTITIONS_FILE = "partitions_file";
     private final static String PAR_TAKE_STATISTICS_EVERY = "statistics_window";
-    private final static String PAR_WHEN_TO_PARTITION = "when_to_partition";
-    private final static String PAR_WHEN_TO_UNPARTATITION = "when_to_unpartition";
+    private final static String PAR_WHEN_TO_PARTITION = "partition_start";
+    private final static String PAR_WHEN_TO_UNPARTATITION = "partition_end";
     private final static String PAR_LEVELS = "levels";
 
     /**
@@ -109,6 +109,7 @@ public class StateTreeProtocolController implements Control {
     private final int pid;
     private final int pidType;
     private final PrintWriter writer;
+    private final PrintWriter importantWriter;
 
     private final String partitionsFile;
 
@@ -133,7 +134,7 @@ public class StateTreeProtocolController implements Control {
      *
      * @param name the configuration prefix for this class
      */
-    public StateTreeProtocolController(String name) {
+    public StateTreeProtocolController(String name) throws IOException {
         this.name = name;
         accuracy = Configuration.getDouble(name + "." + PAR_ACCURACY, -1);
         pid = Configuration.getPid(name + "." + PAR_PROT);
@@ -142,9 +143,9 @@ public class StateTreeProtocolController implements Control {
         iteration = 1;
         outputFile = Configuration.getString(name + "." + PAR_OUTPUT);
         partitionsFile = Configuration.getString(name + "." + PAR_PARTITIONS_FILE);
-        TAKE_STATISTICS_EVERY = Configuration.getDouble(name + "." + PAR_TAKE_STATISTICS_EVERY);
-        double WHEN_TO_PARTITION = Configuration.getDouble(name + "." + PAR_WHEN_TO_PARTITION);
-        double WHEN_TO_UNPARTATITION = Configuration.getDouble(name + "." + PAR_WHEN_TO_UNPARTATITION);
+        TAKE_STATISTICS_EVERY = Configuration.getDouble(PAR_TAKE_STATISTICS_EVERY);
+        double WHEN_TO_PARTITION = Configuration.getDouble(PAR_WHEN_TO_PARTITION);
+        double WHEN_TO_UNPARTATITION = Configuration.getDouble(PAR_WHEN_TO_UNPARTATITION);
         levels = Configuration.getInt(PAR_LEVELS);
         int endTime = Configuration.getInt("simulation.endtime");
         logTime = Configuration.getInt("simulation.logtime");
@@ -152,15 +153,16 @@ public class StateTreeProtocolController implements Control {
 
         DateFormat dateFormat = new SimpleDateFormat("-yyyy-MM-dd-HH-mm-ss");
         Calendar cal = Calendar.getInstance();
+
         String pathfile = outputFile + dateFormat.format(cal.getTime()) + ".txt";
-        FileWriter fr = null;
-        try {
-            fr = new FileWriter(pathfile, true);
-        } catch (IOException e) {
-            System.exit(1);
-        }
+        FileWriter fr = new FileWriter(pathfile, true);
         BufferedWriter br = new BufferedWriter(fr);
         writer = new PrintWriter(br);
+
+        String importantPathfile = outputFile + dateFormat.format(cal.getTime()) + "-2.txt";
+        FileWriter fr2 = new FileWriter(importantPathfile, true);
+        BufferedWriter br2 = new BufferedWriter(fr2);
+        importantWriter = new PrintWriter(br2);
 
         takeStatisticsEvery = Math.round((float) (TAKE_STATISTICS_EVERY / 100) * cycles);
         targetCyclesToPartition = Math.round((float) (WHEN_TO_PARTITION / 100) * cycles);
@@ -188,7 +190,6 @@ public class StateTreeProtocolController implements Control {
 
     public boolean execute() {
         iteration++;
-        //TODO tirar comment
         System.out.println("Iteration: " + iteration + " | time: " + CommonState.getTime());
         if (iteration == targetCyclesToPartition) {
             partitionConnections();
@@ -271,6 +272,7 @@ public class StateTreeProtocolController implements Control {
         print("Total ops: " + totalOps);
         print("Total ops since last %: " + (totalOps - totalOpsPrevious));
         print("CURRENT POINT & Total ops since last %: " + currentPoint + " - " + (totalOps - totalOpsPrevious));
+        printImportant("Total ops (%: " + currentPoint + ") - " + (totalOps - totalOpsPrevious));
         this.totalOpsPrevious = totalOps;
         print("% of reads: " + ((double) ((aggregateReads + aggregateRemoteReads) * 100) / (double) totalOps));
         print("% of updates: " + ((double) (aggregateUpdates * 100) / (double) totalOps));
@@ -281,6 +283,7 @@ public class StateTreeProtocolController implements Control {
         print("Total sent Migrations: " + totalSentMigrations);
         print("Total received Migrations: " + totalReceivedMigrations);
         print("Pending clients: " + totalPendingClients);
+        printImportant(totalPendingClients + "/" + (totalClients + totalPendingClients) + " pending clients");
         print("Total clients + pending clients: " + (totalClients + totalPendingClients));
         debugPercentages();
         print("Observer end =======================");
@@ -290,6 +293,7 @@ public class StateTreeProtocolController implements Control {
 
         if (cycles == iteration) {
             writer.close();
+            importantWriter.close();
             return true;
         }
         return false;
@@ -317,6 +321,11 @@ public class StateTreeProtocolController implements Control {
         }
     }
 
+    private void printImportant(String string) {
+        System.out.println("WRITING!");
+        importantWriter.println(string);
+    }
+
     private void partitionConnections() {
         System.out.println("Partitioning at iteration " + iteration + ", time " + CommonState.getTime());
         try (BufferedReader br = new BufferedReader(new FileReader(partitionsFile))) {
@@ -330,8 +339,8 @@ public class StateTreeProtocolController implements Control {
                         Node src = Network.get(counter);
                         Node dst = Network.get(i);
 
-                        // TODO Ta hardcoded
-                        PointToPointTransport.partitionTable.get(src.getID()).put(dst.getID(), targetCyclesToUnpartition * 10);
+                        PointToPointTransport.partitionTable.get(src.getID())
+                                .put(dst.getID(), targetCyclesToUnpartition * logTime);
                     }
                 }
                 line = br.readLine();

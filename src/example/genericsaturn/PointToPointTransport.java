@@ -18,7 +18,6 @@
 
 package example.genericsaturn;
 
-import javafx.util.Pair;
 import peersim.config.Configuration;
 import peersim.config.IllegalParameterException;
 import peersim.core.CommonState;
@@ -160,28 +159,29 @@ public final class PointToPointTransport implements Transport {
                 Map<Long, Integer> partitionTargets = partitionTable.get(srcId);
                 if (partitionTargets.containsKey(destId)) {
                     partitionOver = partitionTargets.get(destId);
-                    if (partitionOver < CommonState.getTime()) {
-                        partitionOver = 0;
+                    partitionOver -= CommonState.getTime();
+                    if (partitionOver > 0) {
+                        delay += partitionOver;
                     }
                 }
             }
-            long messageWillBeReceived;
-            if (partitionOver != 0) {
-                messageWillBeReceived = partitionOver + delay;
-            } else {
-                messageWillBeReceived = CommonState.getTime() + delay;
-            }
-            Map<Long, Map<Long, Integer>> m = partitionTable;
+            long messageWillBeReceived = CommonState.getTime() + delay;
+
             long lastWillBeReceivedDest = lastWillBeReceived.get(srcId).get(destId);
             if (messageWillBeReceived <= lastWillBeReceivedDest) {
                 messageWillBeReceived = lastWillBeReceivedDest + 1;
+                delay = delay + 1;
             }
             lastWillBeReceived.get(srcId).put(destId, messageWillBeReceived);
 
+            /*
             if (partitionOver != 0) {
                 System.out.println("UNDER PARTITION! : " + CommonState.getTime() + " | " + srcId + " sending msg at time " + messageWillBeReceived + " to " + destId);
+                System.out.println("Delay is " + delay);
             }
-            EDSimulator.add(messageWillBeReceived, msg, dest, pid);
+            */
+
+            EDSimulator.add(delay, msg, dest, pid);
         }
     }
 

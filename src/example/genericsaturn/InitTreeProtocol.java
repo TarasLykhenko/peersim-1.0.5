@@ -93,7 +93,6 @@ public class InitTreeProtocol implements Control {
         return false;
     }
 
-    // TODO possivel problema: Vai ser necessário fazer clone dos data objects
     private void generateDataObjects(Set<StateTreeProtocol> datacenters) {
         int counter = 0;
 

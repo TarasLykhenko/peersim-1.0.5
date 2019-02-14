@@ -7,6 +7,7 @@ import example.genericsaturn.datatypes.UpdateOperation;
 import peersim.cdsim.CDProtocol;
 import peersim.config.Configuration;
 import peersim.config.FastConfig;
+import peersim.core.CommonState;
 import peersim.core.Linkable;
 import peersim.core.Network;
 import peersim.core.Node;
@@ -75,7 +76,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
         while (it.hasNext()) {
             Client client = it.next();
             Operation operation = client.nextOperation();
-            EventUID event = new EventUID(operation, client.timestamp(), getEpoch(),0, node.getID(), 0);
+            EventUID event = new EventUID(operation, client.timestamp(), getEpoch(), node.getID(), 0);
             analyzeEvent(node, event);
 
             // If there isn't a remote operation, continue
@@ -92,8 +93,8 @@ public class TreeProtocol extends StateTreeProtocolInstance
             for (int i = 0; i < linkable.degree(); i++) {
                 Node peern = linkable.getNeighbor(i);
                 EventUID eventToSend = event.clone();
-                eventToSend.setLatency(((Transport) node.getProtocol(FastConfig.getTransport(pid))).getLatency(node, peern));
                 eventToSend.setDst(peern.getID());
+
                 // XXX quick and dirty handling of failures
                 // (message would be lost anyway, we save time)
 
@@ -102,17 +103,12 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 }
 
                 TypeProtocol ntype = (TypeProtocol) peern.getProtocol(typePid);
-                //if ((getEpoch() % ntype.getFrequency(node.getID())) == 0 ){
-                switch (ntype.getType()) {
-                    case DATACENTER:
-                        if (isInterested(peern.getID(), operation.getKey())) {
-                            //System.out.println("Sending event "+eventToSend.getKey()+","+eventToSend.getTimestamp()+" (epoch "+getEpoch()+") from: "+eventToSend.getSrc()+" to: "+eventToSend.getDst()+" with latency: "+eventToSend.getLatency());
-                            sendMessage(node, peern, new DataMessage(eventToSend, "data", getEpoch()), pid);
-                        }
-                        break;
-                    case BROKER:
-                        sendMessage(node, peern, new MetadataMessage(eventToSend, getEpoch(), node.getID()), pid);
-
+                if (ntype.getType() == Type.DATACENTER) {
+                    if (isInterested(peern.getID(), operation.getKey())) {
+                        sendMessage(node, peern, new DataMessage(eventToSend, "data", getEpoch()), pid);
+                    }
+                } else if (ntype.getType() == Type.BROKER) {
+                    sendMessage(node, peern, new MetadataMessage(eventToSend, getEpoch(), node.getID()), pid);
                 }
             }
         }
@@ -138,19 +134,23 @@ public class TreeProtocol extends StateTreeProtocolInstance
     }
 
     private void doBrokerMethod(Node node, int pid, Linkable linkable) {
-        //    System.out.println("Doing broker!");
         for (int i = 0; i < linkable.degree(); i++) {
-            Node peern = linkable.getNeighbor(i);
-            TypeProtocol ntype = (TypeProtocol) peern.getProtocol(typePid);
-            //if ((getEpoch() % ntype.getFrequency(node.getID())) == 0 ){
-            if (!peern.isUp()) {
+            Node peerNode = linkable.getNeighbor(i);
+            TypeProtocol peerType = (TypeProtocol) peerNode.getProtocol(typePid);
+
+            if (!peerNode.isUp()) {
                 return;
             }
-            Vector<EventUID> queueToSend = queue.get(peern.getID());
-            //System.out.println("Sending queue "+queueToSend+" to node "+peern.getID()+" from node "+node.getID());
+
+            Vector<EventUID> queueToSend = queue.get(peerNode.getID());
             if (queueToSend != null) {
-                sendMessage(node, peern, new QueueMessage((Vector<EventUID>) queueToSend.clone(), ntype.getType(), getEpoch(), node.getID()), pid);
-                this.cleanQueue(peern.getID());
+                QueueMessage msg = new QueueMessage(
+                        (Vector<EventUID>) queueToSend.clone(),
+                        peerType.getType(),
+                        getEpoch(),
+                        node.getID());
+                sendMessage(node, peerNode, msg, pid);
+                this.cleanQueue(peerNode.getID());
             }
         }
     }
@@ -166,13 +166,12 @@ public class TreeProtocol extends StateTreeProtocolInstance
         for (int i = 0; i < Network.size(); i++) {
             Node node = Network.get(i);
 
-            //TODO Epa isto atm é necessario porque os brokers tambem podem ser visto como
-            // destino de migrações. Este if resolve o problema
+            // Can't migrate to a broker
             if (((TypeProtocol) node.getProtocol(typePid)).getType() == Type.BROKER) {
                 continue;
             }
 
-            if (isInterested(node.getID(), event.getOperation().getKey()) && node.isUp()) {
+            if (isInterested(node.getID(), event.getOperation().getKey())) {
                 interestedNodes.add(node);
             }
         }
@@ -188,8 +187,18 @@ public class TreeProtocol extends StateTreeProtocolInstance
             }
         }
 
+        // Check if node is under partition
+        /*
+        Map<Long, Integer> longIntegerMap = PointToPointTransport.partitionTable.get(bestNode.getID());
+        for (Long dstNode : longIntegerMap.keySet()) {
+            if (longIntegerMap.get(dstNode) > CommonState.getTime()) {
+                System.out.println("MIGRATING TO PARTITIONED NODE!" + longIntegerMap.get(dstNode) + " | " + CommonState.getTime());
+            }
+        }
+        */
+
         // Generate Migration Label;
-        EventUID migrationLabel = event.clone();
+             EventUID migrationLabel = event.clone();
         migrationLabel.setMigration(true, bestNode.getID());
 
         // Send client to target
@@ -227,26 +236,26 @@ public class TreeProtocol extends StateTreeProtocolInstance
      * This is the standard method to define to process incoming messages.
      */
     public void processEvent(Node node, int pid, Object event) {
+
         /* ************** DATACENTERS ****************** */
         if (event instanceof DataMessage) {
-            //System.out.println("DATA MESSAGE");
             DataMessage msg = (DataMessage) event;
             this.addData(msg.event, msg.data);
-        } else if (event instanceof MetadataMessage) {
-            //System.out.println("METADATA");
+        }
+
+        if (event instanceof MetadataMessage) {
             MetadataMessage msg = (MetadataMessage) event;
-            //System.out.println("Node "+node.getID()+"in epoch "+getEpoch()+" has received a metadata "+msg.event.toString()+" from Node "+msg.senderId+" in epoch "+msg.epoch);
             if (msg.epoch == this.getEpoch()) {
-                //System.out.println("About to insert to the queue");
                 this.addToQueue(msg.event, msg.senderId);
             } else {
                 this.addToPendingQueue(msg.event, msg.epoch, msg.senderId);
             }
+        }
 
-            /* ************** BROKERS ****************** */
-        } else if (event instanceof MigrationMessage) {
+        /* ************** BROKERS ****************** */
+        if (event instanceof MigrationMessage) {
             MigrationMessage msg = (MigrationMessage) event;
-            //    System.out.println("Received migration for " + msg.destinationId + ", I am node " + node.getID());
+
             Vector<EventUID> vec = new Vector<>();
             vec.add(msg.event);
             if (msg.epoch == this.getEpoch()) {
@@ -254,13 +263,13 @@ public class TreeProtocol extends StateTreeProtocolInstance
             } else {
                 this.addQueueToPendingQueue(vec, msg.epoch, msg.senderId);
             }
-        } else if (event instanceof QueueMessage) {
+        }
+
+        if (event instanceof QueueMessage) {
             QueueMessage msg = (QueueMessage) event;
-            //    System.out.println("Node "+node.getID()+" has received a queue "+msg.queue.toString()+" from Node "+msg.senderId);
+
             if (msg.type == Type.DATACENTER) {
                 this.processQueue(msg.queue, node.getID());
-                //System.out.println("queue node "+node.getID()+": "+metadataQueue.toString());
-                //System.out.println("data vv "+node.getID()+": "+data.getVector().toString());
             } else {
                 if (msg.epoch == this.getEpoch()) {
                     this.addQueueToQueue(msg.queue, msg.senderId);

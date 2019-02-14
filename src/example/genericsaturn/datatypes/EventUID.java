@@ -6,7 +6,6 @@ public class EventUID {
 
     private int epoch;
     private int timestamp;
-    private long latency;
     private long src;
     private long dst;
     private boolean isMigration = false;
@@ -19,11 +18,10 @@ public class EventUID {
         return operation;
     }
 
-    public EventUID(Operation operation, int timestamp, int epoch, long lat, long src, long dst) {
+    public EventUID(Operation operation, int timestamp, int epoch, long src, long dst) {
         this.operation = operation;
         this.timestamp = timestamp;
         this.epoch = epoch;
-        this.latency = lat;
         this.src = src;
         this.dst = dst;
     }
@@ -62,14 +60,6 @@ public class EventUID {
         this.dst = dst;
     }
 
-    public long getLatency() {
-        return latency;
-    }
-
-    public void setLatency(long latency) {
-        this.latency = latency;
-    }
-
     public int getTimestamp() {
         return timestamp;
     }
@@ -98,7 +88,6 @@ public class EventUID {
         return new EventUID(new Operation(operation.getType(), operation.getKey()),
                 timestamp,
                 epoch,
-                latency,
                 src,
                 dst);
     }

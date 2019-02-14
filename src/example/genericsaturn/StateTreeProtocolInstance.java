@@ -29,16 +29,13 @@ import peersim.core.Network;
 import peersim.core.Node;
 import peersim.core.Protocol;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.Vector;
 import java.util.stream.Collectors;
@@ -130,10 +127,8 @@ public class StateTreeProtocolInstance
             svh.cloneLevelToDataObjects(levelToDataObjects);
             svh.allDataObjects = new HashSet<>(this.allDataObjects);
         } catch (CloneNotSupportedException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
-        //svh = new DoubleVectorHolder("");
         return svh;
     }
 
@@ -163,7 +158,7 @@ public class StateTreeProtocolInstance
     public void cloneMetadataQueue(Queue<EventUID> metadataQueueInit) {
         metadataQueue = new LinkedList<>();
         for (EventUID event : metadataQueueInit) {
-            metadataQueue.add(new EventUID(event.getOperation(), event.getTimestamp(), event.getEpoch(), event.getLatency(), event.getSrc(), event.getDst()));
+            metadataQueue.add(new EventUID(event.getOperation(), event.getTimestamp(), event.getEpoch(), event.getSrc(), event.getDst()));
         }
     }
 
@@ -324,7 +319,7 @@ public class StateTreeProtocolInstance
     // Replication groups methods
     //--------------------------------------------------------------------------
 
-    //TODO FAZER ISTO
+    // Tbh isto provavelmente pode ser feito usando os proprios datasets locais do objecto
     public boolean isInterested(long node, long key) {
         StateTreeProtocol datacenter = (StateTreeProtocol) Network
                 .get(Math.toIntExact(node)).getProtocol(tree);
@@ -536,7 +531,7 @@ public class StateTreeProtocolInstance
 
     @Override
     public void addData(EventUID event, Object datum) {
-        averageLatency = averageLatency + event.getLatency();
+        // averageLatency = averageLatency + event.getLatency();
         data.addEvent(event.getOperation().getKey(), event.getTimestamp());
         boolean matches = true;
         while (!metadataQueue.isEmpty() && (matches)) {
