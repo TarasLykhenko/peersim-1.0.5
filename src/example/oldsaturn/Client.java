@@ -1,8 +1,8 @@
-package example.saturn;
+package example.oldsaturn;
 
-import example.saturn.datatypes.Operation;
-import example.saturn.datatypes.ReadOperation;
-import example.saturn.datatypes.UpdateOperation;
+import example.oldsaturn.datatypes.Operation;
+import example.oldsaturn.datatypes.ReadOperation;
+import example.oldsaturn.datatypes.UpdateOperation;
 
 import java.util.ArrayList;
 import java.util.HashSet;

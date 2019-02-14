@@ -1,13 +1,13 @@
-package example.saturn.datatypes;
+package example.genericsaturn.datatypes;
 
-public class UpdateOperation extends Operation{
+public class UpdateOperation extends Operation {
 
 	int metadataFull;
 	int metadataPartial;
 	String keyMetadata;
 	
 	public UpdateOperation(int key, int full, int partial, String metaKey) {
-		super(1, key);
+		super(Type.UPDATE, key);
 		metadataFull = full;
 		metadataPartial = partial;
 		keyMetadata = metaKey;

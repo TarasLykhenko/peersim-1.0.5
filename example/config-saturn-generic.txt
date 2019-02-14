@@ -3,7 +3,7 @@ SIZE 9
 
 # parameters of periodic execution
 # CYCLES 200000
-CYCLES 1000
+CYCLES 250
 CYCLE 10
 
 # parameters of message transfer
@@ -23,15 +23,15 @@ simulation.logtime CYCLE
 
 protocol.link peersim.core.IdleProtocol
 
-protocol.type example.oldsaturn.TypeProtocol
+protocol.type example.genericsaturn.TypeProtocol
 
-protocol.tree example.oldsaturn.TreeProtocol
+protocol.tree example.genericsaturn.TreeProtocol
 protocol.tree.step CYCLE
 protocol.tree.transport tr
 protocol.tree.type_protocol type
 protocol.tree.linkable link
 
-protocol.urt example.oldsaturn.PointToPointTransport
+protocol.urt example.genericsaturn.PointToPointTransport
 protocol.urt.mindelay 0
 protocol.urt.maxdelay 100
 protocol.urt.type_protocol type
@@ -42,25 +42,23 @@ protocol.tr.drop DROP
 
 ################### initialization ======================
 ### Set node type
-init.0 example.oldsaturn.InitTypeProtocol
-init.0.ndatanodes 5
+init.0 example.genericsaturn.InitTypeProtocol
+init.0.ndatanodes 4
 init.0.type_protocol type
 
+
 ### Creates graph and sets latencies
-init.1 example.oldsaturn.WireTopology
+init.1 example.genericsaturn.WireTopology
 init.1.topology_path example/topologies
 init.1.topology_file four_nodes_three_brokers.top
 init.1.protocol link
 init.1.type_protocol type
 
 ### Inits queues based on graph
-init.2 example.oldsaturn.InitTreeProtocol
-init.2.dictionary dictionaries/filtered-facebook-links;Kmin2;Kmax2;servers5.json
+init.2 example.genericsaturn.InitTreeProtocol
 init.2.tree_protocol tree
 init.2.type_protocol type
-init.2.keys_node 4
-init.2.clients_cycle 1 
-init.2.max_clients 2
+init.2.clients_cycle 1
 
 init.sch CDScheduler
 init.sch.protocol tree
@@ -68,7 +66,7 @@ init.sch.randstart
 
 ################ control ==============================
 
-control.0 example.oldsaturn.StateTreeProtocolController
+control.0 example.genericsaturn.StateTreeProtocolController
 control.0.protocol tree
 control.0.type type
 control.0.step CYCLE
@@ -79,3 +77,25 @@ control.0.when_to_partition 10
 control.0.when_to_unpartition 110
 
 
+########### CLIENT CONFIGS #############
+clients_per_datacenter 10
+
+client_read_percentage 95
+client_update_percentage 5
+
+client_read_levels_percentage [70,20,10]
+client_update_levels_percentages [70,20,10]
+
+# percentage clients that use objects up to a given distance
+# eg. with [50,50], half clients will only use objects from the local DC
+# and the other half will use objects from both local and the DCs 1 level away
+client_locality_percentage [50,50]
+
+clients_eager_percentage 20
+########################################
+
+total_objects_per_datacenter 6
+levels 3
+levels_percentage [33,33,34]
+type type
+tree tree

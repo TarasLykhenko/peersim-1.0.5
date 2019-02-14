@@ -912,7 +912,7 @@ Method in class peersim.transport.<A HREF="./peersim/transport/UnreliableTranspo
 <DD>Returns the latency of the underlying protocol.
 <DT><A HREF="./peersim/config/FastConfig.html#getLinkable(int, int)"><B>getLinkable(int, int)</B></A> - 
 Static method in class peersim.config.<A HREF="./peersim/config/FastConfig.html" title="class in peersim.config">FastConfig</A>
-<DD>Returns the protocol id of the <code>linkIndex</code>-th linkable used by
+<DD>Returns the protocol groupCounter of the <code>linkIndex</code>-th linkable used by
  the protocol identified by pid.
 <DT><A HREF="./peersim/config/FastConfig.html#getLinkable(int)"><B>getLinkable(int)</B></A> - 
 Static method in class peersim.config.<A HREF="./peersim/config/FastConfig.html" title="class in peersim.config">FastConfig</A>
@@ -1091,10 +1091,10 @@ Method in exception peersim.config.<A HREF="./peersim/config/MissingParameterExc
 <DD>Returns the exception message without stack trace information
 <DT><A HREF="./peersim/config/CheckConfig.html#getSimID()"><B>getSimID()</B></A> - 
 Static method in class peersim.config.<A HREF="./peersim/config/CheckConfig.html" title="class in peersim.config">CheckConfig</A>
-<DD>Returns the numeric id of the simulator to invoke.
+<DD>Returns the numeric groupCounter of the simulator to invoke.
 <DT><A HREF="./peersim/Simulator.html#getSimID()"><B>getSimID()</B></A> - 
 Static method in class peersim.<A HREF="./peersim/Simulator.html" title="class in peersim">Simulator</A>
-<DD>Returns the numeric id of the simulator to invoke.
+<DD>Returns the numeric groupCounter of the simulator to invoke.
 <DT><A HREF="./peersim/transport/E2ENetwork.html#getSize()"><B>getSize()</B></A> - 
 Static method in class peersim.transport.<A HREF="./peersim/transport/E2ENetwork.html" title="class in peersim.transport">E2ENetwork</A>
 <DD>Returns the current size of the underlying network (i.e., the number of
@@ -1135,7 +1135,7 @@ Static method in class peersim.core.<A HREF="./peersim/core/CommonState.html" ti
 <DD>Returns current time.
 <DT><A HREF="./peersim/config/FastConfig.html#getTransport(int)"><B>getTransport(int)</B></A> - 
 Static method in class peersim.config.<A HREF="./peersim/config/FastConfig.html" title="class in peersim.config">FastConfig</A>
-<DD>Returns the id of the transport protocol used by the protocol identified
+<DD>Returns the groupCounter of the transport protocol used by the protocol identified
  by pid.
 <DT><A HREF="./peersim/vector/Getter.html#getType()"><B>getType()</B></A> - 
 Method in class peersim.vector.<A HREF="./peersim/vector/Getter.html" title="class in peersim.vector">Getter</A>
@@ -2249,7 +2249,7 @@ Method in class peersim.vector.<A HREF="./peersim/vector/TestVectors.html" title
 <DT><A HREF="./peersim/transport/Transport.html" title="interface in peersim.transport"><B>Transport</B></A> - Interface in <A HREF="./peersim/transport/package-summary.html">peersim.transport</A><DD>This interface represents a generic transport protocol, used to
  send messages through the underlying network.<DT><A HREF="./peersim/config/FastConfig.html#transports"><B>transports</B></A> - 
 Static variable in class peersim.config.<A HREF="./peersim/config/FastConfig.html" title="class in peersim.config">FastConfig</A>
-<DD>This array stores the protocol id of the <A HREF="./peersim/transport/Transport.html" title="interface in peersim.transport"><CODE>Transport</CODE></A>
+<DD>This array stores the protocol groupCounter of the <A HREF="./peersim/transport/Transport.html" title="interface in peersim.transport"><CODE>Transport</CODE></A>
  protocol that is linked to the protocol given by the array index.
 <DT><A HREF="./peersim/transport/TriangularMatrixParser.html" title="class in peersim.transport"><B>TriangularMatrixParser</B></A> - Class in <A HREF="./peersim/transport/package-summary.html">peersim.transport</A><DD>Initializes static singleton <A HREF="./peersim/transport/E2ENetwork.html" title="class in peersim.transport"><CODE>E2ENetwork</CODE></A> by reading a trace 
  file containing the latency distance measured between a set of 

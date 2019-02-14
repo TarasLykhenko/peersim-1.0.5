@@ -22,14 +22,14 @@ simulation.logtime CYCLE
 
 protocol.link peersim.core.IdleProtocol
 
-protocol.type example.saturn.TypeProtocol
+protocol.type example.oldsaturn.TypeProtocol
 
 protocol.vector example.nofalsedependencies.VectorProtocol
 protocol.vector.step CYCLE
 protocol.vector.transport tr
 protocol.vector.linkable link
 
-protocol.urt example.saturn.PointToPointTransport
+protocol.urt example.oldsaturn.PointToPointTransport
 protocol.urt.mindelay 0
 protocol.urt.maxdelay 100
 protocol.urt.type_protocol type
@@ -40,12 +40,12 @@ protocol.tr.drop DROP
 
 ################### initialization ======================
 ### Set node type
-init.0 example.saturn.InitTypeProtocol
+init.0 example.oldsaturn.InitTypeProtocol
 init.0.ndatanodes 5
 init.0.type_protocol type
 
 ### Creates graph and sets latencies
-init.1 example.saturn.WireTopology
+init.1 example.oldsaturn.WireTopology
 init.1.topology_path example/topologies
 init.1.topology_file five_nodes_azure_vector.top
 init.1.protocol link

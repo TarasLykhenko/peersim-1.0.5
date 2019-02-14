@@ -1,7 +1,6 @@
-package example.saturn.datatypes;
+package example.genericsaturn.datatypes;
 
 import java.util.HashMap;
-import java.util.Vector;
 
 
 public class VersionVector {

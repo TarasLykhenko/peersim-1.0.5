@@ -863,7 +863,7 @@ public static int <B>getPid</B>(java.lang.String&nbsp;name)</PRE>
 <DD>Reads the given property from the configuration interpreting it as a
  protocol name. Returns the numeric protocol identifier of this protocol
  name. See the discussion of protocol name at <A HREF="../../peersim/config/Configuration.html" title="class in peersim.config"><CODE>Configuration</CODE></A> for
- details on how this numeric id is calculated
+ details on how this numeric groupCounter is calculated
 <P>
 <DD><DL>
 <DT><B>Parameters:</B><DD><CODE>name</CODE> - Name of configuration property
@@ -916,8 +916,8 @@ public static java.lang.String <B>lookupPid</B>(int&nbsp;pid)</PRE>
 <P>
 <DD><DL>
 <DT><B>Parameters:</B><DD><CODE>pid</CODE> - numeric protocol identifier.
-<DT><B>Returns:</B><DD>name of the protocol that has the given id. null if no protocols
-         have the given id.</DL>
+<DT><B>Returns:</B><DD>name of the protocol that has the given groupCounter. null if no protocols
+         have the given groupCounter.</DL>
 </DD>
 </DL>
 <HR>

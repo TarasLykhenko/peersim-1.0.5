@@ -16,25 +16,31 @@
  *
  */
 
-package example.saturn;
+package example.genericsaturn;
+
+import example.genericsaturn.datatypes.DataObject;
+import example.genericsaturn.datatypes.EventUID;
+import example.genericsaturn.datatypes.PendingEventUID;
+import example.genericsaturn.datatypes.VersionVector;
+import peersim.config.Configuration;
+import peersim.core.Linkable;
+import peersim.core.Network;
+import peersim.core.Node;
+import peersim.core.Protocol;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.Map;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.Vector;
-
-import example.saturn.datatypes.EventUID;
-import example.saturn.datatypes.PendingEventUID;
-import example.saturn.datatypes.VersionVector;
-import peersim.config.Configuration;
-import peersim.core.*;
+import java.util.stream.Collectors;
 
 public class StateTreeProtocolInstance
         implements StateTreeProtocol, Protocol {
@@ -46,32 +52,44 @@ public class StateTreeProtocolInstance
     /**
      * Value held by this protocol
      */
-    protected VersionVector metadata;
-    protected Queue<EventUID> metadataQueue;
-    protected VersionVector data;
-    protected int counter;
-    protected int epoch;
-    protected int largerEpochSeen;
+    protected VersionVector metadata = new VersionVector();
+    private final int tree = 2; //This is very hardcoded cba.
+
+    protected int localReads = 0;
+    protected int remoteReads = 0;
+    protected int updates = 0;
+
+
+    protected Queue<EventUID> metadataQueue = new LinkedList<>();
+    protected VersionVector data = new VersionVector();
+    protected int counter = 0;
+    protected int epoch = 0;
+    protected int largerEpochSeen = 0;
     protected double averageProcessing;
-    protected Map<Long, Vector<EventUID>> queue;
-    protected Map<Integer, Vector<PendingEventUID>> pendingQueue;
-    protected Vector<EventUID> processed;
+    protected Map<Long, Vector<EventUID>> queue = new HashMap<>();
+    protected Map<Integer, Vector<PendingEventUID>> pendingQueue = new HashMap<>();
+    protected Vector<EventUID> processed = new Vector<>();
     private static final String PAR_LINK_PROT = "linkable";
     private final int link;
-    protected Map<Integer, List<Integer>> replicationGroups;
-    protected int localReads, remoteReads, updates;
-    protected Set<String> deliveredRemoteReads;
-    protected int fullMetadata, partialMetadata;
-    protected int clientsCycle;
-    protected int totalServers;
-    protected int countProcessed;
-    protected long averageLatency;
-    protected List<Client> clients;
+    protected Set<String> deliveredRemoteReads = new HashSet<>();
+
+    protected int fullMetadata = 0;
+    protected int partialMetadata = 0;
+
+    protected int clientsCycle = 1;
+    protected int countProcessed = 0;
+    protected long averageLatency = 0;
+    protected Set<Client> clients = new HashSet<>();
+    protected long nodeId;
 
     protected Map<UUID, Client> pendingClientsQueue = new HashMap<>();
-    protected long sentMigrations;
-    protected long receivedMigrations;
-    //protected TreeSet<Integer> friends;
+    protected long sentMigrations = 0;
+    protected long receivedMigrations = 0;
+
+    private Map<Integer, Set<StateTreeProtocol>> levelsToNodes = new HashMap<>();
+    private Map<Integer, Set<DataObject>> levelToDataObjects = new HashMap<>();
+    private Set<DataObject> allDataObjects = new HashSet<>();
+
 
     //--------------------------------------------------------------------------
     //Initialization
@@ -82,28 +100,6 @@ public class StateTreeProtocolInstance
      */
     public StateTreeProtocolInstance(String prefix) {
         link = Configuration.getPid(prefix + "." + PAR_LINK_PROT);
-        metadata = new VersionVector();
-        metadataQueue = new LinkedList<>();
-        data = new VersionVector();
-        counter = 0;
-        epoch = 0;
-        largerEpochSeen = 0;
-        queue = new HashMap<>();
-        processed = new Vector<>();
-        pendingQueue = new HashMap<>();
-        replicationGroups = new HashMap<>();
-        clients = new ArrayList<>();
-        localReads = 0;
-        remoteReads = 0;
-        updates = 0;
-        fullMetadata = 0;
-        partialMetadata = 0;
-        deliveredRemoteReads = new HashSet<>();
-        clientsCycle = 1;
-        countProcessed = 0;
-        averageLatency = 0;
-        totalServers = 0;
-        //friends = new TreeSet<Integer>();
     }
 
     //--------------------------------------------------------------------------
@@ -118,20 +114,20 @@ public class StateTreeProtocolInstance
             svh.cloneQueue(queue);
             svh.cloneMetadataQueue(metadataQueue);
             svh.clonePendingQueue(pendingQueue);
-            svh.cloneProcessed(processed);
-            svh.cloneMetadata(metadata);
-            svh.cloneData(data);
-            svh.cloneReplicationGroups(replicationGroups);
-            //svh.cloneFriends(friends);
+            svh.processed = new Vector<>(this.processed);
+            svh.metadata = new VersionVector(this.metadata);
+            svh.data = new VersionVector(this.data);
             svh.cloneClients(clients);
             svh.cloneStatistics(localReads, remoteReads, updates, fullMetadata, partialMetadata);
             svh.cloneDeliveredRemoteReads(deliveredRemoteReads);
-            svh.setClientsCycle(clientsCycle);
-            svh.setCountProcessed(this.countProcessed);
-            svh.setAverageLatency(averageLatency);
+            svh.clientsCycle = this.clientsCycle;
+            svh.countProcessed = this.countProcessed;
+            svh.averageLatency = this.averageLatency;
             svh.setAverageProcessing(averageProcessing);
-            svh.setTotalServers(totalServers);
             svh.clonePendingClients(pendingClientsQueue);
+            svh.cloneLevelsToNodes(levelsToNodes);
+            svh.cloneLevelToDataObjects(levelToDataObjects);
+            svh.allDataObjects = new HashSet<>(this.allDataObjects);
         } catch (CloneNotSupportedException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
@@ -143,12 +139,6 @@ public class StateTreeProtocolInstance
     //--------------------------------------------------------------------------
     //methods
     //--------------------------------------------------------------------------
-
-    public void setTotalServers(int totalServers2) {
-        totalServers = totalServers2;
-        // TODO Auto-generated method stub
-
-    }
 
     public long getAverageLatency() {
         return averageLatency;
@@ -176,11 +166,6 @@ public class StateTreeProtocolInstance
         }
     }
 
-    public void cloneProcessed(Vector<EventUID> processedInit) {
-        processed = new Vector<>();
-        processed.addAll(processedInit);
-    }
-
     public void cloneQueue(Map<Long, Vector<EventUID>> queueInit) {
         queue = new HashMap<>();
         for (Long key : queueInit.keySet()) {
@@ -194,15 +179,6 @@ public class StateTreeProtocolInstance
             pendingQueue.put(key, (Vector<PendingEventUID>) pendingQueueInit.get(key).clone());
         }
     }
-
-    public void cloneMetadata(VersionVector metadataInit) {
-        metadata = new VersionVector(metadataInit);
-    }
-
-    public void cloneData(VersionVector dataInit) {
-        data = new VersionVector(dataInit);
-    }
-
 
     private void clonePendingClients(Map<UUID, Client> pendingClientsQueueInit) {
         pendingClientsQueue = new HashMap<>();
@@ -226,6 +202,47 @@ public class StateTreeProtocolInstance
 
     public void addRemoteRead(EventUID event) {
         deliveredRemoteReads.add(event.getKey() + "," + event.getTimestamp());
+    }
+
+    @Override
+    public long getNodeId() {
+        return nodeId;
+    }
+
+    @Override
+    public void setLevelsToNodes(Map<Integer, Set<StateTreeProtocol>> levelsToNodes) {
+        this.levelsToNodes = levelsToNodes;
+    }
+
+    @Override
+    public Set<StateTreeProtocol> getLevelsToNodes(Integer level) {
+        return levelsToNodes.get(level);
+    }
+
+    @Override
+    public void addDataObjectsToLevel(Set<DataObject> dataObjects, int level) {
+        levelToDataObjects.put(level, dataObjects);
+    }
+
+    @Override
+    public Set<DataObject> getDataObjectsFromLevel(int level) {
+        return levelToDataObjects.get(level);
+    }
+
+    @Override
+    public void cloneLevelsToNodes(Map<Integer, Set<StateTreeProtocol>> levelsToNodesInit) {
+        levelsToNodes = new HashMap<>();
+        for (Integer key : levelsToNodesInit.keySet()) {
+            levelsToNodes.put(key, new HashSet<>(levelsToNodesInit.get(key)));
+        }
+    }
+
+    @Override
+    public void cloneLevelToDataObjects(Map<Integer, Set<DataObject>> levelToDataObjectsInit) {
+        levelToDataObjects = new HashMap<>();
+        for (Integer key : levelToDataObjectsInit.keySet()) {
+            levelToDataObjects.put(key, new HashSet<>(levelToDataObjectsInit.get(key)));
+        }
     }
 
     //--------------------------------------------------------------------------
@@ -282,18 +299,16 @@ public class StateTreeProtocolInstance
     //--------------------------------------------------------------------------
     // Client methods
     //--------------------------------------------------------------------------
-    public void cloneClients(List<Client> clientsInit) {
-        clients = new ArrayList<>();
+    public void cloneClients(Set<Client> clientsInit) {
+        clients = new HashSet<>();
         for (Client client : clientsInit) {
             clients.add(client.clone());
         }
     }
 
-    public void setClientList(Set<Integer> clientList, Map<Integer, TreeSet<Integer>> friends, int keysPerNode) {
-        for (int id : clientList) {
-            Client client = new Client(id, replicationGroups.size(), keysPerNode, friends.get(id));
-            clients.add(client);
-        }
+    @Override
+    public void setClients(Set<Client> clientList) {
+        this.clients = clientList;
     }
 
     public void setClientsCycle(int clientsCycle) {
@@ -305,52 +320,15 @@ public class StateTreeProtocolInstance
     }
 
     //--------------------------------------------------------------------------
-    // Friends methods
-    //--------------------------------------------------------------------------
-	/*public void cloneFriends(TreeSet<Integer> friendsInit){
-		friends = new TreeSet<Integer>();
-		Iterator<Integer> itFriends = friendsInit.iterator();
-		while (itFriends.hasNext()){
-			friends.add(new Integer(itFriends.next()));
-		}
-	}
-	
-	public void setFriendList(TreeSet<Integer> friendsList){
-		Iterator<Integer> itFriends = friendsList.iterator();
-		while (itFriends.hasNext()){
-			Integer friend = new Integer(itFriends.next());
-			if (!friends.contains(friend)){
-				friends.add(friend);
-			}
-		}
-	}*/
-    //--------------------------------------------------------------------------
     // Replication groups methods
     //--------------------------------------------------------------------------
 
-    /* In this case I want to use the same dictionary object for all nodes
-     * thats why I simply assign the same reference instead of cloning the
-     * object. Dictionary is read only, thats basically the reasoning behind
-     */
-    public void cloneReplicationGroups(Map<Integer, List<Integer>> rgInit) {
-        replicationGroups = rgInit;
-    }
-
-    public void setReplicationGroups(Map<Integer, List<Integer>> rgInit) {
-        replicationGroups = rgInit;
-    }
-
-    public List<Integer> getReplicationGroup(Integer key) {
-        return replicationGroups.get(key);
-    }
-
+    //TODO FAZER ISTO
     public boolean isInterested(long node, long key) {
-        if (replicationGroups.containsKey(Math.toIntExact(key))) {
-            List<Integer> list = replicationGroups.get(Math.toIntExact(key));
-            return list.contains(Math.toIntExact(node));
-        } else {
-            return false;
-        }
+        StateTreeProtocol datacenter = (StateTreeProtocol) Network
+                .get(Math.toIntExact(node)).getProtocol(tree);
+        return GroupsManager.getInstance()
+                .datacenterContainsObject(datacenter, Math.toIntExact(key));
     }
 
     //--------------------------------------------------------------------------
@@ -365,11 +343,14 @@ public class StateTreeProtocolInstance
             Node neighbor = linkn.getNeighbor(i);
             queue.put(neighbor.getID(), new Vector<>());
         }
+        this.nodeId = node.getID();
     }
 
     public void addToQueue(EventUID event, Long from) {
+        // System.out.println("Trying to add event");
         for (Long key : queue.keySet()) {
-            if (key != from) {
+            if (!key.equals(from)) {
+            //    System.out.println("Adding to queue!");
                 queue.get(key).add(event);
             }
         }
@@ -387,10 +368,12 @@ public class StateTreeProtocolInstance
     }
 
     public void processQueue(Vector<EventUID> queue, long id) {
+     //   System.out.println("Processing queue");
         for (EventUID event : queue) {
             if (event.isMigration() && id == event.getMigrationTarget()) {
                 acceptClient(event.getIdentifier());
             } else if (isInterested(id, event.getKey())) {
+                // System.out.println("Adding metadata!");
                 addMetadata(event);
             }
         }
@@ -415,7 +398,7 @@ public class StateTreeProtocolInstance
     //--------------------------------------------------------------------------
 
     public void addToPendingQueue(EventUID event, int epoch, long senderId) {
-        //System.out.println("Adding event: "+event.toString()+" to node "+senderId+" pending queue");
+    //    System.out.println("Adding event: "+event.toString()+" to node "+senderId+" pending queue");
         if (pendingQueue.containsKey(epoch)) {
             pendingQueue.get(epoch).add(new PendingEventUID(event, senderId));
         } else {
@@ -474,15 +457,8 @@ public class StateTreeProtocolInstance
     // Processed methods
     //--------------------------------------------------------------------------
 
-    public int getCountProcessed() {
-        return this.countProcessed;
-    }
-
-    public void setCountProcessed(int c) {
-        this.countProcessed = c;
-    }
-
     public void addProcessedEvent(EventUID event) {
+        //System.out.println("PROCESSING EVENT!");
         //System.out.println("Processing event "+event.getKey()+","+event.getTimestamp()+" from: "+event.getSrc()+" to: "+event.getDst()+" with latency: "+event.getLatency()+
         //		" tool "+(getEpoch() - event.getEpoch())+" cycles");
         if (event.getRemoteRead()) {
@@ -609,5 +585,21 @@ public class StateTreeProtocolInstance
     public int timestamp() {
         counter++;
         return counter;
+    }
+
+    public Map<Integer, Set<StateTreeProtocol>> getLevelsToNodes() {
+        return levelsToNodes;
+    }
+
+    public Set<DataObject> getAllDataObjects() {
+        if (allDataObjects.isEmpty()) {
+            allDataObjects.addAll(levelToDataObjects
+                    .values().stream().flatMap(Collection::stream).collect(Collectors.toSet()));
+        }
+        return allDataObjects;
+    }
+
+    public Map<Integer, Set<DataObject>> getAllDataObjectsPerLevel() {
+        return levelToDataObjects;
     }
 }

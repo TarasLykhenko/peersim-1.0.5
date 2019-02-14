@@ -16,7 +16,7 @@
  *
  */
 
-package example.saturn;
+package example.oldsaturn;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -131,9 +131,9 @@ public class StateTreeProtocolController implements Control {
         iteration = 1;
         outputFile = Configuration.getString(name + "." + PAR_OUTPUT);
         partitionsFile = Configuration.getString(name + "." + PARTITIONS_FILE);
-        TAKE_STATISTICS_EVERY = Configuration.getDouble("name" + "." + CFG_TAKE_STATISTICS_EVERY);
-        double WHEN_TO_PARTITION = Configuration.getDouble("name" + "." + CFG_WHEN_TO_PARTITION);
-        double WHEN_TO_UNPARTATITION = Configuration.getDouble("name" + "." + CFG_WHEN_TO_UNPARTATITION);
+        TAKE_STATISTICS_EVERY = Configuration.getDouble(name + "." + CFG_TAKE_STATISTICS_EVERY);
+        double WHEN_TO_PARTITION = Configuration.getDouble(name + "." + CFG_WHEN_TO_PARTITION);
+        double WHEN_TO_UNPARTATITION = Configuration.getDouble(name + "." + CFG_WHEN_TO_UNPARTATITION);
         endTime = Configuration.getInt("simulation.endtime");
         logTime = Configuration.getInt("simulation.logtime");
         cycles = endTime / logTime;
@@ -307,32 +307,6 @@ public class StateTreeProtocolController implements Control {
             //System.out.println("it: " + iteration + " | Unpartitioned DC " + partitionedNode);
             //System.out.println("cycles = " + cycles);
             hasUnpartitioned = true;
-        }
-    }
-
-    public void wire() {
-        try (BufferedReader br = new BufferedReader()) {
-            String line = br.readLine();
-            int counter = 0;
-            while (line != null) {
-                String[] partitions = line.split("  ");
-                for (int i = 0; i < partitions.length; i++) {
-                    int partition = Integer.valueOf(partitions[i]);
-                    if (partition == 1) {
-                        Node src = Network.get(counter);
-                        Node dst = Network.get(i);
-
-                        TreeProtocol srcTree = (TreeProtocol) src.getProtocol(pid);
-                        srcTree.setPartitionTarget(dst);
-                    }
-                }
-                line = br.readLine();
-                counter++;
-            }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 }

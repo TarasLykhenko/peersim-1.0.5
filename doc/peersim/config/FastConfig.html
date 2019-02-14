@@ -160,7 +160,7 @@ Reads configuration regarding relations between protocols.
 <TD><CODE><B><A HREF="../../peersim/config/FastConfig.html#transports">transports</A></B></CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This array stores the protocol id of the <A HREF="../../peersim/transport/Transport.html" title="interface in peersim.transport"><CODE>Transport</CODE></A>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This array stores the protocol groupCounter of the <A HREF="../../peersim/transport/Transport.html" title="interface in peersim.transport"><CODE>Transport</CODE></A>
  protocol that is linked to the protocol given by the array index.</TD>
 </TR>
 </TABLE>
@@ -188,7 +188,7 @@ Reads configuration regarding relations between protocols.
             int&nbsp;linkIndex)</CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Returns the protocol id of the <code>linkIndex</code>-th linkable used by
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Returns the protocol groupCounter of the <code>linkIndex</code>-th linkable used by
  the protocol identified by pid.</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
@@ -197,7 +197,7 @@ Reads configuration regarding relations between protocols.
 <TD><CODE><B><A HREF="../../peersim/config/FastConfig.html#getTransport(int)">getTransport</A></B>(int&nbsp;pid)</CODE>
 
 <BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Returns the id of the transport protocol used by the protocol identified
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Returns the groupCounter of the transport protocol used by the protocol identified
  by pid.</TD>
 </TR>
 <TR BGCOLOR="white" CLASS="TableRowColor">
@@ -299,7 +299,7 @@ transports</H3>
 <PRE>
 protected static final int[] <B>transports</B></PRE>
 <DL>
-<DD>This array stores the protocol id of the <A HREF="../../peersim/transport/Transport.html" title="interface in peersim.transport"><CODE>Transport</CODE></A>
+<DD>This array stores the protocol groupCounter of the <A HREF="../../peersim/transport/Transport.html" title="interface in peersim.transport"><CODE>Transport</CODE></A>
  protocol that is linked to the protocol given by the array index.
 <P>
 <DL>
@@ -349,7 +349,7 @@ getLinkable</H3>
 public static int <B>getLinkable</B>(int&nbsp;pid,
                               int&nbsp;linkIndex)</PRE>
 <DL>
-<DD>Returns the protocol id of the <code>linkIndex</code>-th linkable used by
+<DD>Returns the protocol groupCounter of the <code>linkIndex</code>-th linkable used by
  the protocol identified by pid. Throws an
  IllegalParameterException if there is no linkable associated with the given
  protocol: we assume here that this happens when the configuration is
@@ -393,7 +393,7 @@ getTransport</H3>
 <PRE>
 public static int <B>getTransport</B>(int&nbsp;pid)</PRE>
 <DL>
-<DD>Returns the id of the transport protocol used by the protocol identified
+<DD>Returns the groupCounter of the transport protocol used by the protocol identified
  by pid.
  Throws an IllegalParameterException if there is no transport associated
  with the given protocol: we assume here that his happens when the

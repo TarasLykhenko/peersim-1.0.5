@@ -1,16 +1,16 @@
-package example.saturn.datatypes;
+package example.genericsaturn.datatypes;
 
 
 public class PendingEventUID {
 	
 	EventUID event;
-	long senderId;	
-	
+	long senderId;
+
 	public PendingEventUID(EventUID event, long senderId){
 		this.event = event;
 		this.senderId = senderId;
 	}
-	
+
 	public EventUID getEvent() {
 		return event;
 	}

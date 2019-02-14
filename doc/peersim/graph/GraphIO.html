@@ -248,7 +248,7 @@ public static void <B>writeNeighborList</B>(<A HREF="../../peersim/graph/Graph.h
                                      java.io.PrintStream&nbsp;out)</PRE>
 <DL>
 <DD>Prints graph in neighbor list format. Each line starts with the
- id of a node followed by the ids of its neighbors separated by space.
+ groupCounter of a node followed by the ids of its neighbors separated by space.
 <P>
 <DD><DL>
 </DL>
@@ -366,8 +366,8 @@ public static <A HREF="../../peersim/graph/Graph.html" title="interface in peers
      numberOfNodes records, where a record describes a node's
      neighbours and their timestamps.
      A record is a series of exactly cacheSize (int,long) pairs where
-     the int is the node id, and the long is the timestamp.
-     Node id-s start from 1. Node id 0 means no node and used if the parent
+     the int is the node groupCounter, and the long is the timestamp.
+     Node groupCounter-s start from 1. Node groupCounter 0 means no node and used if the parent
      node has less that cacheSize nodes.</li>
  </ul>
 <P>

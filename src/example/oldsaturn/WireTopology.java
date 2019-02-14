@@ -1,4 +1,4 @@
-package example.saturn;
+package example.oldsaturn;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -25,18 +25,18 @@ public class WireTopology extends WireGraph {
     /**
      * The alpha parameter. It affects the distance relevance in the wiring
      * process. Default value: 0.5.
-     * 
+     *
      * @config
      */
     private static final String PAR_ALPHA = "alpha";
 
     /**
      * The coordinate protocol to look at.
-     * 
+     *
      * @config
      */
     private static final String PAR_TYPE_PROT = "type_protocol";
-    
+
     private static final String PAR_PATH = "topology_path";
 
     private static final String PAR_TOPOLOGY = "topology_file";
@@ -49,7 +49,7 @@ public class WireTopology extends WireGraph {
 
     /** Coordinate protocol pid. */
     private final int typePid;
-    
+
     private final String path, topology;
 
     // --------------------------------------------------------------------------
@@ -59,7 +59,7 @@ public class WireTopology extends WireGraph {
     /**
      * Standard constructor that reads the configuration parameters. Normally
      * invoked by the simulation engine.
-     * 
+     *
      * @param prefix
      *            the configuration prefix for this class
      */
@@ -77,25 +77,25 @@ public class WireTopology extends WireGraph {
             while (line != null) {
                 String[] latencies = line.split("	");
                 for (int i=0; i<latencies.length; i++) {
-                	int latency = Integer.valueOf(latencies[i]);
-                	if (latency >= 0) {	
-                    	g.setEdge(counter, i);
-                    	//g.setEdge(i, counter);
-                    	Node src = (Node) g.getNode(counter);
-                    	Node dst = (Node) g.getNode(i);
-                    	TypeProtocol srcType =(TypeProtocol) src.getProtocol(typePid);
-                    	//InetType dstType =(InetType) dst.getProtocol(typePid);
-                    	srcType.setLatency(dst.getID(), latency);
-                    	//dstType.setLatency(src.getID(), latency);
-                	}
+                    int latency = Integer.valueOf(latencies[i]);
+                    if (latency >= 0) {
+                        g.setEdge(counter, i);
+                        //g.setEdge(i, counter);
+                        Node src = (Node) g.getNode(counter);
+                        Node dst = (Node) g.getNode(i);
+                        TypeProtocol srcType =(TypeProtocol) src.getProtocol(typePid);
+                        //InetType dstType =(InetType) dst.getProtocol(typePid);
+                        srcType.setLatency(dst.getID(), latency);
+                        //dstType.setLatency(src.getID(), latency);
+                    }
                 }
                 line = br.readLine();
                 counter++;
             }
         } catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

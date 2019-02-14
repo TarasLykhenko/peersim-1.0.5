@@ -1,5 +1,5 @@
 
-package example.saturn;
+package example.oldsaturn;
 
 import peersim.core.Protocol;
 
@@ -37,7 +37,7 @@ public class TypeProtocol implements Protocol {
      * the simulation engine. By default, all the coordinates components are set
      * to -1 value. The {@link InitTypeProtocol} class provides a coordinates
      * initialization.
-     * 
+     *
      * @param prefix
      *            the configuration prefix for this class.
      */
@@ -56,23 +56,23 @@ public class TypeProtocol implements Protocol {
         } // never happens
         return inp;
     }
-    
+
     public void cloneLatencies(Map<Long, Integer> latenciesInit){
         latencies = new HashMap<>();
-    	for (Long key : latenciesInit.keySet()){
-    		latencies.put(key, latenciesInit.get(key));
-    	}
+        for (Long key : latenciesInit.keySet()){
+            latencies.put(key, latenciesInit.get(key));
+        }
     }
-    
+
 
     public void setLatency(long to, int latency){
-    	latencies.put(to, latency);
+        latencies.put(to, latency);
     }
-    
+
     public int getLatency(long to){
         return latencies.getOrDefault(to, -1);
     }
-    
+
     public Type getType() {
         return type;
     }

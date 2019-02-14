@@ -1,4 +1,4 @@
-package example.saturn.datatypes;
+package example.oldsaturn.datatypes;
 
 import java.util.UUID;
 

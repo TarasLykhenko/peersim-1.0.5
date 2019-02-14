@@ -1,22 +1,10 @@
-package example.saturn;
-
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.lang.ProcessBuilder.Redirect.Type;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.TreeSet;
-
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+package example.genericsaturn;
 
 import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.core.Network;
 import peersim.core.Node;
+
 /**
  * Assigns types to nodes
  * @author bravogestoso
@@ -66,17 +54,14 @@ public class InitTypeProtocol implements Control {
 
 
     public boolean execute() {
-        Node n = null;
-        TypeProtocol prot= null;
-        TreeProtocol tree = null;
         for (int i = 0; i < n_datanodes; i++) {
-            n = Network.get(i);
-            prot = (TypeProtocol) n.getProtocol(pid);
+            Node node = Network.get(i);
+            TypeProtocol prot = (TypeProtocol) node.getProtocol(pid);
             prot.setType(TypeProtocol.Type.DATACENTER);
         }
         for (int i = n_datanodes; i < Network.size(); i++) {
-            n = Network.get(i);
-            prot = (TypeProtocol) n.getProtocol(pid);
+            Node node = Network.get(i);
+            TypeProtocol prot = (TypeProtocol) node.getProtocol(pid);
             prot.setType(TypeProtocol.Type.BROKER);
         }
         return false;

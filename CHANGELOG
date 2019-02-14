@@ -969,7 +969,7 @@ GJ 3/11/2004
 
 MJ 2/11/2004
 - changed config parameter name "protocolID" to "protocol" in package
-  distributions. Protocol id is an internal concept now, transparent to the
+  distributions. Protocol groupCounter is an internal concept now, transparent to the
   user and protocol name should be used (which can also be a number of course).
 
 MJ 29/10/2004
@@ -982,7 +982,7 @@ MJ 29/10/2004
 
 MJ 25/10/2004
 - added method lookupPid to Configuration to make it possible to search
-  for a protocol id based on the protocol name
+  for a protocol groupCounter based on the protocol name
 
 MJ 22/10/2004
 - added the possibility of excluding entities that are present in the config
@@ -999,7 +999,7 @@ MJ 21/10/2004
   - removing setPid from Configuration and funtionality to assign ID-s to
     protocols names is also moved into Configuration completely. The rest of
     the code now can use simply getPid after loading the config to get
-    protocol id.
+    protocol groupCounter.
   - separating alternative style of configuration to the new OrderSimulator
     that now extends the basic Simulator class. to use the config property
     "order" you need to launch OrderSimultor. All other features and orderings
@@ -1027,8 +1027,8 @@ AM 17/10/2004
   internally.
   
   !!WARNING!!: this change is backwards compatible but if you want to use
-  arbitrary protocol id-s in you new config files, you mut use the
-  getPid method to get the numeric id in your new protocols.
+  arbitrary protocol groupCounter-s in you new config files, you mut use the
+  getPid method to get the numeric groupCounter in your new protocols.
 - ordering: apart from the deault aplhabetical order of component execution
   it is possible to define an alternative ordering using order properties in
   the configuration, like protocol.order, observer.order, etc. 

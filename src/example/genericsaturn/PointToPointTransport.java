@@ -16,11 +16,12 @@
  *
  */
 
-package example.saturn;
+package example.genericsaturn;
 
-import peersim.config.*;
-import peersim.core.*;
-import peersim.edsim.*;
+import peersim.config.Configuration;
+import peersim.config.IllegalParameterException;
+import peersim.core.Node;
+import peersim.edsim.EDSimulator;
 import peersim.transport.Transport;
 
 
@@ -82,7 +83,7 @@ public PointToPointTransport(String prefix)
 	if (max < min) 
 	   throw new IllegalParameterException(prefix+"."+PAR_MAXDELAY, 
 	   "The maximum latency cannot be smaller than the minimum latency");
-	range = max-min+1;
+	range = max - min + 1;
 }
 
 //---------------------------------------------------------------------
@@ -111,9 +112,9 @@ public Object clone()
 		// avoid calling nextLong if possible
 		TypeProtocol srcType = (TypeProtocol) src.getProtocol(typePid);
 		int latency = srcType.getLatency(dest.getID());
-		if (latency!=-1){
+		if (latency != -1){
 			long delay = 0;
-			if (latency!=0){
+			if (latency != 0){
 				//delay = (range==1?latency+min:latency+min + CommonState.r.nextLong(range));
 				delay = latency;
 			}

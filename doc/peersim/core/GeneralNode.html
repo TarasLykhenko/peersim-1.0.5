@@ -439,7 +439,7 @@ public <A HREF="../../peersim/core/Protocol.html" title="interface in peersim.co
 <DL>
 <DD><B>Description copied from interface: <CODE><A HREF="../../peersim/core/Node.html#getProtocol(int)">Node</A></CODE></B></DD>
 <DD>Returns the <code>i</code>-th protocol in this node. If <code>i</code> 
- is not a valid protocol id
+ is not a valid protocol groupCounter
  (negative or larger than or equal to the number of protocols), then it throws
  IndexOutOfBoundsException.
 <P>
@@ -477,7 +477,7 @@ public int <B>getIndex</B>()</PRE>
 <DD><B>Description copied from interface: <CODE><A HREF="../../peersim/core/Node.html#getIndex()">Node</A></CODE></B></DD>
 <DD>Returns the index of this node. It is such that
  <code>Network.get(n.getIndex())</code> returns n. This index can
- change during a simulation, it is not a fixed id. If you need that, use
+ change during a simulation, it is not a fixed groupCounter. If you need that, use
  <A HREF="../../peersim/core/Node.html#getID()"><CODE>Node.getID()</CODE></A>.
 <P>
 <DD><DL>

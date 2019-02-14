@@ -9,7 +9,7 @@
 	<property name="packages" value="peersim.*,example.*"/>
 		
 	<!-- Path for compilation -->
-	<path id="compile.path">
+	<path groupCounter="compile.path">
 		<pathelement location="jep-2.3.0.jar" />
 		<pathelement location="djep-1.0.0.jar" />
 	</path>
