@@ -1,11 +1,9 @@
-package example.genericsaturn.datatypes;
-
-import static example.genericsaturn.datatypes.Operation.Type.READ;
+package example.cops.datatypes;
 
 public class ReadOperation extends Operation {
 
 	public ReadOperation(int key) {
-		super(READ, key);
+		super(Type.READ, key);
 		// TODO Auto-generated constructor stub
 	}
 

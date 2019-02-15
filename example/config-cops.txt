@@ -1,5 +1,5 @@
 # network size
-SIZE 9
+SIZE 4
 
 # parameters of periodic execution
 # CYCLES 200000
@@ -19,7 +19,6 @@ network.size SIZE
 simulation.endtime CYCLE*CYCLES
 simulation.logtime CYCLE
 
-
 ########### CLIENT CONFIGS #############
 clients_per_datacenter 200
 
@@ -37,15 +36,16 @@ client_locality_percentage [100,0,0]
 clients_eager_percentage 20
 ########################################
 
-total_objects_per_datacenter 1000
+total_objects_per_datacenter 3
 levels 3
-levels_percentage [80,15,5]
+levels_percentage [33,33,34]
+groups {[0],[0,1],[0,1,2,3]}{[1],[0,1],[0,1,2,3]}{[2],[2,3],[0,1,2,3]}{[3],[2,3],[0,1,2,3]}
 
-statistics_window 5
+
+statistics_window 50
 partition_start 30
 partition_end 80
 
-type type
 tree tree
 ##########################################
 
@@ -53,41 +53,31 @@ tree tree
 
 protocol.link peersim.core.IdleProtocol
 
-protocol.type example.genericsaturn.TypeProtocol
-
-protocol.tree example.genericsaturn.TreeProtocol
+protocol.tree example.cops.TreeProtocol
 protocol.tree.step CYCLE
 protocol.tree.transport tr
 protocol.tree.tree_protocol tree
-protocol.tree.type_protocol type
 protocol.tree.linkable link
 
-protocol.urt example.genericsaturn.PointToPointTransport
+protocol.urt example.cops.PointToPointTransport
 protocol.urt.mindelay 0
 protocol.urt.maxdelay 100
-protocol.urt.type_protocol type
 
 protocol.tr UnreliableTransport
 protocol.tr.transport urt
 protocol.tr.drop DROP
 
 ################### initialization ======================
-### Set node type
-init.0 example.genericsaturn.InitTypeProtocol
-init.0.ndatanodes 4
-init.0.type_protocol type
 
 ### Creates graph and sets latencies
-init.1 example.genericsaturn.WireTopology
+init.1 example.cops.WireTopology
 init.1.topology_path example/topologies
-init.1.topology_file four_nodes_three_brokers.top
+init.1.topology_file four_nodes_all_connected.top
 init.1.protocol link
-init.1.type_protocol type
 
 ### Inits queues based on graph
-init.2 example.genericsaturn.InitTreeProtocol
+init.2 example.cops.InitTreeProtocol
 init.2.tree_protocol tree
-init.2.type_protocol type
 init.2.clients_cycle 1
 
 init.sch CDScheduler
@@ -96,9 +86,8 @@ init.sch.randstart
 
 ################ control ==============================
 
-control.0 example.genericsaturn.Controller
+control.0 example.cops.Controller
 control.0.protocol tree
-control.0.type type
 control.0.step CYCLE
 control.0.output_file output/optimal5
-control.0.partitions_file example/saturn-configs/four_nodes_three_brokers_partition.top
+control.0.partitions_file example/saturn-configs/four_nodes_all_connected_partition.top

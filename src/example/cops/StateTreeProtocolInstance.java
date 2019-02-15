@@ -16,16 +16,15 @@
  *
  */
 
-package example.genericsaturn;
+package example.cops;
 
-import example.genericsaturn.datatypes.DataObject;
-import example.genericsaturn.datatypes.EventUID;
-import example.genericsaturn.datatypes.Operation;
-import example.genericsaturn.datatypes.PendingEventUID;
-import example.genericsaturn.datatypes.VersionVector;
+import com.sun.istack.internal.Nullable;
+import example.cops.datatypes.DataObject;
+import example.cops.datatypes.EventUID;
+import example.cops.datatypes.Operation;
+import example.cops.datatypes.VersionVector;
 import peersim.config.Configuration;
-import peersim.core.Linkable;
-import peersim.core.Network;
+import peersim.core.CommonState;
 import peersim.core.Node;
 import peersim.core.Protocol;
 
@@ -33,16 +32,17 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-public abstract class StateTreeProtocolInstance
+abstract class StateTreeProtocolInstance
         implements StateTreeProtocol, Protocol {
+
+    private final String prefix;
 
     //--------------------------------------------------------------------------
     //Fields
@@ -52,21 +52,17 @@ public abstract class StateTreeProtocolInstance
      * Value held by this protocol
      */
     protected VersionVector metadata = new VersionVector();
-    private final int tree = 2; //This is very hardcoded cba.
 
     protected int localReads = 0;
     protected int remoteReads = 0;
     protected int updates = 0;
 
 
-    protected Queue<EventUID> metadataQueue = new LinkedList<>();
     protected VersionVector data = new VersionVector();
     protected int counter = 0;
     protected int epoch = 0;
     protected int largerEpochSeen = 0;
     protected double averageProcessing;
-    protected Map<Long, List<EventUID>> queue = new HashMap<>();
-    protected Map<Integer, List<PendingEventUID>> pendingQueue = new HashMap<>();
     protected List<EventUID> processed = new ArrayList<>();
     private static final String PAR_LINK_PROT = "linkable";
     private final int link;
@@ -78,16 +74,42 @@ public abstract class StateTreeProtocolInstance
     protected int clientsCycle = 1;
     protected int countProcessed = 0;
     protected long averageLatency = 0;
+
     protected Set<Client> clients = new HashSet<>();
+    protected Map<Integer, Client> idToClient = new HashMap<>();
+
     protected long nodeId;
 
     protected Map<UUID, Client> pendingClientsQueue = new HashMap<>();
+
+
+    protected Map<Integer, Map<Integer, Integer>> updatesQueue = new HashMap<>();
     protected long sentMigrations = 0;
     protected long receivedMigrations = 0;
 
     private Map<Integer, Set<StateTreeProtocol>> levelsToNodes = new HashMap<>();
     private Map<Integer, Set<DataObject>> levelToDataObjects = new HashMap<>();
     private Set<DataObject> allDataObjects = new HashSet<>();
+
+    private Map<Integer, DataObject> keyToDataObject = new HashMap<>();
+
+    /**
+     * We map
+     */
+    private Map<Integer, Integer> keyToDOVersion = new HashMap<>();
+
+    /**
+     * Super ineficient lookup, everytime there's a new update will check every deps.
+     * Will improve performance with fast lookup table if needed later-
+     */
+
+
+    private Map<RemoteUpdateQueueEntry, Map<Integer, Integer>> updateToContextDeps = new HashMap<>();
+
+    /**
+     * Queue of clients that migrated and have some remaining dependencies
+     */
+    private Map<Client, Map<Integer, Integer>> clientToDepsQueue = new HashMap<>();
 
 
     //--------------------------------------------------------------------------
@@ -97,11 +119,19 @@ public abstract class StateTreeProtocolInstance
     /**
      * Does nothing.
      */
-    StateTreeProtocolInstance(String prefix) {
+    public StateTreeProtocolInstance(String prefix) {
         link = Configuration.getPid(prefix + "." + PAR_LINK_PROT);
+        this.prefix = prefix;
     }
 
     //--------------------------------------------------------------------------
+
+    /**
+     * Clones the value holder.
+     */
+    public Object clone() {
+        return null;
+    }
 
     //--------------------------------------------------------------------------
     //methods
@@ -122,6 +152,139 @@ public abstract class StateTreeProtocolInstance
     public void setAverageProcessing(double averageProcessing) {
         this.averageProcessing = averageProcessing;
     }
+
+    // --------------------
+    // COPS methods
+    // --------------------
+
+    public int copsGet(Integer key) {
+        return keyToDOVersion.get(key);
+    }
+
+    /**
+     * Returns the new version of the object after writing
+     */
+    public int copsPut(Integer key) {
+        // If it's a local write, the write can happen immediatly
+        int oldVersion = keyToDOVersion.get(key);
+        int newVersion = oldVersion + 1;
+        doWrite(key, newVersion);
+        return newVersion;
+    }
+
+    public void copsPutRemote(Integer key, Map<Integer, Integer> context, Integer version) {
+        int currentVersion = keyToDOVersion.get(key);
+        if (currentVersion >= version) {
+            // Current version is more updated, ignore the update
+            return;
+        }
+
+        Map<Integer, Integer> missingDeps = checkDeps(context);
+
+        if (missingDeps.isEmpty()) {
+            if (version != currentVersion + 1) {
+                System.out.println("ISTO PROVAVELMENTE ESTÁ SUPER MAL PÁ!");
+                return;
+            }
+
+            doWrite(key, version);
+
+            Map<Integer, Integer> newlyAppliedUpdated =
+                    checkIfCanProcessRemoteUpdates(key, version);
+            checkIfCanAcceptMigratedClients(newlyAppliedUpdated);
+        } else {
+            RemoteUpdateQueueEntry entry = new RemoteUpdateQueueEntry(key, version);
+            updateToContextDeps.put(entry, new HashMap<>(context));
+        }
+    }
+
+    void migrateClientQueue(Client client, Map<Integer, Integer> clientContext) {
+        Map<Integer, Integer> missingDeps = checkDeps(clientContext);
+        if (missingDeps.isEmpty()) {
+            acceptClient(client);
+        } else {
+            clientToDepsQueue.put(client, clientContext);
+        }
+    }
+
+    /**
+     * Given a new applied update, checks if any queued updates relied on this update and
+     * if so, checks if the queued updates can be applied.
+     * @param key Key of the newly applied update
+     * @param version Version of the newly applied update
+     * @return A map of all newly applied updates, including the original one and the
+     * possible following new ones
+     */
+    // Verificar se de facto está bem
+    private Map<Integer, Integer> checkIfCanProcessRemoteUpdates(int key, int version) {
+        Map<Integer, Integer> newAppliedUpdates = new HashMap<>();
+
+        for (RemoteUpdateQueueEntry queuedUpdate : updateToContextDeps.keySet()) {
+            Map<Integer, Integer> updateContext = updateToContextDeps.get(queuedUpdate);
+            @Nullable Integer contextVersion = updateContext.get(key);
+            if (contextVersion != null) {
+                if (version >= contextVersion) {
+                    updateContext.remove(key);
+                }
+            }
+
+            if (updateContext.isEmpty()) {
+                doWrite(queuedUpdate.key, queuedUpdate.version);
+                newAppliedUpdates.put(queuedUpdate.key, queuedUpdate.version);
+            }
+        }
+
+        return newAppliedUpdates;
+    }
+
+    private void checkIfCanAcceptMigratedClients(Map<Integer, Integer> newUpdates) {
+        for (Client client : clientToDepsQueue.keySet()) {
+            Map<Integer, Integer> clientContext = clientToDepsQueue.get(client);
+
+            for (Integer newUpdateKey : newUpdates.keySet()) {
+                // Check if the client context contains the key
+                @Nullable Integer contextVersion = clientContext.get(newUpdateKey);
+                if (contextVersion != null) {
+                    Integer updateVersion = newUpdates.get(newUpdateKey);
+                    if (updateVersion >= contextVersion) {
+                        acceptClient(client);
+                        // provavelmente vai dar concurrent iter exception
+                        clientToDepsQueue.remove(client);
+                    }
+                }
+            }
+        }
+    }
+
+    private void acceptClient(Client client) {
+        clients.add(client);
+        receivedMigrations++;
+    }
+
+    private void doWrite(Integer key, Integer version) {
+        keyToDOVersion.put(key, version);
+    }
+
+    private Map<Integer, Integer> checkDeps(Map<Integer, Integer> context) {
+        Map<Integer, Integer> missingDeps = new HashMap<>();
+        for (Integer contextKey : context.keySet()) {
+            if (!keyToDOVersion.containsKey(contextKey)) {
+                // Partial replication, this datacenter does not contain
+                // the dependency object
+                continue;
+            }
+            int contextVersion = context.get(contextKey);
+            int currentVersion = keyToDOVersion.get(contextKey);
+
+            if (contextVersion > currentVersion) {
+                missingDeps.put(contextKey, contextVersion);
+            }
+        }
+
+        return missingDeps;
+    }
+
+
 
 
     //--------------------------------------------------------------------------
@@ -154,6 +317,10 @@ public abstract class StateTreeProtocolInstance
     @Override
     public void addDataObjectsToLevel(Set<DataObject> dataObjects, int level) {
         levelToDataObjects.put(level, dataObjects);
+        for (DataObject dataObject : dataObjects) {
+            keyToDataObject.put(dataObject.getKey(), dataObject);
+            keyToDOVersion.put(dataObject.getKey(), 0);
+        }
     }
 
     @Override
@@ -212,6 +379,9 @@ public abstract class StateTreeProtocolInstance
     @Override
     public void addClients(Set<Client> clientList) {
         clients.addAll(clientList);
+        for (Client client : clientList) {
+            idToClient.put(client.getId(), client);
+        }
     }
 
     public void setClientsCycle(int clientsCycle) {
@@ -227,132 +397,14 @@ public abstract class StateTreeProtocolInstance
     //--------------------------------------------------------------------------
 
     // Tbh isto provavelmente pode ser feito usando os proprios datasets locais do objecto
-    public boolean isInterested(long node, long key) {
-        StateTreeProtocol datacenter = (StateTreeProtocol) Network
-                .get(Math.toIntExact(node)).getProtocol(tree);
-        return GroupsManager.getInstance()
-                .datacenterContainsObject(datacenter, Math.toIntExact(key));
-    }
-
-    //--------------------------------------------------------------------------
-    // Queue methods
-    //--------------------------------------------------------------------------
-
     @Override
-    public void initQueue(Node node) {
-
-        Linkable linkn = (Linkable) node.getProtocol(link);
-        for (int i = 0; i < linkn.degree(); i++) {
-            Node neighbor = linkn.getNeighbor(i);
-            queue.put(neighbor.getID(), new ArrayList<>());
-        }
-        this.nodeId = node.getID();
-    }
-
-    public void addToQueue(EventUID event, Long from) {
-        // System.out.println("Trying to add event");
-        for (Long key : queue.keySet()) {
-            if (!key.equals(from)) {
-            //    System.out.println("Adding to queue!");
-                queue.get(key).add(event);
-            }
-        }
+    public boolean isInterested(int key) {
+        return keyToDataObject.containsKey(key);
     }
 
     @Override
-    public List<EventUID> getQueue(Long node) {
-        return queue.get(node);
-    }
-
-    public void cleanQueue(Long node) {
-        if (queue.containsKey(node)) {
-            queue.get(node).clear();
-        }
-    }
-
-    public void processQueue(List<EventUID> queue, long id) {
-        for (EventUID event : queue) {
-            if (event.isMigration() && id == event.getMigrationTarget()) {
-                acceptClient(event.getIdentifier());
-            } else if (isInterested(id, event.getOperation().getKey())) {
-                // System.out.println("Adding metadata!");
-                addMetadata(event);
-            }
-        }
-    }
-
-    public void acceptClient(UUID identifier) {
-        Client client = pendingClientsQueue.get(identifier);
-        clients.add(client);
-        receivedMigrations++;
-        pendingClientsQueue.remove(identifier);
-        //System.out.println("Migration sucessful! " + key);
-    }
-
-    public void addQueueToQueue(List<EventUID> queue, Long from) {
-        for (EventUID eventUID : queue) {
-            this.addToQueue(eventUID, from);
-        }
-    }
-
-    //--------------------------------------------------------------------------
-    // Pending queue methods
-    //--------------------------------------------------------------------------
-
-    public void addToPendingQueue(EventUID event, int epoch, long senderId) {
-    //    System.out.println("Adding event: "+event.toString()+" to node "+senderId+" pending queue");
-        if (pendingQueue.containsKey(epoch)) {
-            pendingQueue.get(epoch).add(new PendingEventUID(event, senderId));
-        } else {
-            List<PendingEventUID> v = new ArrayList<>();
-            pendingQueue.put(epoch, v);
-            v.add(new PendingEventUID(event, senderId));
-        }
-    }
-
-    public List<PendingEventUID> getPendingQueue(int epoch) {
-        return pendingQueue.get(epoch);
-    }
-
-    public void cleanPendingQueue(int currentEpoch) {
-        Set<Integer> epochs = pendingQueue.keySet();
-        Integer[] list = new Integer[epochs.size()];
-        int c = 0;
-        for (int element : epochs) {
-            list[c] = element;
-            c++;
-        }
-        for (int epoch : list) {
-            if (epoch < currentEpoch) {
-                pendingQueue.remove(epoch);
-            }
-        }
-    }
-
-    public void migrateClientQueue(Client client, EventUID label) {
-        pendingClientsQueue.put(label.getIdentifier(), client);
-    }
-
-    public void addQueueToPendingQueue(List<EventUID> queue2, int epoch, long senderId) {
-        for (EventUID eventUID : queue2) {
-            this.addToPendingQueue(eventUID, epoch, senderId);
-        }
-    }
-
-    @Override
-    public void processPendingEpoch(int currentEpoch) {
-        for (int epoch : pendingQueue.keySet()) {
-            if (epoch < currentEpoch) {
-                List<PendingEventUID> v = getPendingQueue(epoch);
-                if (v != null) {
-                    //System.out.println("cleaning pendings of epoch "+epoch+" - "+v.toString());
-                    for (int i = 0; i < v.size(); i++) {
-                        PendingEventUID event = v.get(i);
-                        this.addToQueue(event.getEvent(), event.getSenderId());
-                    }
-                }
-            }
-        }
+    public void setNodeId(Long nodeId) {
+        this.nodeId = nodeId;
     }
 
     //--------------------------------------------------------------------------
@@ -360,17 +412,14 @@ public abstract class StateTreeProtocolInstance
     //--------------------------------------------------------------------------
 
     public void addProcessedEvent(EventUID event) {
-        //System.out.println("PROCESSING EVENT!");
-        //System.out.println("Processing event "+event.getKey()+","+event.getTimestamp()+" from: "+event.getSrc()+" to: "+event.getDst()+" with latency: "+event.getLatency()+
-        //		" tool "+(getEpoch() - event.getEpoch())+" cycles");
         if (event.getOperation().getType() == Operation.Type.REMOTE_READ) {
             if (!isAlreadyDelivered(event)) {
-                averageProcessing = (averageProcessing + (getEpoch() - event.getEpoch()));
+                averageProcessing = (averageProcessing + (CommonState.getTime() - event.getTimestamp()));
                 countProcessed++;
                 this.processed.add(event);
             }
         } else {
-            averageProcessing = (averageProcessing + (getEpoch() - event.getEpoch()));
+            averageProcessing = (averageProcessing + (CommonState.getTime() - event.getTimestamp()));
             countProcessed++;
             this.processed.add(event);
         }
@@ -385,19 +434,19 @@ public abstract class StateTreeProtocolInstance
     }
 
     public String processedToString() {
-        String result = "";
-        for (int i = 0; i < processed.size(); i++) {
-            result = result + " " + processed.get(i).toString();
+        StringBuilder result = new StringBuilder();
+        for (EventUID eventUID : processed) {
+            result.append(" ").append(eventUID.toString());
         }
-        return result;
+        return result.toString();
     }
 
     public String processedToStringFileFormat() {
-        String result = "";
-        for (int i = 0; i < processed.size(); i++) {
-            result = result + " " + processed.get(i).toStringFileFormat();
+        StringBuilder result = new StringBuilder();
+        for (EventUID eventUID : processed) {
+            result.append(" ").append(eventUID.toStringFileFormat());
         }
-        return result;
+        return result.toString();
     }
 
     public double getAverageProcessingTime() {
@@ -407,77 +456,11 @@ public abstract class StateTreeProtocolInstance
         return averageProcessing / this.countProcessed;
     }
 
-    public double getLatencyProcessingTime() {
+    double getLatencyProcessingTime() {
         if (countProcessed == 0) {
             return 1;
         }
-        return averageLatency / this.countProcessed;
-    }
-
-    //--------------------------------------------------------------------------
-    // Data/metadata methods
-    //--------------------------------------------------------------------------
-
-    @Override
-    public void addMetadata(EventUID event) {
-        if (metadataQueue.isEmpty()) {
-            if (data.seenEvent(event.getOperation().getKey(), event.getTimestamp())) {
-                addProcessedEvent(event);
-            } else {
-                metadataQueue.add(event);
-            }
-        } else {
-            metadataQueue.add(event);
-        }
-    }
-
-    @Override
-    public VersionVector getMetadataVector() {
-        return metadata;
-    }
-
-    @Override
-    public void addData(EventUID event, Object datum) {
-        // averageLatency = averageLatency + event.getLatency();
-        data.addEvent(event.getOperation().getKey(), event.getTimestamp());
-        boolean matches = true;
-        while (!metadataQueue.isEmpty() && (matches)) {
-            EventUID head = metadataQueue.peek();
-            if (data.seenEvent(head.getOperation().getKey(), head.getTimestamp())) {
-                metadataQueue.poll();
-                addProcessedEvent(event);
-            } else {
-                matches = false;
-            }
-        }
-    }
-
-    @Override
-    public VersionVector getDataVector() {
-        return data;
-    }
-
-    //--------------------------------------------------------------------------
-    // Epoch methods
-    //--------------------------------------------------------------------------
-
-    public int newEpoch() {
-        epoch++;
-        return epoch;
-    }
-
-    public int getEpoch() {
-        return epoch;
-    }
-
-    public int largerEpochSeen() {
-        return largerEpochSeen;
-    }
-
-    public void updateLargerEpochSeen(int newEpoch) {
-        if (newEpoch > largerEpochSeen) {
-            largerEpochSeen = newEpoch;
-        }
+        return (float) averageLatency / this.countProcessed;
     }
 
     //--------------------------------------------------------------------------
@@ -487,10 +470,6 @@ public abstract class StateTreeProtocolInstance
     public int timestamp() {
         counter++;
         return counter;
-    }
-
-    public Map<Integer, Set<StateTreeProtocol>> getLevelsToNodes() {
-        return levelsToNodes;
     }
 
     public Set<DataObject> getAllDataObjects() {
@@ -505,8 +484,31 @@ public abstract class StateTreeProtocolInstance
         return levelToDataObjects;
     }
 
-    @Override
-    public Object clone() {
-        return null;
+    class RemoteUpdateQueueEntry {
+
+        private int key;
+        private int version;
+
+        RemoteUpdateQueueEntry(int key, int version) {
+            this.key = key;
+            this.version = version;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == this) {
+                return true;
+            }
+            if (!(o instanceof  RemoteUpdateQueueEntry)) {
+               return false;
+            }
+            RemoteUpdateQueueEntry entry = (RemoteUpdateQueueEntry) o;
+            return (this.key == entry.key) && (this.version == entry.version);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(key, version);
+        }
     }
 }

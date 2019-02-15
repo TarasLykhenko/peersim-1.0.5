@@ -2,12 +2,10 @@ package example.genericsaturn;
 
 import example.genericsaturn.datatypes.EventUID;
 import example.genericsaturn.datatypes.Operation;
-import example.genericsaturn.datatypes.ReadOperation;
 import example.genericsaturn.datatypes.UpdateOperation;
 import peersim.cdsim.CDProtocol;
 import peersim.config.Configuration;
 import peersim.config.FastConfig;
-import peersim.core.CommonState;
 import peersim.core.Linkable;
 import peersim.core.Network;
 import peersim.core.Node;
@@ -18,10 +16,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.Vector;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static example.genericsaturn.TypeProtocol.Type;
 
@@ -29,9 +24,10 @@ public class TreeProtocol extends StateTreeProtocolInstance
         implements CDProtocol, EDProtocol {
 
     private final int typePid;
-    private final int tree = 2; //This is very hardcoded :/
+    private final int tree;
     private static final String PAR_TYPE_PROT = "type_protocol";
     private static final String PAR_TREE_PROT = "tree_protocol";
+    private final String prefix;
 
 
 //--------------------------------------------------------------------------
@@ -40,7 +36,8 @@ public class TreeProtocol extends StateTreeProtocolInstance
 
     public TreeProtocol(String prefix) {
         super(prefix);
-        //tree = Configuration.getPid(prefix + "." + PAR_TREE_PROT);
+        this.prefix = prefix;
+        tree = Configuration.getPid(prefix + "." + PAR_TREE_PROT);
         typePid = Configuration.getPid(prefix + "." + PAR_TYPE_PROT);
     }
 
@@ -90,26 +87,30 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 it.remove();
             }
 
-            for (int i = 0; i < linkable.degree(); i++) {
-                Node peern = linkable.getNeighbor(i);
-                EventUID eventToSend = event.clone();
-                eventToSend.setDst(peern.getID());
+            handleRemoteOperation(node, pid, linkable, operation, event);
+        }
+    }
 
-                // XXX quick and dirty handling of failures
-                // (message would be lost anyway, we save time)
+    private void handleRemoteOperation(Node node, int pid, Linkable linkable, Operation operation, EventUID event) {
+        for (int i = 0; i < linkable.degree(); i++) {
+            Node peern = linkable.getNeighbor(i);
+            EventUID eventToSend = event.clone();
+            eventToSend.setDst(peern.getID());
 
-                if (!peern.isUp()) {
-                    return;
+            // XXX quick and dirty handling of failures
+            // (message would be lost anyway, we save time)
+
+            if (!peern.isUp()) {
+                continue;
+            }
+
+            TypeProtocol ntype = (TypeProtocol) peern.getProtocol(typePid);
+            if (ntype.getType() == Type.DATACENTER) {
+                if (isInterested(peern.getID(), operation.getKey())) {
+                    sendMessage(node, peern, new DataMessage(eventToSend, "data", getEpoch()), pid);
                 }
-
-                TypeProtocol ntype = (TypeProtocol) peern.getProtocol(typePid);
-                if (ntype.getType() == Type.DATACENTER) {
-                    if (isInterested(peern.getID(), operation.getKey())) {
-                        sendMessage(node, peern, new DataMessage(eventToSend, "data", getEpoch()), pid);
-                    }
-                } else if (ntype.getType() == Type.BROKER) {
-                    sendMessage(node, peern, new MetadataMessage(eventToSend, getEpoch(), node.getID()), pid);
-                }
+            } else if (ntype.getType() == Type.BROKER) {
+                sendMessage(node, peern, new MetadataMessage(eventToSend, getEpoch(), node.getID()), pid);
             }
         }
     }
@@ -142,10 +143,10 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 return;
             }
 
-            Vector<EventUID> queueToSend = queue.get(peerNode.getID());
+            List<EventUID> queueToSend = queue.get(peerNode.getID());
             if (queueToSend != null) {
                 QueueMessage msg = new QueueMessage(
-                        (Vector<EventUID>) queueToSend.clone(),
+                        new ArrayList<>(queueToSend),
                         peerType.getType(),
                         getEpoch(),
                         node.getID());
@@ -189,6 +190,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
 
         // Check if node is under partition
         /*
+
         Map<Long, Integer> longIntegerMap = PointToPointTransport.partitionTable.get(bestNode.getID());
         for (Long dstNode : longIntegerMap.keySet()) {
             if (longIntegerMap.get(dstNode) > CommonState.getTime()) {
@@ -256,7 +258,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
         if (event instanceof MigrationMessage) {
             MigrationMessage msg = (MigrationMessage) event;
 
-            Vector<EventUID> vec = new Vector<>();
+            List<EventUID> vec = new ArrayList<>();
             vec.add(msg.event);
             if (msg.epoch == this.getEpoch()) {
                 this.addQueueToQueue(vec, msg.senderId);
@@ -280,6 +282,11 @@ public class TreeProtocol extends StateTreeProtocolInstance
         }
     }
 
+    @Override
+    public Object clone() {
+        return new TreeProtocol(prefix);
+    }
+
 //--------------------------------------------------------------------------
 //--------------------------------------------------------------------------
 
@@ -289,7 +296,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
         final Object data;
         final int epoch;
 
-        public DataMessage(EventUID event, Object data, int epoch) {
+        DataMessage(EventUID event, Object data, int epoch) {
             this.event = event;
             this.data = data;
             this.epoch = epoch;
@@ -302,7 +309,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
         final int epoch;
         final long senderId;
 
-        public MetadataMessage(EventUID event, int epoch, long senderId) {
+        MetadataMessage(EventUID event, int epoch, long senderId) {
             this.event = event;
             this.epoch = epoch;
             this.senderId = senderId;
@@ -316,7 +323,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
         final long senderId;
         final int epoch;
 
-        public MigrationMessage(EventUID event, long senderId, int epoch) {
+        MigrationMessage(EventUID event, long senderId, int epoch) {
             this.event = event;
             this.senderId = senderId;
             this.epoch = epoch;
@@ -326,34 +333,18 @@ public class TreeProtocol extends StateTreeProtocolInstance
 
     class QueueMessage {
 
-        final Vector<EventUID> queue;
+        final List<EventUID> queue;
         final Type type;
         final int epoch;
 
         final long senderId;
 
-        public QueueMessage(Vector<EventUID> queue, Type type, int epoch, long senderId) {
+        QueueMessage(List<EventUID> queue, Type type, int epoch, long senderId) {
             this.queue = queue;
             this.type = type;
             this.epoch = epoch;
             this.senderId = senderId;
         }
     }
-
-    class OutwardsPartitionObject {
-
-        final Node src;
-        final Node dest;
-        final Object msg;
-        final int pid;
-
-        OutwardsPartitionObject(Node src, Node dest, Object msg, int pid) {
-            this.src = src;
-            this.dest = dest;
-            this.msg = msg;
-            this.pid = pid;
-        }
-    }
-
 }
 

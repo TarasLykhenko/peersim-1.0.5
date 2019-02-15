@@ -16,13 +16,10 @@
  *
  */
 
-package example.genericsaturn;
+package example.cops;
 
-import example.genericsaturn.datatypes.DataObject;
-import example.genericsaturn.datatypes.EventUID;
-import example.genericsaturn.datatypes.PendingEventUID;
-import example.genericsaturn.datatypes.VersionVector;
-import peersim.core.Node;
+import example.cops.datatypes.DataObject;
+import example.cops.datatypes.EventUID;
 
 import java.util.List;
 import java.util.Map;
@@ -34,43 +31,9 @@ import java.util.Set;
  */
 public interface StateTreeProtocol {
 
-    /**
-     * Returns
-     * 0: New and no matching data
-     * 1: New and matching data
-     * 2: Seen
-     */
-    void addMetadata(EventUID event);
-
-    /**
-     * Returns
-     * 0: New and no matching metadata
-     * 1: New and matching metadata
-     * 2: Seen
-     */
-    void addData(EventUID event, Object data);
-
-    void addQueueToQueue(List<EventUID> queue2, Long from);
-
-    void addToPendingQueue(EventUID event, int epoch, long senderId);
-
-    void addQueueToPendingQueue(List<EventUID> queue2, int epoch, long senderId);
-
-    List<PendingEventUID> getPendingQueue(int epoch);
-
-    void cleanPendingQueue(int epoch);
-
-    void processQueue(List<EventUID> queue, long id);
-
     int timestamp();
 
-    int newEpoch();
-
-    int getEpoch();
-
-    int largerEpochSeen();
-
-    void updateLargerEpochSeen(int newEpoch);
+    void setNodeId(Long nodeId);
 
     void addProcessedEvent(EventUID event);
 
@@ -82,26 +45,12 @@ public interface StateTreeProtocol {
 
     String processedToStringFileFormat();
 
-    void addToQueue(EventUID event, Long from);
-
-    List<EventUID> getQueue(Long node);
-
-    void cleanQueue(Long node);
-
-    void processPendingEpoch(int epoch);
-
-    VersionVector getMetadataVector();
-
-    VersionVector getDataVector();
-
-    void initQueue(Node node);
-
     double getAverageProcessingTime();
     //--------------------------------------------------------------------------
     //Replication groups methods
     //--------------------------------------------------------------------------
 
-    boolean isInterested(long node, long key);
+    boolean isInterested(int key);
 
     //--------------------------------------------------------------------------
     //Client methods
@@ -129,10 +78,6 @@ public interface StateTreeProtocol {
 
     int getNumberLocalReads();
 
-    void addFullMetadata(int update);
-
-    void addPartialMetadata(int update);
-
     double getFullMetadata();
 
     double getPartialMetadata();
@@ -144,6 +89,8 @@ public interface StateTreeProtocol {
     boolean isAlreadyDelivered(EventUID event);
 
     void addRemoteRead(EventUID event);
+
+
 
     // NEW
 
@@ -160,4 +107,12 @@ public interface StateTreeProtocol {
     Set<DataObject> getAllDataObjects();
 
     Map<Integer, Set<DataObject>> getAllDataObjectsPerLevel();
+
+    // COPS Methods
+
+    int copsGet(Integer key);
+
+    int copsPut(Integer key);
+
+    void copsPutRemote(Integer key, Map<Integer, Integer> context, Integer version);
 }

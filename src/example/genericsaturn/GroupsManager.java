@@ -2,11 +2,9 @@ package example.genericsaturn;
 
 import example.genericsaturn.datatypes.DataObject;
 import peersim.config.Configuration;
-import peersim.core.CommonState;
 import peersim.core.Network;
 import peersim.core.Node;
 import peersim.graph.Graph;
-import peersim.util.ExtendedRandom;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -22,8 +20,6 @@ public class GroupsManager {
     private final int type;
     private final int levels;
 
-    private ExtendedRandom random = CommonState.r;
-
     private Map<Long, Map<Integer, Set<StateTreeProtocol>>> nodeToLevelNeighbours = new HashMap<>();
 
     private Map<Integer, Set<DataObject>> levelsToAllDataObjects = new HashMap<>();
@@ -32,24 +28,12 @@ public class GroupsManager {
     private Map<Integer, DataObject> idToObjects = new HashMap<>();
     private Map<StateTreeProtocol, Set<DataObject>> datacenterToObjects = new HashMap<>();
 
-    public Map<Integer, Set<DataObject>> getLevelsToAllDataObjects() {
-        return levelsToAllDataObjects;
-    }
-
-
     private GroupsManager() {
         type = Configuration.getPid(PAR_TYPE);
         tree = Configuration.getPid(PAR_TREE);
         levels = Configuration.getInt(PAR_LEVELS);
     }
     private static GroupsManager groupsManager;
-
-    public DataObject getRandomDataObject() {
-        int level = random.nextInt(levels);
-        Set<DataObject> dataObjects = levelsToAllDataObjects.get(level);
-        return dataObjects.stream().skip(random.nextInt(dataObjects.size())).findFirst().get();
-    }
-
 
     public static GroupsManager getInstance() {
         if (groupsManager == null) {

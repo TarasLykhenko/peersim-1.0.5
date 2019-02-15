@@ -1,14 +1,11 @@
-package example.genericsaturn.datatypes;
+package example.cops.datatypes;
 
 public class Operation {
-	/* 0:	read
-	 * 1: 	update
-	 * 2:	remote read
-	 */
+
 	public enum Type {
 		READ,
+		REMOTE_READ,
 		UPDATE,
-		REMOTE_READ
 	}
 
 	private Type type;

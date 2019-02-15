@@ -28,6 +28,7 @@ protocol.type example.oldsaturn.TypeProtocol
 protocol.tree example.oldsaturn.TreeProtocol
 protocol.tree.step CYCLE
 protocol.tree.transport tr
+protocol.tree.tree_protocol tree
 protocol.tree.type_protocol type
 protocol.tree.linkable link
 
@@ -59,7 +60,7 @@ init.2.dictionary dictionaries/filtered-facebook-links;Kmin2;Kmax2;servers5.json
 init.2.tree_protocol tree
 init.2.type_protocol type
 init.2.keys_node 4
-init.2.clients_cycle 1 
+init.2.clients_cycle 1
 init.2.max_clients 2
 
 init.sch CDScheduler
