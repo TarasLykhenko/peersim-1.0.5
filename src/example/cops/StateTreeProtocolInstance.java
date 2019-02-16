@@ -187,8 +187,10 @@ abstract class StateTreeProtocolInstance
             writer.println("Am more updated");
             System.out.println("RETURNING");
             Map<Integer, Integer> newUpdate = new HashMap<>();
-            newUpdate.put(key, version);
-            checkIfCanAcceptMigratedClients(newUpdate);
+            newUpdate.put(key, version - 1);
+            updateToContextDeps.put(new RemoteUpdateQueueEntry(key, version), newUpdate);
+            checkIfCanProcessRemoteUpdates();
+            checkIfCanAcceptMigratedClients();
             return;
         }
         System.out.println("NOT RETURNING");
@@ -214,13 +216,8 @@ abstract class StateTreeProtocolInstance
             remoteWrites.add(new Pair<>(key, version));
             System.out.println("unlimited lets go works");
 
-            Map<Integer, Integer> newlyAppliedUpdates =
-                    checkIfCanProcessRemoteUpdates(key, version);
-            if (!newlyAppliedUpdates.containsKey(key)) {
-                newlyAppliedUpdates.put(key, version);
-            }
-            writer.println("Newly applied updates: " + newlyAppliedUpdates);
-            checkIfCanAcceptMigratedClients(newlyAppliedUpdates);
+            checkIfCanProcessRemoteUpdates();
+            checkIfCanAcceptMigratedClients();
         } else {
             System.out.println("Missing deps: " + missingDeps);
             RemoteUpdateQueueEntry entry = new RemoteUpdateQueueEntry(key, version);
@@ -245,82 +242,58 @@ abstract class StateTreeProtocolInstance
         }
     }
 
-    private Map<Integer, Integer> checkIfCanProcessRemoteUpdates(int key, int version) {
-        Map<Integer, Integer> newlyAppliedUpdates = new HashMap<>();
-
-        Map<Integer, Integer> result = checkIfCanProcessRemoteUpdatesHelper(key, version);
-        while (!result.isEmpty()) {
-            newlyAppliedUpdates.putAll(result);
-            result.clear();
-            for (Map.Entry<Integer, Integer> entry : result.entrySet()) {
-                result = checkIfCanProcessRemoteUpdatesHelper(entry.getKey(), entry.getValue());
-            }
-        }
-        writer.println("List of newly applied updates: " + newlyAppliedUpdates);
-        return newlyAppliedUpdates;
-    }
-
     /**
      * Given a new applied update, checks if any queued updates relied on this update and
      * if so, checks if the queued updates can be applied.
-     * @param key Key of the newly applied update
-     * @param version Version of the newly applied update
-     * @return A map of all newly applied updates, including the original one and the
-     * possible following new ones
      */
     // Verificar se de facto está bem
-    private Map<Integer, Integer> checkIfCanProcessRemoteUpdatesHelper(int key, int version) {
-        Map<Integer, Integer> newlyAppliedUpdates = new HashMap<>();
-        Iterator<RemoteUpdateQueueEntry> it = updateToContextDeps.keySet().iterator();
-        System.out.println("Trying to apply.");
-        while (it.hasNext()) {
-            RemoteUpdateQueueEntry queuedUpdate = it.next();
-            Map<Integer, Integer> queuedUpdateContext = updateToContextDeps.get(queuedUpdate);
-            @Nullable Integer contextVersion = queuedUpdateContext.get(key);
-            if (contextVersion != null) {
-                writer.println("Chceking key:"+key+"|ownVer:"+version+"|queuedVer:"+contextVersion);
-                if (version >= contextVersion) {
-                    System.out.println("Removing! key:"+key+"|ver:"+contextVersion);
-                    queuedUpdateContext.remove(key);
+    private void checkIfCanProcessRemoteUpdates() {
+        boolean appliedUpdate = true;
+
+        while (appliedUpdate) {
+            appliedUpdate = false;
+            Set<RemoteUpdateQueueEntry> toRemove = new HashSet<>();
+
+            for (RemoteUpdateQueueEntry queuedUpdate : updateToContextDeps.keySet()) {
+
+                Map<Integer, Integer> missingDeps = checkDeps(updateToContextDeps.get(queuedUpdate));
+                if (missingDeps.isEmpty()) {
+                    Integer currentVersion = keyToDOVersion.get(queuedUpdate.key);
+                    if (currentVersion <= queuedUpdate.version) {
+                        writer.println("QUEUD UPDATE! write key:"+queuedUpdate.key+"|ver:"+queuedUpdate.version);
+                        doWrite(queuedUpdate.key, queuedUpdate.version);
+                    } else {
+                        writer.println("Could apply update but too old. ownVer:" + currentVersion + "|otherVer:"+queuedUpdate.version);
+                        System.out.println("TOO OLD!");
+                    }
+                    appliedUpdate = true;
+                    toRemove.add(queuedUpdate);
+                    writer.println("Going to remove key:"+queuedUpdate.key+"|ver:"+queuedUpdate.version);
+                } else {
+                    addDependency(queuedUpdate, missingDeps);
                 }
             }
 
-            if (queuedUpdateContext.isEmpty()) {
-                Integer currentVersion = keyToDOVersion.get(queuedUpdate.key);
-                if (currentVersion <= queuedUpdate.version) {
-                    writer.println("QUEUD UPDATE! write key:"+queuedUpdate.key+"|ver:"+queuedUpdate.version);
-                    doWrite(queuedUpdate.key, queuedUpdate.version);
-                } else {
-                    writer.println("Could apply update but too old.");
-                    System.out.println("TOO OLD!");
-                }
-                newlyAppliedUpdates.put(queuedUpdate.key, queuedUpdate.version);
-                it.remove();
+            for (RemoteUpdateQueueEntry entry : toRemove) {
+                updateToContextDeps.remove(entry);
             }
         }
-
-        return newlyAppliedUpdates;
     }
 
-    private void checkIfCanAcceptMigratedClients(Map<Integer, Integer> newUpdates) {
+    private void addDependency(RemoteUpdateQueueEntry entry, Map<Integer, Integer> context) {
+        updateToContextDeps.put(entry, context);
+    }
+
+    private void checkIfCanAcceptMigratedClients() {
         Iterator<Client> it = clientToDepsQueue.keySet().iterator();
         while (it.hasNext()) {
             Client client = it.next();
             Map<Integer, Integer> clientContext = clientToDepsQueue.get(client);
-
-            for (Integer newUpdateKey : newUpdates.keySet()) {
-                // Check if the client context contains the key
-                @Nullable Integer contextVersion = clientContext.get(newUpdateKey);
-                if (contextVersion != null) {
-                    Integer updateVersion = newUpdates.get(newUpdateKey);
-                    if (updateVersion >= contextVersion) {
-                        System.out.println("YAY!");
-                        writer.println("accept client " + client.getId());
-                        acceptClient(client);
-                        // provavelmente vai dar concurrent iter exception
-                        it.remove();
-                    }
-                }
+            Map<Integer, Integer> missingDeps = checkDeps(clientContext);
+            if (missingDeps.isEmpty()) {
+                writer.println("accept client " + client.getId());
+                acceptClient(client);
+                it.remove();
             }
         }
     }
