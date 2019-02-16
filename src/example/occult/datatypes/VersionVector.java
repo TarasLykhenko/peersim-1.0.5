@@ -1,4 +1,4 @@
-package example.cops.datatypes;
+package example.occult.datatypes;
 
 import java.util.HashMap;
 

@@ -1,4 +1,4 @@
-package example.cops;
+package example.occult;
 
 import example.cops.datatypes.EventUID;
 import example.cops.datatypes.Operation;
@@ -65,6 +65,11 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 continue;
             }
             EventUID event = new EventUID(operation, CommonState.getTime(), datacenter.getNodeId(), 0);
+
+            //
+            if (operation.getType() == Operation.Type.UPDATE) {
+
+            }
 
             if (!datacenter.isInterested(operation.getKey())) {
                 operation.setType(Operation.Type.REMOTE_READ);

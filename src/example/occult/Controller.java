@@ -16,7 +16,7 @@
  *
  */
 
-package example.cops;
+package example.occult;
 
 import peersim.config.Configuration;
 import peersim.core.CommonState;

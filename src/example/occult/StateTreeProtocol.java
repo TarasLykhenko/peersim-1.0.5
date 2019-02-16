@@ -16,7 +16,7 @@
  *
  */
 
-package example.cops;
+package example.occult;
 
 import example.cops.datatypes.DataObject;
 import example.cops.datatypes.EventUID;

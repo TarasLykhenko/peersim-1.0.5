@@ -16,11 +16,16 @@
  *
  */
 
-package example.cops;
+package example.occult;
 
+import com.sun.istack.internal.Nullable;
 import example.cops.datatypes.DataObject;
 import example.cops.datatypes.EventUID;
+import example.cops.datatypes.Operation;
+import example.cops.datatypes.VersionVector;
 import javafx.util.Pair;
+import peersim.config.Configuration;
+import peersim.core.CommonState;
 import peersim.core.Protocol;
 
 import java.io.BufferedWriter;
@@ -48,14 +53,19 @@ abstract class StateTreeProtocolInstance
     /**
      * Value held by this protocol
      */
+    protected VersionVector metadata = new VersionVector();
+
     private int reads = 0;
     private int remoteReads = 0;
     private int updates = 0;
 
+
+    protected VersionVector data = new VersionVector();
     protected int counter = 0;
 
     protected double averageProcessing;
     protected List<EventUID> processed = new ArrayList<>();
+    private static final String PAR_LINK_PROT = "linkable";
 
     protected Set<String> deliveredRemoteReads = new HashSet<>();
 

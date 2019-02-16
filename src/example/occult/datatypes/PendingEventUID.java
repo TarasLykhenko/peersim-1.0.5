@@ -1,4 +1,4 @@
-package example.cops.datatypes;
+package example.occult.datatypes;
 
 
 public class PendingEventUID {
