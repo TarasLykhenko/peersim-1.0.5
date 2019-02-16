@@ -62,77 +62,56 @@ public class TreeProtocol extends StateTreeProtocolInstance
             Operation operation = client.nextOperation();
             // Client is waiting for result;
             if (operation == null) {
-                System.out.println("Client " + client.getId() + " is waiting!");
+                //System.out.println("Client " + client.getId() + " is waiting!");
                 continue;
             }
             EventUID event = new EventUID(operation, CommonState.getTime(), datacenter.getNodeId(), 0);
-            analyzeEvent(datacenter, event);
+
+            if (!datacenter.isInterested(operation.getKey())) {
+                operation.setType(Operation.Type.REMOTE_READ);
+            }
+
 
             // If there isn't a remote operation, continue
-            // TODO Important! There's no latency in local operations.
-            if (event.getOperation().getType() == Operation.Type.READ) {
+            if (eventIsRead(event)) {
                 int version = copsGet(operation.getKey());
                 client.receiveReadResult(operation.getKey(), version);
                 continue;
             }
 
             // If it's a remote read, migrate the client
+            // Note: If it's an update but the DC doesn't have the object, it becomes a remote read
             if (event.getOperation().getType() == Operation.Type.REMOTE_READ) {
                 migrateClientStart(client, event, datacenter);
-                System.out.println("Client " + client.getId() + " has migrated!");
                 it.remove();
+                continue;
             }
 
-            if (event.getOperation().getType() == Operation.Type.UPDATE) {
-                // If the client's DC is interested, apply the update locally
-                if (datacenter.isInterested(event.getOperation().getKey())) {
-                    Integer newVersion = datacenter.copsPut(event.getOperation().getKey());
-                    client.receiveUpdateResult(event.getOperation().getKey(), newVersion);
+            // If the client's DC is interested, apply the update locally
+            if (eventIsUpdate(event) && datacenter.isInterested(event.getOperation().getKey())) {
+                Integer newVersion = datacenter.copsPut(event.getOperation().getKey(), CommonState.getTime());
 
-                    for (int i = 0; i < linkable.degree(); i++) {
-                        Node peer = linkable.getNeighbor(i);
+                Map<Integer, Integer> clientContext = client.getCopyOfContext();
+                client.receiveUpdateResult(event.getOperation().getKey(), newVersion);
+
+                for (int i = 0; i < linkable.degree(); i++) {
+                    Node peer = linkable.getNeighbor(i);
+                    StateTreeProtocol peerDatacenter = (StateTreeProtocol) peer.getProtocol(tree);
+
+                    if (peerDatacenter.isInterested(operation.getKey())) {
                         EventUID eventToSend = new EventUID(event);
                         eventToSend.setDst(peer.getID());
 
-                        // XXX quick and dirty handling of failures
-                        // (message would be lost anyway, we save time)
-
-                        if (!peer.isUp()) {
-                            return;
-                        }
-
-                        StateTreeProtocol peerDatacenter = (StateTreeProtocol) peer.getProtocol(tree);
-                        if (peerDatacenter.isInterested(operation.getKey())) {
-                            DataMessage msg = new DataMessage(eventToSend,
-                                    client.getCopyOfContext(),
-                                    newVersion,
-                                    CommonState.getTime());
-                            sendMessage(node, peer, msg, pid);
-                        }
+                        DataMessage msg = new DataMessage(eventToSend,
+                                clientContext,
+                                newVersion,
+                                CommonState.getTime());
+                        sendMessage(node, peer, msg, pid);
                     }
-                } else {
-                    System.out.println("TODO for client " + client.getId());
-                    // TODO force migrate I guess
                 }
-            }
-
-        }
-    }
-
-    // TODO - Pode fazer remote updates antes de migrar!
-    private void analyzeEvent(StateTreeProtocol datacenter, EventUID event) {
-        if (event.getOperation().getType() == Operation.Type.READ) {
-            int key = event.getOperation().getKey();
-
-            if (datacenter.isInterested(key)) {
-                this.incrementLocalReads();
             } else {
-                //remote read
-                this.incrementRemoteReads();
-                event.getOperation().setType(Operation.Type.REMOTE_READ);
+                System.out.println("Unknown scenario!");
             }
-        } else if (event.getOperation().getType() == Operation.Type.UPDATE) {
-            incrementUpdates();
         }
     }
 
@@ -140,6 +119,19 @@ public class TreeProtocol extends StateTreeProtocolInstance
                                     EventUID event,
                                     StateTreeProtocol originalDC) {
 
+        Set<Node> interestedNodes = getInterestedDatacenters(event);
+
+        // Then select the datacenter that has the lowest latency to the client
+        Node bestNode = getLowestLatencyDatacenter(originalDC, interestedNodes);
+
+        // Send client to target
+        TreeProtocol targetDCProtocol = (TreeProtocol) bestNode.getProtocol(tree);
+        targetDCProtocol.migrateClientQueue(client, client.getCopyOfContext());
+
+        sentMigrations++;
+    }
+
+    private Set<Node> getInterestedDatacenters(EventUID event) {
         Set<Node> interestedNodes = new HashSet<>();
         // First get which datacenters replicate the data
         for (int i = 0; i < Network.size(); i++) {
@@ -150,41 +142,22 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 interestedNodes.add(node);
             }
         }
+        return interestedNodes;
+    }
 
-        // Then select the datacenter that has the lowest latency to the client
+    private Node getLowestLatencyDatacenter(StateTreeProtocol originalDC, Set<Node> interestedNodes) {
         int lowestLatency = Integer.MAX_VALUE;
         Node bestNode = null;
         for (Node interestedNode : interestedNodes) {
-
             int nodeLatency = PointToPointTransport
                     .staticGetLatency(originalDC.getNodeId(), interestedNode.getID());
             if (nodeLatency < lowestLatency) {
                 bestNode = interestedNode;
             }
         }
-        if (bestNode == null) {
-            System.out.println("TRUMP.SAD()!");
-        }
-
-        // Check if node is under partition
-        // debugCheckIfNodeIsPartitioned(bestNode);
-
-
-        // Send client to target
-        TreeProtocol targetDCProtocol = (TreeProtocol) bestNode.getProtocol(tree);
-        targetDCProtocol.migrateClientQueue(client, client.getCopyOfContext());
-
-        sentMigrations++;
+        return bestNode;
     }
 
-    private void debugCheckIfNodeIsPartitioned(Node bestNode) {
-        Map<Long, Integer> longIntegerMap = PointToPointTransport.partitionTable.get(bestNode.getID());
-        for (Long dstNode : longIntegerMap.keySet()) {
-            if (longIntegerMap.get(dstNode) > CommonState.getTime()) {
-                System.out.println("MIGRATING TO PARTITIONED NODE!" + longIntegerMap.get(dstNode) + " | " + CommonState.getTime());
-            }
-        }
-    }
 
     private void sendMessage(Node src, Node dst, Object msg, int pid) {
         ((Transport) src.getProtocol(FastConfig.getTransport(pid)))
@@ -199,6 +172,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
     public void processEvent(Node node, int pid, Object event) {
 
         if (event instanceof DataMessage) {
+            System.out.println("TIME: " + CommonState.getTime());
             DataMessage msg = (DataMessage) event;
             this.copsPutRemote(msg.event.getOperation().getKey(),
                     msg.context,
@@ -206,8 +180,30 @@ public class TreeProtocol extends StateTreeProtocolInstance
         }
     }
 
+    //--------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
+
+
     public Object clone() {
         return new TreeProtocol(prefix);
+    }
+
+    private boolean eventIsRead(EventUID event) {
+        return event.getOperation().getType() == Operation.Type.READ;
+    }
+
+    private boolean eventIsUpdate(EventUID event) {
+        return event.getOperation().getType() == Operation.Type.UPDATE;
+    }
+
+    private void debugCheckIfNodeIsPartitioned(Node bestNode) {
+        Map<Long, Integer> longIntegerMap = PointToPointTransport.partitionTable.get(bestNode.getID());
+        for (Long dstNode : longIntegerMap.keySet()) {
+            if (longIntegerMap.get(dstNode) > CommonState.getTime()) {
+                System.out.println("MIGRATING TO PARTITIONED NODE!" + longIntegerMap.get(dstNode) + " | " + CommonState.getTime());
+            }
+        }
     }
 
 

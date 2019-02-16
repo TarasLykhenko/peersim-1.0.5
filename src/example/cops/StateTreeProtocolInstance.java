@@ -23,20 +23,24 @@ import example.cops.datatypes.DataObject;
 import example.cops.datatypes.EventUID;
 import example.cops.datatypes.Operation;
 import example.cops.datatypes.VersionVector;
+import javafx.util.Pair;
 import peersim.config.Configuration;
 import peersim.core.CommonState;
-import peersim.core.Node;
 import peersim.core.Protocol;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 abstract class StateTreeProtocolInstance
@@ -53,9 +57,9 @@ abstract class StateTreeProtocolInstance
      */
     protected VersionVector metadata = new VersionVector();
 
-    protected int localReads = 0;
-    protected int remoteReads = 0;
-    protected int updates = 0;
+    private int reads = 0;
+    private int remoteReads = 0;
+    private int updates = 0;
 
 
     protected VersionVector data = new VersionVector();
@@ -80,10 +84,6 @@ abstract class StateTreeProtocolInstance
 
     protected long nodeId;
 
-    protected Map<UUID, Client> pendingClientsQueue = new HashMap<>();
-
-
-    protected Map<Integer, Map<Integer, Integer>> updatesQueue = new HashMap<>();
     protected long sentMigrations = 0;
     protected long receivedMigrations = 0;
 
@@ -96,7 +96,7 @@ abstract class StateTreeProtocolInstance
     /**
      * We map
      */
-    private Map<Integer, Integer> keyToDOVersion = new HashMap<>();
+    Map<Integer, Integer> keyToDOVersion = new HashMap<>();
 
     /**
      * Super ineficient lookup, everytime there's a new update will check every deps.
@@ -104,12 +104,15 @@ abstract class StateTreeProtocolInstance
      */
 
 
-    private Map<RemoteUpdateQueueEntry, Map<Integer, Integer>> updateToContextDeps = new HashMap<>();
+    Map<RemoteUpdateQueueEntry, Map<Integer, Integer>> updateToContextDeps = new HashMap<>();
 
     /**
      * Queue of clients that migrated and have some remaining dependencies
      */
-    private Map<Client, Map<Integer, Integer>> clientToDepsQueue = new HashMap<>();
+    Map<Client, Map<Integer, Integer>> clientToDepsQueue = new HashMap<>();
+
+    List<Pair<Integer, Integer>> remoteWrites = new ArrayList<>();
+    PrintWriter writer;
 
 
     //--------------------------------------------------------------------------
@@ -158,53 +161,103 @@ abstract class StateTreeProtocolInstance
     // --------------------
 
     public int copsGet(Integer key) {
+        incrementLocalReads();
         return keyToDOVersion.get(key);
+
     }
 
     /**
      * Returns the new version of the object after writing
      */
-    public int copsPut(Integer key) {
+    public int copsPut(Integer key, long time) {
         // If it's a local write, the write can happen immediatly
         int oldVersion = keyToDOVersion.get(key);
         int newVersion = oldVersion + 1;
+        writer.println("write key:"+key+"|ver:"+newVersion + " (local put)");
         doWrite(key, newVersion);
         return newVersion;
     }
 
     public void copsPutRemote(Integer key, Map<Integer, Integer> context, Integer version) {
         int currentVersion = keyToDOVersion.get(key);
+        writer.println("remote receive key:"+key+"|ver:"+version+"| deps:"+context+" | mycontext:"+keyToDOVersion);
+
         if (currentVersion >= version) {
             // Current version is more updated, ignore the update
+            writer.println("Am more updated");
+            System.out.println("RETURNING");
+            Map<Integer, Integer> newUpdate = new HashMap<>();
+            newUpdate.put(key, version);
+            checkIfCanAcceptMigratedClients(newUpdate);
             return;
         }
+        System.out.println("NOT RETURNING");
 
         Map<Integer, Integer> missingDeps = checkDeps(context);
 
         if (missingDeps.isEmpty()) {
+            // Depending on a previous write.
             if (version != currentVersion + 1) {
-                System.out.println("ISTO PROVAVELMENTE ESTÁ SUPER MAL PÁ!");
+                Map<Integer, Integer> dependencyContext = new HashMap<>();
+                dependencyContext.put(key, version - 1);
+                System.out.println("ISTO PROVAVELMENTE ESTÁ SUPER MAL PÁ! key:" + key + " | ownVer:" + currentVersion + "|otherVer:"+version);
+                System.out.println("writeContext: " + context);
+                System.out.println("myContext: " + keyToDOVersion);
+                RemoteUpdateQueueEntry entry = new RemoteUpdateQueueEntry(key, version);
+                writer.println("putting key:"+key+"|ver:"+version + " on queue");
+                updateToContextDeps.put(entry, dependencyContext);
                 return;
             }
 
+            writer.println("write key:"+key+"|ver:"+version + " (remote put)");
             doWrite(key, version);
+            remoteWrites.add(new Pair<>(key, version));
+            System.out.println("unlimited lets go works");
 
-            Map<Integer, Integer> newlyAppliedUpdated =
+            Map<Integer, Integer> newlyAppliedUpdates =
                     checkIfCanProcessRemoteUpdates(key, version);
-            checkIfCanAcceptMigratedClients(newlyAppliedUpdated);
+            if (!newlyAppliedUpdates.containsKey(key)) {
+                newlyAppliedUpdates.put(key, version);
+            }
+            writer.println("Newly applied updates: " + newlyAppliedUpdates);
+            checkIfCanAcceptMigratedClients(newlyAppliedUpdates);
         } else {
+            System.out.println("Missing deps: " + missingDeps);
             RemoteUpdateQueueEntry entry = new RemoteUpdateQueueEntry(key, version);
-            updateToContextDeps.put(entry, new HashMap<>(context));
+            updateToContextDeps.put(entry, new HashMap<>(missingDeps));
+            writer.println("putting deps on queue: key:"+key+"|ver:"+version+"|deps:"+missingDeps+"mycontext:"+keyToDOVersion);
+        }
+        System.out.println("done");
+    }
+
+
+
+    void migrateClientQueue(Client client, Map<Integer, Integer> clientContext) {
+        incrementRemoteReads();
+        Map<Integer, Integer> missingDeps = checkDeps(clientContext);
+        if (missingDeps.isEmpty()) {
+            writer.println("Accept immediatly client " + client.getId());
+            acceptClient(client);
+        } else {
+            writer.println("Client " + client.getId() + " going to queue. deps:" + missingDeps + "|currentStatus:"+keyToDOVersion);
+
+            clientToDepsQueue.put(client, missingDeps);
         }
     }
 
-    void migrateClientQueue(Client client, Map<Integer, Integer> clientContext) {
-        Map<Integer, Integer> missingDeps = checkDeps(clientContext);
-        if (missingDeps.isEmpty()) {
-            acceptClient(client);
-        } else {
-            clientToDepsQueue.put(client, clientContext);
+    private Map<Integer, Integer> checkIfCanProcessRemoteUpdates(int key, int version) {
+        Map<Integer, Integer> newlyAppliedUpdates = new HashMap<>();
+
+        Map<Integer, Integer> result = checkIfCanProcessRemoteUpdatesHelper(key, version);
+        while (!result.isEmpty()) {
+            newlyAppliedUpdates.putAll(result);
+            result.clear();
+            for (Map.Entry<Integer, Integer> entry : result.entrySet()) {
+                result = checkIfCanProcessRemoteUpdatesHelper(entry.getKey(), entry.getValue());
+            }
         }
+        writer.println("List of newly applied updates: " + newlyAppliedUpdates);
+        return newlyAppliedUpdates;
     }
 
     /**
@@ -216,29 +269,43 @@ abstract class StateTreeProtocolInstance
      * possible following new ones
      */
     // Verificar se de facto está bem
-    private Map<Integer, Integer> checkIfCanProcessRemoteUpdates(int key, int version) {
-        Map<Integer, Integer> newAppliedUpdates = new HashMap<>();
-
-        for (RemoteUpdateQueueEntry queuedUpdate : updateToContextDeps.keySet()) {
-            Map<Integer, Integer> updateContext = updateToContextDeps.get(queuedUpdate);
-            @Nullable Integer contextVersion = updateContext.get(key);
+    private Map<Integer, Integer> checkIfCanProcessRemoteUpdatesHelper(int key, int version) {
+        Map<Integer, Integer> newlyAppliedUpdates = new HashMap<>();
+        Iterator<RemoteUpdateQueueEntry> it = updateToContextDeps.keySet().iterator();
+        System.out.println("Trying to apply.");
+        while (it.hasNext()) {
+            RemoteUpdateQueueEntry queuedUpdate = it.next();
+            Map<Integer, Integer> queuedUpdateContext = updateToContextDeps.get(queuedUpdate);
+            @Nullable Integer contextVersion = queuedUpdateContext.get(key);
             if (contextVersion != null) {
+                writer.println("Chceking key:"+key+"|ownVer:"+version+"|queuedVer:"+contextVersion);
                 if (version >= contextVersion) {
-                    updateContext.remove(key);
+                    System.out.println("Removing! key:"+key+"|ver:"+contextVersion);
+                    queuedUpdateContext.remove(key);
                 }
             }
 
-            if (updateContext.isEmpty()) {
-                doWrite(queuedUpdate.key, queuedUpdate.version);
-                newAppliedUpdates.put(queuedUpdate.key, queuedUpdate.version);
+            if (queuedUpdateContext.isEmpty()) {
+                Integer currentVersion = keyToDOVersion.get(queuedUpdate.key);
+                if (currentVersion <= queuedUpdate.version) {
+                    writer.println("QUEUD UPDATE! write key:"+queuedUpdate.key+"|ver:"+queuedUpdate.version);
+                    doWrite(queuedUpdate.key, queuedUpdate.version);
+                } else {
+                    writer.println("Could apply update but too old.");
+                    System.out.println("TOO OLD!");
+                }
+                newlyAppliedUpdates.put(queuedUpdate.key, queuedUpdate.version);
+                it.remove();
             }
         }
 
-        return newAppliedUpdates;
+        return newlyAppliedUpdates;
     }
 
     private void checkIfCanAcceptMigratedClients(Map<Integer, Integer> newUpdates) {
-        for (Client client : clientToDepsQueue.keySet()) {
+        Iterator<Client> it = clientToDepsQueue.keySet().iterator();
+        while (it.hasNext()) {
+            Client client = it.next();
             Map<Integer, Integer> clientContext = clientToDepsQueue.get(client);
 
             for (Integer newUpdateKey : newUpdates.keySet()) {
@@ -247,9 +314,11 @@ abstract class StateTreeProtocolInstance
                 if (contextVersion != null) {
                     Integer updateVersion = newUpdates.get(newUpdateKey);
                     if (updateVersion >= contextVersion) {
+                        System.out.println("YAY!");
+                        writer.println("accept client " + client.getId());
                         acceptClient(client);
                         // provavelmente vai dar concurrent iter exception
-                        clientToDepsQueue.remove(client);
+                        it.remove();
                     }
                 }
             }
@@ -258,11 +327,17 @@ abstract class StateTreeProtocolInstance
 
     private void acceptClient(Client client) {
         clients.add(client);
+        client.isWaitingForResult = false;
         receivedMigrations++;
     }
 
     private void doWrite(Integer key, Integer version) {
+        if (keyToDOVersion.get(key) != version - 1) {
+            System.out.println("HMMMMMM: ownVer: " + keyToDOVersion.get(key) + "|otherVer:" + version);
+        }
+
         keyToDOVersion.put(key, version);
+        incrementUpdates();
     }
 
     private Map<Integer, Integer> checkDeps(Map<Integer, Integer> context) {
@@ -332,44 +407,34 @@ abstract class StateTreeProtocolInstance
     // Statistics methods
     //--------------------------------------------------------------------------
 
-    public void addFullMetadata(int update) {
-        fullMetadata += update;
-    }
-
-    public void addPartialMetadata(int update) {
-        partialMetadata += update;
-    }
-
-    public double getFullMetadata() {
-        return ((double) fullMetadata) / ((double) updates);
-    }
-
-    public double getPartialMetadata() {
-        return ((double) partialMetadata) / ((double) updates);
-    }
-
-    public void incrementUpdates() {
-        updates++;
-    }
-
-    public void incrementRemoteReads() {
-        remoteReads++;
-    }
-
-    public void incrementLocalReads() {
-        localReads++;
-    }
-
+    @Override
     public int getNumberUpdates() {
         return updates;
     }
 
+    @Override
+    public void incrementUpdates() {
+        updates++;
+    }
+
+    @Override
+    public void incrementRemoteReads() {
+        remoteReads++;
+    }
+
+    @Override
+    public void incrementLocalReads() {
+        reads++;
+    }
+
+    @Override
     public int getNumberRemoteReads() {
         return remoteReads;
     }
 
+    @Override
     public int getNumberLocalReads() {
-        return localReads;
+        return reads;
     }
 
     //--------------------------------------------------------------------------
@@ -405,6 +470,15 @@ abstract class StateTreeProtocolInstance
     @Override
     public void setNodeId(Long nodeId) {
         this.nodeId = nodeId;
+        String pathfile = "output/" + nodeId + "-output.txt";
+        FileWriter fr = null;
+        try {
+            fr = new FileWriter(pathfile, false);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        BufferedWriter br = new BufferedWriter(fr);
+        writer = new PrintWriter(br);
     }
 
     //--------------------------------------------------------------------------
@@ -486,8 +560,8 @@ abstract class StateTreeProtocolInstance
 
     class RemoteUpdateQueueEntry {
 
-        private int key;
-        private int version;
+        int key;
+        int version;
 
         RemoteUpdateQueueEntry(int key, int version) {
             this.key = key;

@@ -138,12 +138,14 @@ public final class PointToPointTransport implements Transport {
      */
     //TODO meter random latency
     public long getLatency(Node src, Node dest) {
-        return latencies.get(src.getID()).get(dest.getID());
+        //return latencies.get(src.getID()).get(dest.getID());
+        return 10;
         //return (range==1?latency+min:latency+min + CommonState.r.nextLong(range));
     }
 
     public static int staticGetLatency(long srcId, long destId) {
-        return latencies.get(srcId).get(destId);
+        return 10;
+        //return latencies.get(srcId).get(destId);
     }
 //---------------------------------------------------------------------
 //Methods
@@ -200,7 +202,8 @@ public final class PointToPointTransport implements Transport {
             }
             */
 
-            EDSimulator.add(delay, msg, dest, pid);
+            //EDSimulator.add(delay, msg, dest, pid);
+            EDSimulator.add(1, msg, dest, pid);
         }
     }
 }

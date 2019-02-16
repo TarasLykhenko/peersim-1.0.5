@@ -23,11 +23,15 @@ public class Client {
     private static final String PAR_READ_LEVEL_PERCENTAGES = "client_read_levels_percentage";
     private static final String PAR_UPDATE_PERCENTAGE = "client_update_percentage";
     private static final String PAR_UPDATE_LEVEL_PERCENTAGES = "client_update_levels_percentages";
+    private static final String PAR_REST_TIME = "rest_time";
+    private static final String PAR_REST_TIME_INTERVAL = "rest_time_interval";
 
     private static final int READ_PERCENTAGE;
     private static final int UPDATE_PERCENTAGE;
     private static final int[] READ_LEVEL_PERCENTAGE;
     private static final int[] UPDATE_LEVEL_PERCENTAGE;
+    private static final int REST_TIME;
+    private static final int REST_TIME_INTERVAL;
 
     static {
         READ_PERCENTAGE = Configuration.getInt(PAR_READ_PERCENTAGE);
@@ -46,6 +50,8 @@ public class Client {
                 .split(","))
                 .mapToInt(Integer::parseInt)
                 .toArray();
+        REST_TIME = Configuration.getInt(PAR_REST_TIME);
+        REST_TIME_INTERVAL = Configuration.getInt(PAR_REST_TIME_INTERVAL);
     }
 
     private ExtendedRandom randomGenerator = CommonState.r;
@@ -87,10 +93,10 @@ public class Client {
     }
 
 
-    private boolean isWaitingForResult = false;
+    boolean isWaitingForResult = false;
     Operation nextOperation() {
         if (isWaitingForResult) {
-            System.out.println("WAITING!");
+           // System.out.println("WAITING!");
             return null;
         }
 

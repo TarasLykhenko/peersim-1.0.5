@@ -101,4 +101,4 @@ control.0.protocol tree
 control.0.type type
 control.0.step CYCLE
 control.0.output_file output/optimal5
-control.0.partitions_file example/saturn-configs/four_nodes_three_brokers_partition.top
+control.0.partitions_file example/partitions/four_nodes_three_brokers_partition.top

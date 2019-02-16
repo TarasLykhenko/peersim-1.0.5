@@ -136,7 +136,7 @@ public class Controller implements Control {
 
         iteration = 1;
         outputFile = Configuration.getString(name + "." + PAR_OUTPUT);
-        partitionsFile = Configuration.getString(name + "." + PAR_PARTITIONS_FILE);
+        partitionsFile = Configuration.getString(PAR_PARTITIONS_FILE);
         TAKE_STATISTICS_EVERY = Configuration.getDouble(PAR_TAKE_STATISTICS_EVERY);
         double WHEN_TO_PARTITION = Configuration.getDouble(PAR_WHEN_TO_PARTITION);
         double WHEN_TO_UNPARTATITION = Configuration.getDouble(PAR_WHEN_TO_UNPARTATITION);
@@ -184,7 +184,7 @@ public class Controller implements Control {
 
     public boolean execute() {
         iteration++;
-        // System.out.println("Iteration: " + iteration + " | time: " + CommonState.getTime());
+        //System.out.println("Iteration: " + iteration + " | time: " + CommonState.getTime() + " | partition: " + targetCyclesToPartition);
         if (iteration == targetCyclesToPartition) {
             partitionConnections();
         }
@@ -201,12 +201,12 @@ public class Controller implements Control {
         int aggregateRemoteReads = 0;
         int aggregateProcessing = 0;
         int nNodes = 0;
-        double aggregateFullMetadata = 0;
-        double aggregatePartialMetadata = 0;
         long totalClients = 0;
         long totalSentMigrations = 0;
         long totalReceivedMigrations = 0;
         long totalPendingClients = 0;
+        long waitingClients = 0;
+        long pendingOperations = 0;
         currentPoint += TAKE_STATISTICS_EVERY;
         print("Observer init ======================");
         print("CURRENT POINT: " + currentPoint);
@@ -225,19 +225,37 @@ public class Controller implements Control {
             print("Total sent migrations: " + v.sentMigrations);
             print("Total received migrations: " + v.receivedMigrations);
             print("Clients: " + v.clients.size());
-            print("Pending clients: " + v.pendingClientsQueue.size());
+            print("Pending clients: " + v.clientToDepsQueue.size());
+
+            printImportant("[Node " + i + "] update queue size: " + v.updateToContextDeps.size());
+            printImportant("keys: " + v.keyToDOVersion.keySet());
+            printImportant("vers: " + v.keyToDOVersion.values());
+
+            for (StateTreeProtocolInstance.RemoteUpdateQueueEntry entry : v.updateToContextDeps.keySet()) {
+                printImportant("k:" + entry.key + "|v:" + entry.version +
+                        " deps: " +v.updateToContextDeps.get(entry));
+            }
+            for (Integer key : v.keyToDOVersion.keySet()) {
+                printImportant("Have key:" + key + "|v:" + v.keyToDOVersion.get(key));
+            }
+            for (Client client : v.clientToDepsQueue.keySet()) {
+                printImportant("Client in queue: " + client.getId() + " | deps: " + v.clientToDepsQueue.get(client));
+            }
+
             aggregateUpdates += v.getNumberUpdates();
             aggregateReads += v.getNumberLocalReads();
             aggregateRemoteReads += v.getNumberRemoteReads();
-            aggregateFullMetadata += v.getFullMetadata();
-            aggregatePartialMetadata += v.getPartialMetadata();
             totalClients += v.clients.size();
             totalSentMigrations += v.sentMigrations;
             totalReceivedMigrations += v.receivedMigrations;
-            totalPendingClients += v.pendingClientsQueue.size();
-            //System.out.println(typeProt.getReplicationGroup(3));
-            //System.out.println("Metadata "+v.getMetadataVector().toString());
-            //System.out.println("Data "+v.getDataVector().toString());
+            totalPendingClients += v.clientToDepsQueue.size();
+
+            for (Client client : v.clients) {
+                if (client.isWaitingForResult) {
+                    waitingClients++;
+                }
+            }
+
             System.out.println();
             //writer.println(node.getID()+v.processedToStringFileFormat());
 
@@ -258,8 +276,7 @@ public class Controller implements Control {
 
 
         print("Average processing time(" + nNodes + "nodes): " + ((double) aggregateProcessing / (double) nNodes));
-        print("Average metadata size for full repliction: " + aggregateFullMetadata / (double) nNodes);
-        print("Average metadata size for partial repliction: " + aggregatePartialMetadata / (double) nNodes);
+        printImportant("Total updates: " + aggregateUpdates);
         int totalOps = aggregateUpdates + aggregateReads + aggregateRemoteReads;
         print("Total ops: " + totalOps);
         print("Total ops since last %: " + (totalOps - totalOpsPrevious));
@@ -273,11 +290,12 @@ public class Controller implements Control {
         print("% (remote reads/total reads): " + ((double) (aggregateRemoteReads * 100) / (double) (totalOps - aggregateUpdates)));
         print("Total clients: " + totalClients);
         print("Total sent Migrations: " + totalSentMigrations);
-        print("Total received Migrations: " + totalReceivedMigrations);
+        printImportant("Total received Migrations: " + totalReceivedMigrations);
         print("Pending clients: " + totalPendingClients);
         printImportant(totalPendingClients + "/" + (totalClients + totalPendingClients) + " pending clients");
         print("Total clients + pending clients: " + (totalClients + totalPendingClients));
-        debugPercentages();
+        printImportant("Waiting clients: " + waitingClients);
+        // debugPercentages();
         print("Observer end =======================");
         print("");
         print("");
@@ -286,6 +304,18 @@ public class Controller implements Control {
         if (cycles == iteration) {
             writer.close();
             importantWriter.close();
+            for (int i = 0; i < Network.size(); i++) {
+                StateTreeProtocolInstance protocol = (StateTreeProtocolInstance) Network.get(i).getProtocol(pid);
+                protocol.writer.println("----- END RESULTS -----");
+                for (StateTreeProtocolInstance.RemoteUpdateQueueEntry entry : protocol.updateToContextDeps.keySet()) {
+                    protocol.writer.println("k:" + entry.key + "|v:" + entry.version +
+                            " deps: " +protocol.updateToContextDeps.get(entry));
+                }
+                for (Integer key : protocol.keyToDOVersion.keySet()) {
+                    protocol.writer.println("Have key:" + key + "|v:" + protocol.keyToDOVersion.get(key));
+                }
+                protocol.writer.close();
+            }
             return true;
         }
         return false;

@@ -78,10 +78,6 @@ public interface StateTreeProtocol {
 
     int getNumberLocalReads();
 
-    double getFullMetadata();
-
-    double getPartialMetadata();
-
     //--------------------------------------------------------------------------
     //Delivered remote methods
     //--------------------------------------------------------------------------
@@ -112,7 +108,7 @@ public interface StateTreeProtocol {
 
     int copsGet(Integer key);
 
-    int copsPut(Integer key);
+    int copsPut(Integer key, long time);
 
     void copsPutRemote(Integer key, Map<Integer, Integer> context, Integer version);
 }
