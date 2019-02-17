@@ -49,6 +49,7 @@ abstract class StateTreeProtocolInstance
      * Value held by this protocol
      */
     private int reads = 0;
+    private long totalReadLatency = 0;
     private int remoteReads = 0;
     private int updates = 0;
 
@@ -149,7 +150,7 @@ abstract class StateTreeProtocolInstance
     /**
      * Returns the new version of the object after writing
      */
-    public int copsPut(Integer key, long time) {
+    public int copsPut(Integer key) {
         // If it's a local write, the write can happen immediatly
         int oldVersion = keyToDOVersion.get(key);
         int newVersion = oldVersion + 1;
@@ -157,7 +158,7 @@ abstract class StateTreeProtocolInstance
         doWrite(key, newVersion);
 
         checkIfCanProcessRemoteUpdates();
-        // checkIfCanAcceptMigratedClients();
+        checkIfCanAcceptMigratedClients();
 
         return newVersion;
     }
@@ -217,10 +218,10 @@ abstract class StateTreeProtocolInstance
         incrementRemoteReads();
         Map<Integer, Integer> missingDeps = checkDeps(clientContext);
         if (missingDeps.isEmpty()) {
-            writer.println("Accept immediatly client " + client.getId());
+            debug("Accept immediatly client " + client.getId());
             acceptClient(client);
         } else {
-            writer.println("Client " + client.getId() + " going to queue. deps:" + missingDeps + "|currentStatus:"+keyToDOVersion);
+            debug("Client " + client.getId() + " going to queue. deps:" + missingDeps + "|currentStatus:"+keyToDOVersion);
 
             clientToDepsQueue.put(client, missingDeps);
         }
@@ -284,7 +285,8 @@ abstract class StateTreeProtocolInstance
 
     private void acceptClient(Client client) {
         clients.add(client);
-        client.isWaitingForResult = false;
+        idToClient.put(client.getId(), client);
+        client.migrationOver();
         receivedMigrations++;
     }
 
@@ -394,6 +396,26 @@ abstract class StateTreeProtocolInstance
         return reads;
     }
 
+    @Override
+    public void addNewReadCompleted(long timeToComplete) {
+
+    }
+
+    @Override
+    public void addNewUpdateCompleted(long timeToComplete) {
+
+    }
+
+    @Override
+    public long getAverageReadLatency() {
+        return 0;
+    }
+
+    @Override
+    public long getAverageUpdateLatency() {
+        return 0;
+    }
+
     //--------------------------------------------------------------------------
     // Client methods
     //--------------------------------------------------------------------------
@@ -410,7 +432,6 @@ abstract class StateTreeProtocolInstance
     // Replication groups methods
     //--------------------------------------------------------------------------
 
-    // Tbh isto provavelmente pode ser feito usando os proprios datasets locais do objecto
     @Override
     public boolean isInterested(int key) {
         return keyToDataObject.containsKey(key);
@@ -428,26 +449,6 @@ abstract class StateTreeProtocolInstance
         }
         BufferedWriter br = new BufferedWriter(fr);
         writer = new PrintWriter(br);
-    }
-
-    //--------------------------------------------------------------------------
-    // Processed methods
-    //--------------------------------------------------------------------------
-
-    public String processedToString() {
-        StringBuilder result = new StringBuilder();
-        for (EventUID eventUID : processed) {
-            result.append(" ").append(eventUID.toString());
-        }
-        return result.toString();
-    }
-
-    public String processedToStringFileFormat() {
-        StringBuilder result = new StringBuilder();
-        for (EventUID eventUID : processed) {
-            result.append(" ").append(eventUID.toStringFileFormat());
-        }
-        return result.toString();
     }
 
     //--------------------------------------------------------------------------

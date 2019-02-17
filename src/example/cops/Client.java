@@ -2,6 +2,7 @@ package example.cops;
 
 import example.cops.datatypes.DataObject;
 import example.cops.datatypes.Operation;
+import example.cops.datatypes.Operation.Type;
 import example.cops.datatypes.ReadOperation;
 import example.cops.datatypes.UpdateOperation;
 import peersim.config.Configuration;
@@ -57,11 +58,10 @@ public class Client {
     private ExtendedRandom randomGenerator = CommonState.r;
     private final Set<DataObject> possibleDataObjects;
     private final Map<Integer, Set<DataObject>> dataObjectsPerLevel;
-    private final List<Operation.Type> operations = new ArrayList<>();
+    private final List<Type> operations = new ArrayList<>();
 
     private final int id;
     private final boolean isEager;
-    private final int locality;
 
     /**
      * COPS Client state : A map of keys to version.
@@ -76,6 +76,7 @@ public class Client {
     }
 
     private final StateTreeProtocol datacenter; // Used for debugging
+    final int locality;
 
 
     public Client(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality) {
@@ -93,12 +94,17 @@ public class Client {
     }
 
 
-    boolean isWaitingForResult = false;
+    private boolean isWaitingForResult = false;
+
+    boolean isWaiting() {
+        return isWaitingForResult;
+    }
     Operation nextOperation() {
         if (isWaitingForResult) {
            // System.out.println("WAITING!");
             return null;
         }
+        isWaitingForResult = true;
 
         int readOrUpdate = randomGenerator.nextInt(101);
 
@@ -109,32 +115,56 @@ public class Client {
         }
     }
 
-    public void receiveReadResult(Integer key, Integer version) {
-        context.put(key, version);
-        isWaitingForResult = false;
-    }
-
-    public void receiveUpdateResult(Integer key, Integer version) {
-        // Can't clear the context because of partial replication.
-        // context.clear();
-        context.put(key, version);
-        isWaitingForResult = false;
-    }
+    Type lastOperationType;
+    int numberReads = 0;
+    int numberUpdates = 0;
+    long readsTotalLatency = 0;
+    long updatesTotalLatency = 0;
+    long lastOperationTimestamp = 0;
 
     private Operation doRead() {
-        isWaitingForResult = true;
+        lastOperationTimestamp = CommonState.getTime();
+        lastOperationType = Type.READ;
+        numberReads++;
+
         int randomLevel = getRandomLevel(READ_LEVEL_PERCENTAGE);
         DataObject randomDataObject = chooseRandomDataObject(randomLevel);
-        operations.add(Operation.Type.READ);
+        operations.add(Type.READ);
         return new ReadOperation(randomDataObject.getKey());
     }
 
+    // TODO atm isto faz um remote read se o objecto nao houver
     private Operation doUpdate() {
-        isWaitingForResult = true;
+        lastOperationTimestamp = CommonState.getTime();
+        lastOperationType = Type.UPDATE;
+        numberUpdates++;
+
         int randomLevel = getRandomLevel(UPDATE_LEVEL_PERCENTAGE);
         DataObject randomDataObject = chooseRandomDataObject(randomLevel);
-        operations.add(Operation.Type.UPDATE);
+        operations.add(Type.UPDATE);
         return new UpdateOperation(randomDataObject.getKey(), context);
+    }
+
+    void receiveReadResult(Integer key, Integer version) {
+        context.put(key, version);
+        isWaitingForResult = false;
+        readsTotalLatency += (CommonState.getTime() - lastOperationTimestamp);
+    }
+
+    void receiveUpdateResult(Integer key, Integer version) {
+        context.put(key, version);
+        isWaitingForResult = false;
+        updatesTotalLatency += (CommonState.getTime() - lastOperationTimestamp);
+    }
+
+    void migrationOver() {
+        if (lastOperationType == Type.READ) {
+            readsTotalLatency += (CommonState.getTime() - lastOperationTimestamp);
+        } else {
+            numberUpdates--;
+        }
+        isWaitingForResult = false;
+
     }
 
     private int getRandomLevel(int[] levelPercentages) {

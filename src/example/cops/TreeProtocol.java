@@ -13,7 +13,6 @@ import peersim.edsim.EDProtocol;
 import peersim.transport.Transport;
 
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -54,10 +53,8 @@ public class TreeProtocol extends StateTreeProtocolInstance
      */
     private void doDatabaseMethod(Node node, int pid, Linkable linkable) {
         StateTreeProtocolInstance datacenter = (StateTreeProtocolInstance) node.getProtocol(tree);
-        Iterator<Client> it = clients.iterator();
 
-        while (it.hasNext()) {
-            Client client = it.next();
+        for (Client client : clients) {
             Operation operation = client.nextOperation();
             // Client is waiting for result;
             if (operation == null) {
@@ -71,43 +68,28 @@ public class TreeProtocol extends StateTreeProtocolInstance
             }
 
 
-            // If there isn't a remote operation, continue
+            // If is Local Read
             if (eventIsRead(event)) {
-                int version = copsGet(operation.getKey());
-                client.receiveReadResult(operation.getKey(), version);
+                ReadMessage readMessage = new ReadMessage(this.getNodeId(), client.getId(), operation.getKey());
+                sendMessage(node, node, readMessage, pid);
                 continue;
             }
 
             // If it's a remote read, migrate the client
             // Note: If it's an update but the DC doesn't have the object, it becomes a remote read
             if (event.getOperation().getType() == Operation.Type.REMOTE_READ) {
-                migrateClientStart(client, event, datacenter);
-                it.remove();
+                MigrationMessage msg = new MigrationMessage(datacenter.getNodeId(), client.getId());
+                Node targetDC = getMigrationDatacenter(event, datacenter);
+
+                sendMessage(node, targetDC, msg, pid);
+                sentMigrations++;
                 continue;
             }
 
-            // If the client's DC is interested, apply the update locally
+            // If is local update
             if (eventIsUpdate(event) && datacenter.isInterested(event.getOperation().getKey())) {
-                Integer newVersion = datacenter.copsPut(event.getOperation().getKey(), CommonState.getTime());
-
-                Map<Integer, Integer> clientContext = client.getCopyOfContext();
-                client.receiveUpdateResult(event.getOperation().getKey(), newVersion);
-
-                for (int i = 0; i < linkable.degree(); i++) {
-                    Node peer = linkable.getNeighbor(i);
-                    StateTreeProtocol peerDatacenter = (StateTreeProtocol) peer.getProtocol(tree);
-
-                    if (peerDatacenter.isInterested(operation.getKey())) {
-                        EventUID eventToSend = new EventUID(event);
-                        eventToSend.setDst(peer.getID());
-
-                        DataMessage msg = new DataMessage(eventToSend,
-                                clientContext,
-                                newVersion,
-                                CommonState.getTime());
-                        sendMessage(node, peer, msg, pid);
-                    }
-                }
+                LocalUpdate localUpdate = new LocalUpdate(client.getId(), operation.getKey());
+                sendMessage(node, node, localUpdate, pid);
             } else {
                 System.out.println("Unknown scenario!");
             }
@@ -115,34 +97,37 @@ public class TreeProtocol extends StateTreeProtocolInstance
         datacenter.checkIfCanAcceptMigratedClients();
     }
 
-    private void migrateClientStart(Client client,
-                                    EventUID event,
-                                    StateTreeProtocol originalDC) {
+    private Node getMigrationDatacenter(EventUID event,
+                                        StateTreeProtocol originalDC) {
 
         Set<Node> interestedNodes = getInterestedDatacenters(event);
 
         // Then select the datacenter that has the lowest latency to the client
-        Node bestNode = getLowestLatencyDatacenter(originalDC, interestedNodes);
+        return getLowestLatencyDatacenter(originalDC, interestedNodes);
 
         // Send client to target
-        TreeProtocol targetDCProtocol = (TreeProtocol) bestNode.getProtocol(tree);
-        targetDCProtocol.migrateClientQueue(client, client.getCopyOfContext());
+        // TreeProtocol targetDCProtocol = (TreeProtocol) bestNode.getProtocol(tree);
+        // targetDCProtocol.migrateClientQueue(client, client.getCopyOfContext());
 
-        sentMigrations++;
+        // sentMigrations++;
     }
 
-    private Set<Node> getInterestedDatacenters(EventUID event) {
+    private Set<Node> getInterestedDatacenters(int key) {
         Set<Node> interestedNodes = new HashSet<>();
         // First get which datacenters replicate the data
         for (int i = 0; i < Network.size(); i++) {
             Node node = Network.get(i);
             StateTreeProtocol datacenter = (StateTreeProtocol) node.getProtocol(tree);
 
-            if (datacenter.isInterested(event.getOperation().getKey())) {
+            if (datacenter.isInterested(key)) {
                 interestedNodes.add(node);
             }
         }
         return interestedNodes;
+    }
+
+    private Set<Node> getInterestedDatacenters(EventUID event) {
+        return getInterestedDatacenters(event.getOperation().getKey());
     }
 
     private Node getLowestLatencyDatacenter(StateTreeProtocol originalDC, Set<Node> interestedNodes) {
@@ -171,11 +156,65 @@ public class TreeProtocol extends StateTreeProtocolInstance
      */
     public void processEvent(Node node, int pid, Object event) {
 
-        if (event instanceof DataMessage) {
-            DataMessage msg = (DataMessage) event;
-            this.copsPutRemote(msg.event.getOperation().getKey(),
+        if (event instanceof LocalUpdate) {
+            LocalUpdate localUpdate = (LocalUpdate) event;
+
+            int newVersion = this.copsPut(localUpdate.key);
+            Client client = idToClient.get(localUpdate.clientId);
+
+            Set<Node> interestedDatacenters = getInterestedDatacenters(localUpdate.key);
+            // Remove self from remote update list
+            interestedDatacenters.remove(Network.get(Math.toIntExact(this.getNodeId())));
+            for (Node interestedNode : interestedDatacenters) {
+
+                RemoteUpdateMessage remoteMsg = new RemoteUpdateMessage(
+                        this.getNodeId(),
+                        client.getId(),
+                        localUpdate.key,
+                        client.getCopyOfContext(),
+                        newVersion);
+
+                sendMessage(node, interestedNode, remoteMsg, pid);
+            }
+
+            client.receiveUpdateResult(localUpdate.key, newVersion);
+        }
+
+        if (event instanceof RemoteUpdateMessage) {
+            RemoteUpdateMessage msg = (RemoteUpdateMessage) event;
+
+            if (msg.senderDC == nodeId) {
+                throw new RuntimeException("Remote LOCAL update?");
+            }
+
+            // Remote update
+            this.copsPutRemote(msg.key,
                     msg.context,
                     msg.version);
+
+        }
+
+        if (event instanceof MigrationMessage) {
+            MigrationMessage msg = (MigrationMessage) event;
+            StateTreeProtocolInstance originalDC = (StateTreeProtocolInstance)
+                    Network.get(Math.toIntExact(msg.senderDC)).getProtocol(tree);
+
+            Client client = originalDC.idToClient.get(msg.clientId);
+            // Remove client from original DC
+            originalDC.clients.remove(client);
+            originalDC.idToClient.remove(msg.clientId);
+
+            // Put client on Queue
+            this.migrateClientQueue(client, client.getCopyOfContext());
+        }
+
+        if (event instanceof ReadMessage) {
+            ReadMessage msg = (ReadMessage) event;
+            if (msg.senderDC != nodeId) {
+                throw new RuntimeException("Reads must ALWAYS be local.");
+            }
+            int keyVersion = copsGet(msg.key);
+            this.idToClient.get(msg.clientId).receiveReadResult(msg.key, keyVersion);
         }
     }
 
@@ -209,18 +248,70 @@ public class TreeProtocol extends StateTreeProtocolInstance
 //--------------------------------------------------------------------------
 //--------------------------------------------------------------------------
 
-    class DataMessage {
+    class MigrationMessage {
+        final long senderDC;
+        final int clientId;
+        final long timestamp;
 
-        final EventUID event;
+        MigrationMessage(long senderDC, int clientId) {
+            this.senderDC = senderDC;
+            this.clientId = clientId;
+            timestamp = CommonState.getTime();
+        }
+    }
+
+    class ReadMessage {
+
+        final long senderDC;
+        final int clientId;
+        final int key;
+        final long timestamp;
+
+        public ReadMessage(long senderDC, int clientId, int key) {
+            this.senderDC = senderDC;
+            this.clientId = clientId;
+            this.key = key;
+            timestamp = CommonState.getTime();
+        }
+    }
+
+    class LocalUpdate {
+
+        final int clientId;
+        final int key;
+        final long timestamp;
+
+        public LocalUpdate(int clientId, int key) {
+            this.clientId = clientId;
+            this.key = key;
+            timestamp = CommonState.getTime();
+        }
+
+    }
+
+    class RemoteUpdateMessage {
+
+        final long senderDC;
+        final int clientId;
+        // final EventUID event;
+        final int key;
         final Map<Integer, Integer> context;
         final Integer version;
         final long timestamp;
 
-        DataMessage(EventUID event, Map<Integer, Integer> context, Integer version, long timestamp) {
-            this.event = event;
+        RemoteUpdateMessage(long sender,
+                            int clientId,
+                            int key,
+                            // EventUID event,
+                            Map<Integer, Integer> context,
+                            Integer version) {
+            this.senderDC = sender;
+            this.clientId = clientId;
+            this.key = key;
+            //this.event = event;
             this.context = context;
             this.version = version;
-            this.timestamp = timestamp;
+            timestamp = CommonState.getTime();
         }
     }
 }

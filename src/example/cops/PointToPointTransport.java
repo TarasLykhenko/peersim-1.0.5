@@ -25,6 +25,7 @@ import peersim.core.Network;
 import peersim.core.Node;
 import peersim.edsim.EDSimulator;
 import peersim.transport.Transport;
+import sun.security.krb5.Config;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -59,6 +60,8 @@ public final class PointToPointTransport implements Transport {
      */
     private static final String PAR_MAXDELAY = "maxdelay";
 
+    private static final String PAR_CLIENT_MIGRATION = "client_migration_latency";
+
 //---------------------------------------------------------------------
 //Fields
 //---------------------------------------------------------------------
@@ -77,17 +80,17 @@ public final class PointToPointTransport implements Transport {
 //---------------------------------------------------------------------
 //Initialization
 //---------------------------------------------------------------------
-
+    private final int MIGRATION_REQUEST_LATENCY;
     /**
      * Reads configuration parameter.
      */
     public PointToPointTransport(String prefix) {
-        min = Configuration.getLong(prefix + "." + PAR_MINDELAY);
-        max = Configuration.getLong(prefix + "." + PAR_MAXDELAY, min);
+        min = Configuration.getLong(PAR_MINDELAY);
+        max = Configuration.getLong(PAR_MAXDELAY);
+        MIGRATION_REQUEST_LATENCY = Configuration.getInt(PAR_CLIENT_MIGRATION);
         if (max < min)
             throw new IllegalParameterException(prefix + "." + PAR_MAXDELAY,
                     "The maximum latency cannot be smaller than the minimum latency");
-        //range = max - min + 1;
         // Initializing tables
         for (long i = 0; i < Network.size(); i++) {
             partitionTable.put(i, new HashMap<>());
@@ -156,7 +159,7 @@ public final class PointToPointTransport implements Transport {
      * distribution.
      */
     public void send(Node src, Node dest, Object msg, int pid) {
-        // Check if the sender is in a partition to a given target
+        // Check if the senderDC is in a partition to a given target
         // avoid calling nextLong if possible
         Long srcId = src.getID();
         Long destId = dest.getID();
@@ -166,13 +169,13 @@ public final class PointToPointTransport implements Transport {
             long delay = 0;
             if (latency != 0) {
 
-                long extraDelay = CommonState.r.nextLong(max) - min;
-                if (extraDelay < 0) {
-                    extraDelay = 0;
+                long extraDelay = CommonState.r.nextLong(max);
+                if (extraDelay < min) {
+                    extraDelay = min;
                 }
-
                 delay = latency + extraDelay;
             }
+
             int partitionOver = partitionTable.get(srcId).get(destId);
             if (partitionOver != 0) {
                 partitionOver -= CommonState.getTime();
@@ -180,6 +183,15 @@ public final class PointToPointTransport implements Transport {
                     delay += partitionOver;
                 }
             }
+
+
+            /*
+            if (messageIsMigration(msg) && partitionOver != 0) {
+                delay -= partitionOver;
+            //    System.out.println("There's a partition but delay is " + delay + " for migration (before fifo check)");
+            }
+            */
+
 
             long messageWillBeReceived = CommonState.getTime() + delay;
 
@@ -191,14 +203,27 @@ public final class PointToPointTransport implements Transport {
             lastWillBeReceived.get(srcId).put(destId, messageWillBeReceived);
 
 
-            if (partitionOver != 0) {
-                System.out.println("UNDER PARTITION! : " + CommonState.getTime() + " | " + srcId + " sending msg at time " + messageWillBeReceived + " to " + destId);
-                System.out.println("Delay is " + delay);
+            if (messageIsMigration(msg)) {
+                delay = MIGRATION_REQUEST_LATENCY;
+                //    System.out.println("There's a partition but delay is " + delay + " for migration (before fifo check)");
             }
 
+            /*
+            if (partitionOver != 0) {
+                System.out.println("UNDER PARTITION! : " + CommonState.getTime() + " | " + srcId + " sending msg at time " + messageWillBeReceived + " to " + destId);
+                System.out.println("Delay is " + delay + " msg is " + msg.getClass().getSimpleName());
+            }
+            */
 
             EDSimulator.add(delay, msg, dest, pid);
-            //EDSimulator.add(1, msg, dest, pid);
         }
+    }
+
+    /**
+     * Migration messages are sent from the client to the target DC, so
+     * we need them to be immune to partitions.
+     */
+    private boolean messageIsMigration(Object msg) {
+        return msg instanceof TreeProtocol.MigrationMessage;
     }
 }

@@ -3,16 +3,14 @@ SIZE 4
 
 # parameters of periodic execution
 # CYCLES 200000
-CYCLES 5000
+CYCLES 100000
 CYCLE 1
 
-# parameters of message transfer
-# delay values here are relative to cycle length, in percentage,
-# eg 50 means half the cycle length, 200 twice the cycle length, etc.
-MINDELAY 2
-MAXDELAY 8
-# drop is a probability, 0<=DROP<=1
-DROP 0
+# Latency
+client_request_latency 10
+client_migration_latency 10 # How long it takes for a client to connect to other DC
+mindelay 5
+maxdelay 10
 
 # random.seed 1234567890
 network.size SIZE
@@ -20,20 +18,20 @@ simulation.endtime CYCLE*CYCLES
 simulation.logtime CYCLE
 
 ########### CLIENT CONFIGS #############
-clients_per_datacenter 500
+clients_per_datacenter 50
 rest_time = 200;
 rest_time_interval = 50;
 
-client_read_percentage 95
-client_update_percentage 5
+client_read_percentage 80
+client_update_percentage 20
 
-client_read_levels_percentage [5,5,90]
-client_update_levels_percentages [5,5,90]
+client_read_levels_percentage [80,15,5]
+client_update_levels_percentages [80,15,5]
 
 # percentage clients that use objects up to a given distance
 # eg. with [50,50], half clients will only use objects from the local DC
 # and the other half will use objects from both local and the DCs 1 level away
-client_locality_percentage [0,0,100]
+client_locality_percentage [0,50,50]
 
 clients_eager_percentage 20
 ########################################
@@ -46,9 +44,9 @@ groups {[0],[0,1],[0,1,2,3]}{[1],[0,1],[0,1,2,3]}{[2],[2,3],[0,1,2,3]}{[3],[2,3]
 
 statistics_window 5
 
-partitions_file example/partitions/four_nodes_all_connected_partition.top
-partition_start 120
-partition_end 120
+partitions_file example/partitions/four_nodes_all_connected_partition_between_countries.top
+partition_start 20
+partition_end 100
 
 tree tree
 ##########################################
@@ -63,13 +61,12 @@ protocol.tree.transport tr
 protocol.tree.tree_protocol tree
 protocol.tree.linkable link
 
+
 protocol.urt example.cops.PointToPointTransport
-protocol.urt.mindelay 0
-protocol.urt.maxdelay 100
 
 protocol.tr UnreliableTransport
 protocol.tr.transport urt
-protocol.tr.drop DROP
+protocol.tr.drop 0
 
 ################### initialization ======================
 

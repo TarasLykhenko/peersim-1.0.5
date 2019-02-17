@@ -63,6 +63,14 @@ public interface StateTreeProtocol {
 
     int getNumberLocalReads();
 
+    void addNewReadCompleted(long timeToComplete);
+
+    void addNewUpdateCompleted(long timeToComplete);
+
+    long getAverageReadLatency();
+
+    long getAverageUpdateLatency();
+
     //--------------------------------------------------------------------------
     //Delivered remote methods
     //--------------------------------------------------------------------------
@@ -93,7 +101,7 @@ public interface StateTreeProtocol {
 
     int copsGet(Integer key);
 
-    int copsPut(Integer key, long time);
+    int copsPut(Integer key);
 
     void copsPutRemote(Integer key, Map<Integer, Integer> context, Integer version);
 }

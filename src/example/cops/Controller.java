@@ -249,7 +249,7 @@ public class Controller implements Control {
             totalPendingClients += v.clientToDepsQueue.size();
 
             for (Client client : v.clients) {
-                if (client.isWaitingForResult) {
+                if (client.isWaiting()) {
                     waitingClients++;
                 }
             }
@@ -292,7 +292,7 @@ public class Controller implements Control {
         print("Pending clients: " + totalPendingClients);
         printImportant(totalPendingClients + "/" + (totalClients + totalPendingClients) + " pending clients");
         print("Total clients + pending clients: " + (totalClients + totalPendingClients));
-        printImportant("Waiting clients: " + waitingClients);
+        print("Waiting clients: " + waitingClients);
         // debugPercentages();
         print("Observer end =======================");
         print("");
@@ -313,6 +313,13 @@ public class Controller implements Control {
                     protocol.writer.println("Have key:" + key + "|v:" + protocol.keyToDOVersion.get(key));
                 }
                 protocol.writer.close();
+                for (Client client : protocol.clients) {
+                    System.out.println("Client " + client.getId() + " locality: " + client.locality + " | getLavgReadLatency: " +
+                            ((float) client.readsTotalLatency / client.numberReads)
+                            + " | reads: " + client.numberReads +  " | avgUpdateLatency: " +
+                            ((float) client.updatesTotalLatency / client.numberUpdates)
+                            + " | updates: " + client.numberUpdates) ;
+                }
             }
             return true;
         }

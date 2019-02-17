@@ -1,40 +1,23 @@
 package example.cops.datatypes;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class UpdateOperation extends Operation {
 
-	private final Long shardMasterNodeId;
-	private final Long clientId;
-	private final Map<Integer, Integer> clientTimestamp;
+	/**
+	 * Mapping between data object key and versions
+	 */
+	Map<Integer, Integer> updateContext = new HashMap<>();
 
 	/**
-	 * We don't really write anything, so we don't provide any value.
-	 * @param shardMasterNodeId Datacenter that contains the shard that is the master
+	 * We don't really write anything, since it's not necessary.
 	 * @param key Key of the DataObject
-	 * @param clientId identifier of the update, so that the datacenter can respond to.
-	 * @param clientTimestamp The causalTimestamp of the client, according to Occult
+	 * @param clientContext The context of the client, according to the cops paper.
 	 */
-	public UpdateOperation(Long shardMasterNodeId,
-						   Integer key,
-						   Long clientId,
-						   Map<Integer, Integer> clientTimestamp) {
+	public UpdateOperation(Integer key, Map<Integer, Integer> clientContext) {
 		super(Type.UPDATE, key);
-		this.shardMasterNodeId = shardMasterNodeId;
-		this.clientId = clientId;
-		this.clientTimestamp = clientTimestamp;
-	}
-
-	public Long getShardMasterNodeId() {
-		return shardMasterNodeId;
-	}
-
-	public Long getClientId() {
-		return clientId;
-	}
-
-	public Map<Integer, Integer> getClientTimestamp() {
-		return clientTimestamp;
+		updateContext = new HashMap<>(clientContext);
 	}
 
 	public Map<Integer, Integer> getUpdateContext() {

@@ -30,6 +30,8 @@ public class WireTopology extends WireGraph {
 
     private static final String PAR_TOPOLOGY = "topology_file";
 
+    private static final String PAR_CLIENT_REQUEST_DELAY = "client_request_latency";
+
 
     // --------------------------------------------------------------------------
     // Fields
@@ -61,6 +63,7 @@ public class WireTopology extends WireGraph {
     }
 
     public void wire(Graph graph) {
+        int clientRequestDelay = Configuration.getInt(PAR_CLIENT_REQUEST_DELAY);
         try (BufferedReader br = new BufferedReader(new FileReader(path + "/" + topology))) {
             String line = br.readLine();
             int counter = 0;
@@ -68,13 +71,16 @@ public class WireTopology extends WireGraph {
                 String[] latencies = line.split("	");
                 for (int i = 0; i < latencies.length; i++) {
                     int latency = Integer.parseInt(latencies[i]);
+
+                    Node src = (Node) graph.getNode(counter);
+                    Node dst = (Node) graph.getNode(i);
+
                     if (latency >= 0) {
                         graph.setEdge(counter, i);
 
-                        Node src = (Node) graph.getNode(counter);
-                        Node dst = (Node) graph.getNode(i);
-
                         PointToPointTransport.addLatency(src.getID(), dst.getID(), latency);
+                    } else if (latency == -1) {
+                        PointToPointTransport.addLatency(src.getID(), dst.getID(), clientRequestDelay);
                     }
                 }
                 line = br.readLine();
