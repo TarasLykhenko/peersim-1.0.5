@@ -279,8 +279,6 @@ public class Controller implements Control {
             return true;
         }
         return false;
-        /*return (stats.getStD()<=accuracy && CommonState.getTime()>0); */
-
     }
 
     private void debugPercentages() {

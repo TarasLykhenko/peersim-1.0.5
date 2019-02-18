@@ -6,13 +6,17 @@ import example.occult.datatypes.Operation;
 import example.occult.datatypes.Operation.Type;
 import example.occult.datatypes.ReadOperation;
 import example.occult.datatypes.UpdateOperation;
+import javafx.util.Pair;
+import org.omg.SendingContext.RunTime;
 import peersim.config.Configuration;
 import peersim.core.CommonState;
 import peersim.util.ExtendedRandom;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -87,11 +91,14 @@ public class Client {
     int totalStaleReads = 0;
 
 
+    private int MAX_CTS_SIZE = 9;
 
     /**
      * Maps each shardId to shardstamp
      */
-    private Map<Integer, Integer> clientTimestamp = new HashMap<>();
+    private Map<Integer, Integer> clientTimestamp = new HashMap<>(MAX_CTS_SIZE);
+    private int catchAllShardStamp = 0;
+
 
     private final StateTreeProtocol datacenter; // Used for debugging
     final int locality;
@@ -105,11 +112,6 @@ public class Client {
         this.isEager = isEager;
         this.datacenter = datacenter;
         this.locality = locality;
-
-        for (DataObject dataObject : possibleDataObjects) {
-            int shardId = GroupsManager.getInstance().getShardId(dataObject.getKey());
-            clientTimestamp.put(shardId, 0);
-        }
     }
 
     public int getId() {
@@ -123,7 +125,7 @@ public class Client {
 
     Operation nextOperation() {
         // Just for debug
-     //   System.out.println("I ("+id+") have " + numberStaleReads + " stale reads");
+        //   System.out.println("I ("+id+") have " + numberStaleReads + " stale reads");
         if (numberStaleReads > NUMBER_RETRIES) {
             throw new RuntimeException("Impossible.");
         }
@@ -140,7 +142,7 @@ public class Client {
 
         // If the client migrated, repeat the last action
         if (justMigrated) {
-          //  System.out.println("My (" + id +") migration is over. Im doing a " + lastOperation.getType());
+            //  System.out.println("My (" + id +") migration is over. Im doing a " + lastOperation.getType());
             justMigrated = false;
             if (lastOperation instanceof ReadOperation) {
                 ReadOperation op = (ReadOperation) lastOperation;
@@ -152,11 +154,11 @@ public class Client {
         }
 
         if (hadStaleRead) {
-     //       System.out.println("Had stale read with " + numberStaleReads);
+            //       System.out.println("Had stale read with " + numberStaleReads);
             if (numberStaleReads == NUMBER_RETRIES) {
                 int shardId = GroupsManager.getInstance().getShardId(lastReadKey);
                 long master = GroupsManager.getInstance().getMasterServer(shardId).getNodeId();
-       //         System.out.println("Client migrating to master (" + master + ") for read.");
+                //         System.out.println("Client migrating to master (" + master + ") for read.");
                 lastOperation = new ReadOperation(lastReadKey, true);
             } else {
                 lastOperation = new ReadOperation(lastReadKey, false);
@@ -168,21 +170,21 @@ public class Client {
 
         isWaitingForResult = true;
         waitingSince = CommonState.getTime();
-       // System.out.println("YAY!");
+        // System.out.println("YAY!");
 
         int readOrUpdate = randomGenerator.nextInt(101);
 
-        if (isBetween(readOrUpdate, 0, READ_PERCENTAGE )) {
+        if (isBetween(readOrUpdate, 0, READ_PERCENTAGE)) {
             lastOperation = doRead();
         } else {
             lastOperation = doUpdate();
         }
 
         if (lastOperation instanceof ReadOperation) {
-        //    ReadOperation p = (ReadOperation) lastOperation;
-        //  System.out.println("Operation is read and is migrate? " + p.migrateToMaster());
+            //    ReadOperation p = (ReadOperation) lastOperation;
+            //  System.out.println("Operation is read and is migrate? " + p.migrateToMaster());
         } else {
-        //    System.out.println("Operation is " + lastOperation.getType());
+            //    System.out.println("Operation is " + lastOperation.getType());
         }
 
         return lastOperation;
@@ -226,10 +228,10 @@ public class Client {
     // ------------ SERVER RESPONSES -----------
     //------------------------------------------
     void receiveReadResult(long server, OccultReadResult readResult) {
-     //   System.out.println("I ("+id+") received a read from " + server);
+        //   System.out.println("I ("+id+") received a read from " + server);
         boolean readFromSlave = !readResult.isMaster();
         int shardId = readResult.getShardId();
-        int clientShardStamp = clientTimestamp.get(shardId);
+        int clientShardStamp = clientTimestamp.getOrDefault(shardId, 0);
         int shardStamp = readResult.getShardStamp();
 
         if (readFromSlave && shardStamp < clientShardStamp) {
@@ -238,29 +240,99 @@ public class Client {
             numberStaleReads++;
             totalStaleReads++;
             hadStaleRead = true;
-        //    System.out.println("Increasing stale reads, now at " + numberStaleReads + " master:" + !readFromSlave);
+            //    System.out.println("Increasing stale reads, now at " + numberStaleReads + " master:" + !readFromSlave);
         } else {
-        //    System.out.println("Read was good! master:" + !readFromSlave);
+            //    System.out.println("Read was good! master:" + !readFromSlave);
             numberStaleReads = 0;
             hadStaleRead = false;
             lastResultReceivedTimestamp = CommonState.getTime();
             numberReads++;
             readsTotalLatency += (lastResultReceivedTimestamp - lastOperationTimestamp);
+
+            Map<Integer, Integer> deps = readResult.getDeps();
+            int readCatchAll = readResult.getCatchAll();
+            mergeClientTimeStamps(clientTimestamp, catchAllShardStamp, deps, readCatchAll);
         }
         isWaitingForResult = false;
     }
 
     void receiveUpdateResult(Integer shardId, Integer updateShardStamp) {
-        int oldShardStamp = clientTimestamp.get(shardId);
-        if (updateShardStamp > oldShardStamp) {
-            clientTimestamp.put(shardId, updateShardStamp);
-        }
+        updateClientTimeStamp(shardId, updateShardStamp);
 
-   //     System.out.println("Received update!");
+        //     System.out.println("Received update!");
         isWaitingForResult = false;
         lastResultReceivedTimestamp = CommonState.getTime();
         numberUpdates++;
         updatesTotalLatency += (lastResultReceivedTimestamp - lastOperationTimestamp);
+    }
+
+    void updateClientTimeStamp(Integer shardId, Integer updateShardStamp) {
+        // Scenario 1: Client timestamp contains the entry, check if update
+        if (clientTimestamp.containsKey(shardId)) {
+            int oldShardStamp = clientTimestamp.get(shardId);
+            if (updateShardStamp > oldShardStamp) {
+                clientTimestamp.put(shardId, updateShardStamp);
+            }
+        } else if (clientTimestamp.size() <= MAX_CTS_SIZE) {
+            // Scenario 2: Client TS does not contain the entry but
+            // has space for more entries, therefore add it
+            clientTimestamp.put(shardId, updateShardStamp);
+        } else {
+            // Scenario 3: ShardID not explicitly tracked, add Catchall
+            int lowestShardId = 0;
+            int lowestShardIdStamp = Integer.MAX_VALUE;
+            for (Integer trackedShardId : clientTimestamp.keySet()) {
+                if (clientTimestamp.get(trackedShardId) < lowestShardIdStamp) {
+                    lowestShardIdStamp = clientTimestamp.get(trackedShardId);
+                    lowestShardId = trackedShardId;
+                }
+            }
+
+            clientTimestamp.remove(lowestShardId);
+            if (lowestShardIdStamp < catchAllShardStamp) {
+                catchAllShardStamp = lowestShardIdStamp;
+            }
+        }
+    }
+
+    private void mergeClientTimeStamps(
+            Map<Integer, Integer> timeStamp1, int catchAllOne,
+            Map<Integer, Integer> timestamp2, int catchAllTwo) {
+        // We start the merge by copying the first map.
+        Map<Integer, Integer> result = new HashMap<>(timeStamp1);
+        int highestCatchAll = 0;
+        if (catchAllOne < catchAllTwo) {
+            highestCatchAll = catchAllTwo;
+        } else {
+            highestCatchAll = catchAllOne;
+        }
+
+        for (Integer shardIdTwo : timestamp2.keySet()) {
+            int shardStampTwo = timestamp2.get(shardIdTwo);
+            // Case 1: Both maps contain the same shardIdTwo, u
+            if (result.containsKey(shardIdTwo) && result.get(shardIdTwo) < shardStampTwo) {
+                result.put(shardIdTwo, shardStampTwo);
+            } else {
+                // Case 2: Map 2 contains a key that Map 1 does not, check if
+                // its value is higher
+                for (Integer resultShardId : result.keySet()) {
+                    int resultShardStamp = result.get(resultShardId);
+                    if (resultShardStamp < shardStampTwo) {
+                        result.remove(resultShardId);
+                        result.put(shardIdTwo, shardStampTwo);
+                        if (resultShardStamp > highestCatchAll) {
+                            highestCatchAll = resultShardStamp;
+                        }
+                    }
+                }
+            }
+        }
+        if (result.size() > MAX_CTS_SIZE) {
+            throw new RuntimeException("Merge failed");
+        }
+
+        this.catchAllShardStamp = highestCatchAll;
+        this.clientTimestamp = result;
     }
 
     void migrationOver() {

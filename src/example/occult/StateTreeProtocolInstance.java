@@ -84,6 +84,7 @@ abstract class StateTreeProtocolInstance
      * Maps the key with the causal timestamp.
      */
     Map<Integer, Map<Integer, Integer>> keysToCausalTimestamps = new HashMap<>();
+    Map<Integer, Integer> keysToCatchAll = new HashMap<>();
 
     /**
      * Maps the shardId to the number of updates the shard received.
@@ -144,17 +145,18 @@ abstract class StateTreeProtocolInstance
         int shardId = GroupsManager.getInstance().getShardId(key);
 
         Map<Integer, Integer> deps = new HashMap<>(keysToCausalTimestamps.get(key));
+        int catchAll = keysToCatchAll.get(key);
         int shardStamp = shardStamps.get(shardId);
         boolean isMaster = GroupsManager.getInstance()
                 .isShardMaster(shardId, this);
 
-        return new OccultReadResult(shardId, deps, shardStamp, isMaster);
+        return new OccultReadResult(shardId, deps,catchAll, shardStamp, isMaster);
     }
 
     /**
      * Returns the new version of the object after writing
      */
-    public OccultMasterWrite occultWriteMaster(int key, Map<Integer, Integer> deps) {
+    public OccultMasterWrite occultWriteMaster(int key, Map<Integer, Integer> deps, int catchAll) {
         int shardId = GroupsManager.getInstance().getShardId(key);
 
         StateTreeProtocol masterServer = GroupsManager.getInstance().getMasterServer(shardId);
@@ -172,11 +174,12 @@ abstract class StateTreeProtocolInstance
         return new OccultMasterWrite(updatedDeps, newTimeShard);
     }
 
-    public void occultWriteSlave(int key, Map<Integer, Integer> deps, int shardStamp) {
+    public void occultWriteSlave(int key, Map<Integer, Integer> deps, int catchAll, int shardStamp) {
         int shardId = GroupsManager.getInstance().getShardId(key);
 
         shardStamps.put(shardId, shardStamp);
         keysToCausalTimestamps.put(key, new HashMap<>(deps));
+        keysToCatchAll.put(key, catchAll);
     }
 
     /**
@@ -233,6 +236,7 @@ abstract class StateTreeProtocolInstance
         for (DataObject dataObject : dataObjects) {
             keyToDataObject.put(dataObject.getKey(), dataObject);
             keysToCausalTimestamps.put(dataObject.getKey(), new HashMap<>());
+            keysToCatchAll.put(dataObject.getKey(), 0);
         }
     }
 
@@ -313,7 +317,7 @@ abstract class StateTreeProtocolInstance
 
     @Override
     public boolean isInterested(int key) {
-    //    System.out.println("Checking key " + key);
+        //    System.out.println("Checking key " + key);
         return keyToDataObject.containsKey(key);
     }
 
@@ -351,7 +355,7 @@ abstract class StateTreeProtocolInstance
     public Map<Integer, Set<DataObject>> getAllDataObjectsPerLevel() {
         return levelToDataObjects;
     }
-    
+
     private void debug(String s) {
         // System.out.println(s);
     }
@@ -372,7 +376,7 @@ abstract class StateTreeProtocolInstance
                 return true;
             }
             if (!(o instanceof  RemoteUpdateQueueEntry)) {
-               return false;
+                return false;
             }
             RemoteUpdateQueueEntry entry = (RemoteUpdateQueueEntry) o;
             return (this.key == entry.key) && (this.version == entry.version);

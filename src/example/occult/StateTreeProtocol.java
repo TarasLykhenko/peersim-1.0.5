@@ -105,10 +105,11 @@ public interface StateTreeProtocol {
     /**
      * Value is skipped because we don't care for values.
      */
-    OccultMasterWrite occultWriteMaster(int key, Map<Integer, Integer> deps);
+    OccultMasterWrite occultWriteMaster(int key, Map<Integer, Integer> deps, int catchAll);
 
     void occultWriteSlave(int key,
                           Map<Integer, Integer> deps,
+                          int catchAll,
                           int shardStamp);
 
     Map<Integer, Integer> getShardStamps();

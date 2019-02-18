@@ -5,6 +5,7 @@ import java.util.Map;
 public class OccultMasterWrite {
 
     private Map<Integer, Integer> deps;
+    private int catchAll;
     private int shardStamp;
 
     public OccultMasterWrite(Map<Integer, Integer> deps, int shardStamp) {
