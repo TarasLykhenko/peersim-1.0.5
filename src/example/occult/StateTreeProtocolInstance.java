@@ -171,6 +171,9 @@ abstract class StateTreeProtocolInstance
         Map<Integer, Integer> updatedDeps = new HashMap<>(deps);
         updatedDeps.put(shardId, newTimeShard);
 
+        keysToCausalTimestamps.put(key, new HashMap<>(updatedDeps));
+        keysToCatchAll.put(key, catchAll);
+
         return new OccultMasterWrite(updatedDeps, newTimeShard);
     }
 

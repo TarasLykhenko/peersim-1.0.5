@@ -38,8 +38,8 @@ client_read_retries 3
 client_read_retry_interval 100
 ########################################
 
-total_objects_per_datacenter 500
-shards_per_object_group 10
+total_objects_per_datacenter 5
+shards_per_object_group 1
 
 levels 3
 levels_percentage [33,33,34]
@@ -48,9 +48,11 @@ groups {[0],[0,1],[0,1,2,3]}{[1],[0,1],[0,1,2,3]}{[2],[2,3],[0,1,2,3]}{[3],[2,3]
 
 statistics_window 5
 
+should_partition_DC true
+should_partition_clients true
 partitions_datacenters example/partitions/four_nodes_all_connected_partition.top
 partitions_clients example/partitions/four_nodes_all_connected_partition.top
-partition_start 20
+partition_start 120
 partition_end 80
 
 

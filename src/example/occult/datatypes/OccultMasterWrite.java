@@ -20,4 +20,8 @@ public class OccultMasterWrite {
     public int getShardStamp() {
         return shardStamp;
     }
+
+    public int getCatchAll() {
+        return catchAll;
+    }
 }

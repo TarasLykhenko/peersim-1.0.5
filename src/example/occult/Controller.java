@@ -64,10 +64,12 @@ public class Controller implements Control {
     private static final String PAR_ACCURACY = "accuracy";
     private static final String PAR_PARTITIONS_FILE = "partitions_datacenters";
     private static final String PAR_PARTITIONS_CLIENTS = "partitions_clients";
-    private final static String PAR_TAKE_STATISTICS_EVERY = "statistics_window";
-    private final static String PAR_WHEN_TO_PARTITION = "partition_start";
-    private final static String PAR_WHEN_TO_UNPARTATITION = "partition_end";
-    private final static String PAR_LEVELS = "levels";
+    private static final String PAR_TAKE_STATISTICS_EVERY = "statistics_window";
+    private static final String PAR_SHOULD_PARTITION_DC = "should_partition_DC";
+    private static final String PAR_SHOULD_PARTITION_CLIENTS = "should_partition_clients";
+    private static final String PAR_WHEN_TO_PARTITION = "partition_start";
+    private static final String PAR_WHEN_TO_UNPARTATITION = "partition_end";
+    private static final String PAR_LEVELS = "levels";
 
     /**
      * The protocol to operate on.
@@ -112,6 +114,8 @@ public class Controller implements Control {
     private final int targetCyclesToPartition;
     private final int targetCyclesToUnpartition;
     private final int levels;
+    private final boolean shouldPartitionDC;
+    private final boolean shouldPartitionClients;
 
     private int iteration;
     private int logTime;
@@ -139,6 +143,8 @@ public class Controller implements Control {
 
         partitionsDCFile = Configuration.getString(PAR_PARTITIONS_FILE);
         partitionsClientsFile = Configuration.getString(PAR_PARTITIONS_CLIENTS);
+        shouldPartitionDC = Configuration.getBoolean(PAR_SHOULD_PARTITION_DC);
+        shouldPartitionClients = Configuration.getBoolean(PAR_SHOULD_PARTITION_CLIENTS);
 
         TAKE_STATISTICS_EVERY = Configuration.getDouble(PAR_TAKE_STATISTICS_EVERY);
         double WHEN_TO_PARTITION = Configuration.getDouble(PAR_WHEN_TO_PARTITION);
@@ -189,8 +195,12 @@ public class Controller implements Control {
         iteration++;
         //System.out.println("Iteration: " + iteration + " | time: " + CommonState.getTime() + " | partition: " + targetCyclesToPartition);
         if (iteration == targetCyclesToPartition) {
-            partitionDCConnections();
-            partitionClientConnections();
+            if (shouldPartitionDC) {
+                partitionDCConnections();
+            }
+            if (shouldPartitionClients) {
+                partitionClientConnections();
+            }
         }
 
         if (iteration != cycles) {
@@ -207,7 +217,6 @@ public class Controller implements Control {
         long totalClients = 0;
         long totalMigrations = 0;
         long waitingClients = 0;
-        long pendingOperations = 0;
         long totalStaleReads = 0;
         currentPoint += TAKE_STATISTICS_EVERY;
         print("Observer init ======================");

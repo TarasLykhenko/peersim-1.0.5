@@ -8,20 +8,26 @@ public class UpdateOperation extends Operation {
 	/**
 	 * Mapping between data object key and versions
 	 */
-	Map<Integer, Integer> updateContext = new HashMap<>();
+	final Map<Integer, Integer> updateContext;
+	final int catchAll;
 
 	/**
 	 * We don't really write anything, since it's not necessary.
 	 * @param key Key of the DataObject
-	 * @param clientContext The context of the client, according to the cops paper.
+	 * @param deps The context of the client, according to the cops paper.
 	 */
-	public UpdateOperation(Integer key, Map<Integer, Integer> clientContext) {
+	public UpdateOperation(Integer key, Map<Integer, Integer> deps, int catchAll) {
 		super(Type.UPDATE, key);
-		updateContext = new HashMap<>(clientContext);
+		updateContext = new HashMap<>(deps);
+		this.catchAll = catchAll;
 	}
 
-	public Map<Integer, Integer> getUpdateContext() {
+	public Map<Integer, Integer> getDeps() {
 		return updateContext;
+	}
+
+	public int getCatchAll() {
+		return catchAll;
 	}
 
 }

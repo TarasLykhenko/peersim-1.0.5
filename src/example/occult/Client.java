@@ -6,17 +6,13 @@ import example.occult.datatypes.Operation;
 import example.occult.datatypes.Operation.Type;
 import example.occult.datatypes.ReadOperation;
 import example.occult.datatypes.UpdateOperation;
-import javafx.util.Pair;
-import org.omg.SendingContext.RunTime;
 import peersim.config.Configuration;
 import peersim.core.CommonState;
 import peersim.util.ExtendedRandom;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -206,7 +202,7 @@ public class Client {
 
         int randomLevel = getRandomLevel(UPDATE_LEVEL_PERCENTAGE);
         DataObject randomDataObject = chooseRandomDataObject(randomLevel);
-        return new UpdateOperation(randomDataObject.getKey(), clientTSCopy());
+        return new UpdateOperation(randomDataObject.getKey(), clientTSCopy(), catchAllShardStamp);
     }
 
     private boolean restTimeOver() {
@@ -231,7 +227,7 @@ public class Client {
         //   System.out.println("I ("+id+") received a read from " + server);
         boolean readFromSlave = !readResult.isMaster();
         int shardId = readResult.getShardId();
-        int clientShardStamp = clientTimestamp.getOrDefault(shardId, 0);
+        int clientShardStamp = getShardStampFromCS(shardId);
         int shardStamp = readResult.getShardStamp();
 
         if (readFromSlave && shardStamp < clientShardStamp) {
@@ -256,6 +252,18 @@ public class Client {
         isWaitingForResult = false;
     }
 
+    private Integer getShardStampFromCS(int shardId) {
+        if (clientTimestamp.size() == MAX_CTS_SIZE) {
+            if (clientTimestamp.get(shardId) == null) {
+                return catchAllShardStamp;
+            } else {
+                return clientTimestamp.get(shardId);
+            }
+        } else {
+            return 0;
+        }
+    }
+
     void receiveUpdateResult(Integer shardId, Integer updateShardStamp) {
         updateClientTimeStamp(shardId, updateShardStamp);
 
@@ -268,16 +276,21 @@ public class Client {
 
     void updateClientTimeStamp(Integer shardId, Integer updateShardStamp) {
         // Scenario 1: Client timestamp contains the entry, check if update
+        // System.out.println("My ts: " + clientTimestamp);
+        // System.out.println("ShardID: " + shardId + " | updateStamp: " + updateShardStamp);
         if (clientTimestamp.containsKey(shardId)) {
+            // System.out.println("Updating...");
             int oldShardStamp = clientTimestamp.get(shardId);
             if (updateShardStamp > oldShardStamp) {
                 clientTimestamp.put(shardId, updateShardStamp);
             }
-        } else if (clientTimestamp.size() <= MAX_CTS_SIZE) {
+        } else if (clientTimestamp.size() < MAX_CTS_SIZE) {
+            // System.out.println("Adding..");
             // Scenario 2: Client TS does not contain the entry but
             // has space for more entries, therefore add it
             clientTimestamp.put(shardId, updateShardStamp);
         } else {
+            // System.out.println("Adding to catch all.");
             // Scenario 3: ShardID not explicitly tracked, add Catchall
             int lowestShardId = 0;
             int lowestShardIdStamp = Integer.MAX_VALUE;
@@ -293,6 +306,10 @@ public class Client {
                 catchAllShardStamp = lowestShardIdStamp;
             }
         }
+        if (clientTimestamp.size() > MAX_CTS_SIZE) {
+            // System.out.println("My ts is " + clientTimestamp);
+            throw new RuntimeException("update failed");
+        }
     }
 
     private void mergeClientTimeStamps(
@@ -300,6 +317,10 @@ public class Client {
             Map<Integer, Integer> timestamp2, int catchAllTwo) {
         // We start the merge by copying the first map.
         Map<Integer, Integer> result = new HashMap<>(timeStamp1);
+       // System.out.println("M1: " + timeStamp1);
+       // System.out.println("M2: " + timestamp2);
+       // System.out.println("CatchAll 1:" + catchAllOne);
+       // System.out.println("Catch all 2:" + catchAllTwo);
         int highestCatchAll = 0;
         if (catchAllOne < catchAllTwo) {
             highestCatchAll = catchAllTwo;
@@ -309,11 +330,15 @@ public class Client {
 
         for (Integer shardIdTwo : timestamp2.keySet()) {
             int shardStampTwo = timestamp2.get(shardIdTwo);
-            // Case 1: Both maps contain the same shardIdTwo, u
+
+            // Case 1: Both maps contain the same shardIdTwo, update
             if (result.containsKey(shardIdTwo) && result.get(shardIdTwo) < shardStampTwo) {
                 result.put(shardIdTwo, shardStampTwo);
+            } else if (result.size() < MAX_CTS_SIZE) {
+                // Case 2: Client Timestamp can have more entries, add to result
+                result.put(shardIdTwo, shardStampTwo);
             } else {
-                // Case 2: Map 2 contains a key that Map 1 does not, check if
+                // Case 3: Map 2 contains a key that Map 1 does not, check if
                 // its value is higher
                 for (Integer resultShardId : result.keySet()) {
                     int resultShardStamp = result.get(resultShardId);
@@ -321,16 +346,21 @@ public class Client {
                         result.remove(resultShardId);
                         result.put(shardIdTwo, shardStampTwo);
                         if (resultShardStamp > highestCatchAll) {
+                         //   System.out.println("Updating catchall");
                             highestCatchAll = resultShardStamp;
                         }
+                        break;
                     }
                 }
             }
         }
         if (result.size() > MAX_CTS_SIZE) {
+            // System.out.println("My ts is " + clientTimestamp);
             throw new RuntimeException("Merge failed");
         }
 
+        //System.out.println("Merge: " + result);
+        //System.out.println("Catch all result: " + highestCatchAll);
         this.catchAllShardStamp = highestCatchAll;
         this.clientTimestamp = result;
     }
