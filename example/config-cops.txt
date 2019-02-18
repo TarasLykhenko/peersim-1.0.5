@@ -19,8 +19,8 @@ simulation.logtime CYCLE
 
 ########### CLIENT CONFIGS #############
 clients_per_datacenter 50
-rest_time = 200;
-rest_time_interval = 50;
+rest_time = 400;
+rest_time_interval = 20;
 
 client_read_percentage 80
 client_update_percentage 20
@@ -45,8 +45,24 @@ groups {[0],[0,1],[0,1,2,3]}{[1],[0,1],[0,1,2,3]}{[2],[2,3],[0,1,2,3]}{[3],[2,3]
 statistics_window 5
 
 partitions_file example/partitions/four_nodes_all_connected_partition_between_countries.top
-partition_start 20
+partition_start 120
 partition_end 100
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 tree tree
 ##########################################
