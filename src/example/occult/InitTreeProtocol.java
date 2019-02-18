@@ -5,7 +5,6 @@ import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.core.Network;
 import peersim.core.Node;
-import sun.security.krb5.Config;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -111,6 +110,7 @@ public class InitTreeProtocol implements Control {
                 datacenterGroup.addAll(datacenter.getLevelsToNodes(level));
                 seenDatacenters.addAll(datacenterGroup);
 
+                System.out.println("Leggo");
                 generateDataObjectsForGroup(datacenterGroup, level, levelsPercentage[level]);
             }
         }
@@ -216,7 +216,7 @@ public class InitTreeProtocol implements Control {
             shardIdsToKeys.computeIfAbsent(currentShardId, k -> new HashSet<>())
                     .add(dataObject.getKey());
             shardKeysCounter++;
-            if (shardKeysCounter == numberObjectsPerShard) {
+            if (shardKeysCounter == numberObjectsPerShard - 1) {
                 shardKeysCounter = 0;
                 currentShardId++;
             }
@@ -231,6 +231,7 @@ public class InitTreeProtocol implements Control {
         }
 
         splitShardsAmongstDatacenters(shardIdsToKeys.keySet(), datacentersGroup);
+        currentShardId++;
     }
 
     private void splitShardsAmongstDatacenters(Set<Integer> shardIds,
@@ -238,7 +239,9 @@ public class InitTreeProtocol implements Control {
         List<StateTreeProtocol> listOfDcs = new ArrayList<>(datacentersGroup);
 
         int recursiveCounter = 0;
+        System.out.println("Splitting!");
         for (Integer shardId : shardIds) {
+            System.out.println("Shard is " + shardId);
             StateTreeProtocol master = listOfDcs.get(recursiveCounter);
             GroupsManager.getInstance().addShardMaster(shardId, master, datacentersGroup);
             recursiveCounter++;

@@ -27,7 +27,6 @@ import peersim.util.IncrementalStats;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -63,7 +62,8 @@ public class Controller implements Control {
      * @see #execute
      */
     private static final String PAR_ACCURACY = "accuracy";
-    private static final String PAR_PARTITIONS_FILE = "partitions_file";
+    private static final String PAR_PARTITIONS_FILE = "partitions_datacenters";
+    private static final String PAR_PARTITIONS_CLIENTS = "partitions_clients";
     private final static String PAR_TAKE_STATISTICS_EVERY = "statistics_window";
     private final static String PAR_WHEN_TO_PARTITION = "partition_start";
     private final static String PAR_WHEN_TO_UNPARTATITION = "partition_end";
@@ -105,7 +105,8 @@ public class Controller implements Control {
     private final PrintWriter writer;
     private final PrintWriter importantWriter;
 
-    private final String partitionsFile;
+    private final String partitionsDCFile;
+    private final String partitionsClientsFile;
 
     private final int takeStatisticsEvery;
     private final int targetCyclesToPartition;
@@ -135,7 +136,10 @@ public class Controller implements Control {
 
         iteration = 1;
         outputFile = Configuration.getString(name + "." + PAR_OUTPUT);
-        partitionsFile = Configuration.getString(PAR_PARTITIONS_FILE);
+
+        partitionsDCFile = Configuration.getString(PAR_PARTITIONS_FILE);
+        partitionsClientsFile = Configuration.getString(PAR_PARTITIONS_CLIENTS);
+
         TAKE_STATISTICS_EVERY = Configuration.getDouble(PAR_TAKE_STATISTICS_EVERY);
         double WHEN_TO_PARTITION = Configuration.getDouble(PAR_WHEN_TO_PARTITION);
         double WHEN_TO_UNPARTATITION = Configuration.getDouble(PAR_WHEN_TO_UNPARTATITION);
@@ -185,7 +189,8 @@ public class Controller implements Control {
         iteration++;
         //System.out.println("Iteration: " + iteration + " | time: " + CommonState.getTime() + " | partition: " + targetCyclesToPartition);
         if (iteration == targetCyclesToPartition) {
-            partitionConnections();
+            partitionDCConnections();
+            partitionClientConnections();
         }
 
         if (iteration != cycles) {
@@ -203,6 +208,7 @@ public class Controller implements Control {
         long totalMigrations = 0;
         long waitingClients = 0;
         long pendingOperations = 0;
+        long totalStaleReads = 0;
         currentPoint += TAKE_STATISTICS_EVERY;
         print("Observer init ======================");
         print("CURRENT POINT: " + currentPoint);
@@ -217,7 +223,7 @@ public class Controller implements Control {
                 if (client.isWaiting()) {
                     waitingClients++;
                 }
-
+                totalStaleReads += client.totalStaleReads;
             }
         }
 
@@ -237,6 +243,7 @@ public class Controller implements Control {
         print("Total Migrations: " + totalMigrations);
         printImportant("Total Migrations: " + totalMigrations);
         printImportant("Waiting clients: " + waitingClients);
+        printImportant("Total stale reads: " + totalStaleReads);
         // debugPercentages();
         print("Observer end =======================");
         print("");
@@ -301,9 +308,9 @@ public class Controller implements Control {
         importantWriter.println(string);
     }
 
-    private void partitionConnections() {
+    private void partitionDCConnections() {
         System.out.println("Partitioning at iteration " + iteration + ", time " + CommonState.getTime());
-        try (BufferedReader br = new BufferedReader(new FileReader(partitionsFile))) {
+        try (BufferedReader br = new BufferedReader(new FileReader(partitionsDCFile))) {
             String line = br.readLine();
             int counter = 0;
             while (line != null) {
@@ -314,15 +321,41 @@ public class Controller implements Control {
                         Node src = Network.get(counter);
                         Node dst = Network.get(i);
 
-                        PointToPointTransport.partitionTable.get(src.getID())
+                        PointToPointTransport.partitionDCTable.get(src.getID())
                                 .put(dst.getID(), targetCyclesToUnpartition * logTime);
                     }
                 }
                 line = br.readLine();
                 counter++;
             }
-        } catch (FileNotFoundException e) {
+        } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * Epa ya está um bocado copy paste bem agressivo
+     */
+    private void partitionClientConnections() {
+        System.out.println("Partitioning at iteration " + iteration + ", time " + CommonState.getTime());
+        try (BufferedReader br = new BufferedReader(new FileReader(partitionsClientsFile))) {
+            String line = br.readLine();
+            int counter = 0;
+            while (line != null) {
+                String[] partitions = line.split("\t");
+                for (int i = 0; i < partitions.length; i++) {
+                    int partition = Integer.valueOf(partitions[i]);
+                    if (partition == 1) {
+                        Node src = Network.get(counter);
+                        Node dst = Network.get(i);
+
+                        PointToPointTransport.partitionClientTable.get(src.getID())
+                                .put(dst.getID(), targetCyclesToUnpartition * logTime);
+                    }
+                }
+                line = br.readLine();
+                counter++;
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }

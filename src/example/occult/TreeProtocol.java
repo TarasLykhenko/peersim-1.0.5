@@ -84,7 +84,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
             if (eventIsRead(event)) {
                 ReadOperation readOperation = (ReadOperation) operation;
                 if (readOperation.migrateToMaster()) {
-                    System.out.println("Client (" + client.getId() + " wants to migrate. ");
+                //    System.out.println("Client (" + client.getId() + " wants to migrate. ");
                     migrateToMaster(node, pid, datacenter, client, event);
                 } else {
                     ReadMessage readMessage = new ReadMessage(this.getNodeId(), client.getId(), operation.getKey());
@@ -279,7 +279,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
     }
 
     private void debugCheckIfNodeIsPartitioned(Node bestNode) {
-        Map<Long, Integer> longIntegerMap = PointToPointTransport.partitionTable.get(bestNode.getID());
+        Map<Long, Integer> longIntegerMap = PointToPointTransport.partitionDCTable.get(bestNode.getID());
         for (Long dstNode : longIntegerMap.keySet()) {
             if (longIntegerMap.get(dstNode) > CommonState.getTime()) {
                 System.out.println("MIGRATING TO PARTITIONED NODE!" + longIntegerMap.get(dstNode) + " | " + CommonState.getTime());

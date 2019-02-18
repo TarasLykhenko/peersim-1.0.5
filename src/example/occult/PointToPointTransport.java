@@ -76,10 +76,11 @@ public final class PointToPointTransport implements Transport {
      */
     private final long max;
 
-//---------------------------------------------------------------------
+    //---------------------------------------------------------------------
 //Initialization
 //---------------------------------------------------------------------
     private final int MIGRATION_REQUEST_LATENCY;
+
     /**
      * Reads configuration parameter.
      */
@@ -92,10 +93,12 @@ public final class PointToPointTransport implements Transport {
                     "The maximum latency cannot be smaller than the minimum latency");
         // Initializing tables
         for (long i = 0; i < Network.size(); i++) {
-            partitionTable.put(i, new HashMap<>());
+            partitionClientTable.put(i, new HashMap<>());
+            partitionDCTable.put(i, new HashMap<>());
             lastWillBeReceived.put(i, new HashMap<>());
             for (long j = 0; j < Network.size(); j++) {
-                partitionTable.get(i).put(j, 0);
+                partitionClientTable.get(i).put(j, 0);
+                partitionDCTable.get(i).put(j, 0);
                 lastWillBeReceived.get(i).put(j, 0L);
             }
         }
@@ -113,9 +116,14 @@ public final class PointToPointTransport implements Transport {
     }
 
     /**
+     * Mapping is NodeSrc id to Map<NodeDst, PartitionEnd> but for client migrations
+     */
+    static Map<Long, Map<Long, Integer>> partitionClientTable = new HashMap<>();
+
+    /**
      * Mapping is nodeSrc id to Map<NodeDst, PartitionEnd>
      */
-    static Map<Long, Map<Long, Integer>> partitionTable = new HashMap<>();
+    static Map<Long, Map<Long, Integer>> partitionDCTable = new HashMap<>();
     /**
      * Stores the time of when each message will be received. We want fifo, so each
      * new message should have a time higher than the lastWillBeReceived.
@@ -165,32 +173,10 @@ public final class PointToPointTransport implements Transport {
 
         int latency = latencies.get(src.getID()).get(dest.getID());
         if (latency != -1) {
-            long delay = 0;
-            if (latency != 0) {
 
-                long extraDelay = CommonState.r.nextLong(max);
-                if (extraDelay < min) {
-                    extraDelay = min;
-                }
-                delay = latency + extraDelay;
-            }
+            long delay = addBellDelay(latency);
 
-            int partitionOver = partitionTable.get(srcId).get(destId);
-            if (partitionOver != 0) {
-                partitionOver -= CommonState.getTime();
-                if (partitionOver > 0) {
-                    delay += partitionOver;
-                }
-            }
-
-
-            /*
-            if (messageIsMigration(msg) && partitionOver != 0) {
-                delay -= partitionOver;
-            //    System.out.println("There's a partition but delay is " + delay + " for migration (before fifo check)");
-            }
-            */
-
+            delay = addPartitionDelay(msg, srcId, destId, delay);
 
             long messageWillBeReceived = CommonState.getTime() + delay;
 
@@ -199,23 +185,40 @@ public final class PointToPointTransport implements Transport {
                 messageWillBeReceived = lastWillBeReceivedDest + 1;
                 delay = delay + 1;
             }
+
             lastWillBeReceived.get(srcId).put(destId, messageWillBeReceived);
 
 
-            if (messageIsMigration(msg)) {
-                delay = MIGRATION_REQUEST_LATENCY;
-                //    System.out.println("There's a partition but delay is " + delay + " for migration (before fifo check)");
-            }
-
-            /*
-            if (partitionOver != 0) {
-                System.out.println("UNDER PARTITION! : " + CommonState.getTime() + " | " + srcId + " sending msg at time " + messageWillBeReceived + " to " + destId);
-                System.out.println("Delay is " + delay + " msg is " + msg.getClass().getSimpleName());
-            }
-            */
-
             EDSimulator.add(delay, msg, dest, pid);
         }
+    }
+
+    private long addPartitionDelay(Object msg, Long srcId, Long destId, long delay) {
+        int partitionOver;
+        if (messageIsMigration(msg)) {
+            partitionOver = partitionClientTable.get(srcId).get(destId);
+        } else {
+            partitionOver = partitionDCTable.get(srcId).get(destId);
+        }
+
+        if (partitionOver != 0) {
+            partitionOver -= CommonState.getTime();
+            if (partitionOver > 0) {
+                delay += partitionOver;
+            }
+        }
+        return delay;
+    }
+
+    private long addBellDelay(int latency) {
+        long delay = 0;
+
+        long extraDelay = CommonState.r.nextLong(max);
+        if (extraDelay < min) {
+            extraDelay = min;
+        }
+        delay = latency + extraDelay;
+        return delay;
     }
 
     /**
