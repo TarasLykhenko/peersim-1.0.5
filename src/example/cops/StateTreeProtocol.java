@@ -18,7 +18,7 @@
 
 package example.cops;
 
-import example.cops.datatypes.DataObject;
+import example.common.datatypes.DataObject;
 import example.cops.datatypes.EventUID;
 
 import java.util.List;

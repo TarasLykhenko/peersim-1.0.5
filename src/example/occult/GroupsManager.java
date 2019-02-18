@@ -1,6 +1,6 @@
 package example.occult;
 
-import example.occult.datatypes.DataObject;
+import example.common.datatypes.DataObject;
 import peersim.config.Configuration;
 import peersim.core.Network;
 

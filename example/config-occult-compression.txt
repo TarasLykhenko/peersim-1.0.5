@@ -20,7 +20,7 @@ simulation.logtime CYCLE
 ########### CLIENT CONFIGS #############
 clients_per_datacenter 500
 rest_time = 400
-rest_time_interval = 20
+rest_time_interval = 50
 
 client_read_percentage 80
 client_update_percentage 20
@@ -31,15 +31,15 @@ client_update_levels_percentages [80,15,5]
 # percentage clients that use objects up to a given distance
 # eg. with [50,50], half clients will only use objects from the local DC
 # and the other half will use objects from both local and the DCs 1 level away
-client_locality_percentage [0,50,50]
+client_locality_percentage [0,0,100]
 
 clients_eager_percentage 20
-
-
+client_read_retries 3
+client_read_retry_interval 100
 ########################################
 
-total_objects_per_datacenter 20
-
+total_objects_per_datacenter 100
+shards_per_object_group 10
 
 levels 3
 levels_percentage [33,33,34]
@@ -48,22 +48,12 @@ groups {[0],[0,1],[0,1,2,3]}{[1],[0,1],[0,1,2,3]}{[2],[2,3],[0,1,2,3]}{[3],[2,3]
 
 statistics_window 5
 
-partitions_file example/partitions/four_nodes_all_connected_partition_between_countries.top
-partition_start 120
-partition_end 100
-
 should_partition_DC true
 should_partition_clients false
 partitions_datacenters example/partitions/four_nodes_all_connected_partition.top
 partitions_clients example/client-partitions/four_nodes_all_connected_partition.top
 partition_start 20
-partition_end 40
-
-
-
-
-
-
+partition_end 120
 
 
 
@@ -83,7 +73,7 @@ tree tree
 
 protocol.link peersim.core.IdleProtocol
 
-protocol.tree example.cops.TreeProtocol
+protocol.tree example.occult.temporal_compression.TreeProtocol
 protocol.tree.step CYCLE
 protocol.tree.transport tr
 protocol.tree.tree_protocol tree
@@ -105,7 +95,7 @@ init.1.topology_file four_nodes_all_connected.top
 init.1.protocol link
 
 ### Inits queues based on graph
-init.2 example.cops.InitTreeProtocol
+init.2 example.occult.temporal_compression.InitTreeProtocol
 init.2.tree_protocol tree
 init.2.clients_cycle 1
 
@@ -115,7 +105,7 @@ init.sch.randstart
 
 ################ control ==============================
 
-control.0 example.cops.Controller
+control.0 example.occult.temporal_compression.Controller
 control.0.protocol tree
 control.0.step CYCLE
 control.0.output_file output/optimal5

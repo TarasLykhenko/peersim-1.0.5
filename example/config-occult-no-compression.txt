@@ -62,6 +62,10 @@ partition_end 120
 
 
 
+
+
+
+
 tree tree
 ##########################################
 
@@ -69,14 +73,14 @@ tree tree
 
 protocol.link peersim.core.IdleProtocol
 
-protocol.tree example.occult.TreeProtocol
+protocol.tree example.occult.no_compression.TreeProtocol
 protocol.tree.step CYCLE
 protocol.tree.transport tr
 protocol.tree.tree_protocol tree
 protocol.tree.linkable link
 
 
-protocol.urt example.occult.PointToPointTransport
+protocol.urt example.common.PointToPointTransport
 
 protocol.tr UnreliableTransport
 protocol.tr.transport urt
@@ -85,13 +89,13 @@ protocol.tr.drop 0
 ################### initialization ======================
 
 ### Creates graph and sets latencies
-init.1 example.occult.WireTopology
+init.1 example.common.WireTopology
 init.1.topology_path example/topologies
 init.1.topology_file four_nodes_all_connected.top
 init.1.protocol link
 
 ### Inits queues based on graph
-init.2 example.occult.InitTreeProtocol
+init.2 example.occult.no_compression.InitTreeProtocol
 init.2.tree_protocol tree
 init.2.clients_cycle 1
 
@@ -101,7 +105,7 @@ init.sch.randstart
 
 ################ control ==============================
 
-control.0 example.occult.Controller
+control.0 example.occult.no_compression.Controller
 control.0.protocol tree
 control.0.step CYCLE
 control.0.output_file output/optimal5

@@ -1,6 +1,6 @@
 package example.genericsaturn;
 
-import example.genericsaturn.datatypes.DataObject;
+import example.common.datatypes.DataObject;
 import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.core.Network;
@@ -238,7 +238,7 @@ public class InitTreeProtocol implements Control {
                         .sorted()
                         .collect(Collectors.joining("-")));
                 for (DataObject dataObject : datacenter.getDataObjectsFromLevel(level)) {
-                    System.out.println("dataobject: " + dataObject.getUniqueId());
+                    System.out.println("dataobject: " + dataObject.getDebugInfo());
                 }
             }
             System.out.println();

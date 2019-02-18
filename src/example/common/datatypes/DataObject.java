@@ -1,4 +1,4 @@
-package example.cops.datatypes;
+package example.common.datatypes;
 
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -9,7 +9,6 @@ public class DataObject {
     private Set<Long> nodeIDs;
     private int groupCounter;
     private int key;
-    private int versionNumber;
 
     private String debugInfo;
 

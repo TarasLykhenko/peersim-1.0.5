@@ -1,6 +1,6 @@
 package example.genericsaturn;
 
-import example.genericsaturn.datatypes.DataObject;
+import example.common.datatypes.DataObject;
 import example.genericsaturn.datatypes.Operation;
 import example.genericsaturn.datatypes.ReadOperation;
 import example.genericsaturn.datatypes.RemoteReadOperation;
@@ -92,17 +92,17 @@ public class Client {
     private Operation doRead() {
         int randomLevel = getRandomLevel(READ_LEVEL_PERCENTAGE);
         DataObject randomDataObject = chooseRandomDataObject(randomLevel);
-        return new ReadOperation(randomDataObject.getTotalCounter());
+        return new ReadOperation(randomDataObject.getKey());
     }
 
     //TODO este do update deve estar errado
     private Operation doUpdate() {
         int randomLevel = getRandomLevel(UPDATE_LEVEL_PERCENTAGE);
         DataObject randomDataObject = chooseRandomDataObject(randomLevel);
-        return new UpdateOperation(randomDataObject.getTotalCounter(),
+        return new UpdateOperation(randomDataObject.getKey(),
                 1,
                 1,
-                randomDataObject.getUniqueId());
+                randomDataObject.getDebugInfo());
     }
 
     private int getRandomLevel(int[] levelPercentages) {

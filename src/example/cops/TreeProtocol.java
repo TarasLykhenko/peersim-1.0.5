@@ -1,5 +1,6 @@
 package example.cops;
 
+import example.common.PointToPointTransport;
 import example.cops.datatypes.EventUID;
 import example.cops.datatypes.Operation;
 import peersim.cdsim.CDProtocol;
@@ -235,6 +236,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
         return event.getOperation().getType() == Operation.Type.UPDATE;
     }
 
+    /*
     private void debugCheckIfNodeIsPartitioned(Node bestNode) {
         Map<Long, Integer> longIntegerMap = PointToPointTransport.partitionTable.get(bestNode.getID());
         for (Long dstNode : longIntegerMap.keySet()) {
@@ -243,6 +245,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
             }
         }
     }
+    */
 
 
 //--------------------------------------------------------------------------

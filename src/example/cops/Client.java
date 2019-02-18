@@ -1,6 +1,6 @@
 package example.cops;
 
-import example.cops.datatypes.DataObject;
+import example.common.datatypes.DataObject;
 import example.cops.datatypes.Operation;
 import example.cops.datatypes.Operation.Type;
 import example.cops.datatypes.ReadOperation;

@@ -1,6 +1,9 @@
-package example.occult;
+package example.occult.no_compression;
 
-import example.occult.datatypes.DataObject;
+import example.common.datatypes.DataObject;
+import example.occult.ClientInterface;
+import example.occult.GroupsManager;
+import example.occult.StateTreeProtocol;
 import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.core.Network;
@@ -145,7 +148,7 @@ public class InitTreeProtocol implements Control {
                 Map<Integer, Set<DataObject>> allDataObjectsOfNeighbours =
                         getDataObjectsOfNeighbours(localityNeighboursOfDatacenter);
 
-                Set<Client> clients = new HashSet<>();
+                Set<ClientInterface> clients = new HashSet<>();
                 for (int i = 0; i < amountLocalityClients; i++) {
                     totalClients++;
                     if (i < amountEagerClients) {

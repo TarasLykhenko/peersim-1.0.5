@@ -1,4 +1,4 @@
-package example.cops;
+package example.common;
 
 import peersim.config.Configuration;
 import peersim.core.Node;
@@ -27,9 +27,7 @@ public class WireTopology extends WireGraph {
      */
 
     private static final String PAR_PATH = "topology_path";
-
     private static final String PAR_TOPOLOGY = "topology_file";
-
     private static final String PAR_CLIENT_REQUEST_DELAY = "client_request_latency";
 
 
@@ -41,7 +39,6 @@ public class WireTopology extends WireGraph {
     /**
      * Coordinate protocol pid.
      */
-
 
     private final String path;
     private final String topology;
@@ -90,4 +87,5 @@ public class WireTopology extends WireGraph {
             e.printStackTrace();
         }
     }
+
 }

@@ -1,10 +1,8 @@
 package example.cops;
 
-import example.cops.datatypes.DataObject;
+import example.common.datatypes.DataObject;
 import peersim.config.Configuration;
 import peersim.core.Network;
-import peersim.core.Node;
-import peersim.graph.Graph;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -143,15 +141,5 @@ public class GroupsManager {
 
     public Set<DataObject> getDataObjectsFromDatacenter(StateTreeProtocol datacenter) {
         return datacenterToObjects.get(datacenter);
-    }
-
-    public boolean datacenterContainsObject(StateTreeProtocol datacenter, int key) {
-        if (!datacenterToObjects.containsKey(datacenter)) {
-            // TODO SUPER HARDOCDED, ATM ISTO SIGNIFICA QUE TODOS OS BROKERS RECEBEM
-            // TODO TODAS AS CENAS.
-            return true;
-        }
-        DataObject dataObject = idToObjects.get(key);
-        return datacenterToObjects.get(datacenter).contains(dataObject);
     }
 }

@@ -1,6 +1,6 @@
 package example.genericsaturn;
 
-import example.genericsaturn.datatypes.DataObject;
+import example.common.datatypes.DataObject;
 import peersim.config.Configuration;
 import peersim.core.Network;
 import peersim.core.Node;
@@ -112,7 +112,7 @@ public class GroupsManager {
                 .addAll(result);
 
         for (DataObject obj : result) {
-            idToObjects.put(obj.getTotalCounter(), obj);
+            idToObjects.put(obj.getKey(), obj);
         }
         datacenterToObjects.computeIfAbsent(datacenter, k -> new HashSet<>())
                 .addAll(result);

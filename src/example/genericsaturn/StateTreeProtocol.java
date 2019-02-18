@@ -18,7 +18,7 @@
 
 package example.genericsaturn;
 
-import example.genericsaturn.datatypes.DataObject;
+import example.common.datatypes.DataObject;
 import example.genericsaturn.datatypes.EventUID;
 import example.genericsaturn.datatypes.PendingEventUID;
 import example.genericsaturn.datatypes.VersionVector;

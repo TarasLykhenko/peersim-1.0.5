@@ -1,15 +1,20 @@
-package example.cops;
+package example.occult.temporal_compression;
 
 import example.common.datatypes.DataObject;
+import example.occult.ClientInterface;
+import example.occult.GroupsManager;
+import example.occult.StateTreeProtocol;
 import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.core.Network;
 import peersim.core.Node;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -26,6 +31,7 @@ public class InitTreeProtocol implements Control {
     private static final String PAR_LEVELS_PERCENTAGE = "levels_percentage";
     private static final String PAR_CLIENTS_EAGER = "clients_eager_percentage";
     private static final String PAR_CLIENTS_LOCALITY_PERCENTAGE = "client_locality_percentage";
+    private static final String PAR_NUMBER_SHARDS_PER_GROUND = "shards_per_object_group";
 
 
     // ------------------------------------------------------------------------
@@ -33,12 +39,12 @@ public class InitTreeProtocol implements Control {
     // ------------------------------------------------------------------------
 
     private final int tree;
-
     private final int maxClients;
     private final int totalObjects;
     private final int[] levelsPercentage;
     private final int[] clientsLocalityPercentages;
     private final int clientEagerPercentage;
+    private final int numberShardsPerGroup;
 
 
     // ------------------------------------------------------------------------
@@ -64,6 +70,7 @@ public class InitTreeProtocol implements Control {
                 .mapToInt(Integer::parseInt)
                 .toArray();
         clientEagerPercentage = Configuration.getInt(PAR_CLIENTS_EAGER);
+        numberShardsPerGroup = Configuration.getInt(PAR_NUMBER_SHARDS_PER_GROUND);
     }
 
     // ------------------------------------------------------------------------
@@ -90,9 +97,9 @@ public class InitTreeProtocol implements Control {
         return false;
     }
 
+    private int dataObjectCounter = 0;
+    private int currentShardId = 1_000_000_000;
     private void generateDataObjects(Set<StateTreeProtocol> datacenters) {
-        int counter = 0;
-
         for (int level = 0; level < levelsPercentage.length; level++) {
             Set<StateTreeProtocol> seenDatacenters = new HashSet<>();
 
@@ -106,7 +113,8 @@ public class InitTreeProtocol implements Control {
                 datacenterGroup.addAll(datacenter.getLevelsToNodes(level));
                 seenDatacenters.addAll(datacenterGroup);
 
-                counter = generateDataObjectsForGroup(datacenterGroup, level, levelsPercentage[level], counter);
+                System.out.println("Leggo");
+                generateDataObjectsForGroup(datacenterGroup, level, levelsPercentage[level]);
             }
         }
     }
@@ -140,7 +148,7 @@ public class InitTreeProtocol implements Control {
                 Map<Integer, Set<DataObject>> allDataObjectsOfNeighbours =
                         getDataObjectsOfNeighbours(localityNeighboursOfDatacenter);
 
-                Set<Client> clients = new HashSet<>();
+                Set<ClientInterface> clients = new HashSet<>();
                 for (int i = 0; i < amountLocalityClients; i++) {
                     totalClients++;
                     if (i < amountEagerClients) {
@@ -192,23 +200,58 @@ public class InitTreeProtocol implements Control {
         }
     }
 
-    private int generateDataObjectsForGroup(Set<StateTreeProtocol> datacentersGroup,
-                                             int level, double percentage, int counter) {
+    private void generateDataObjectsForGroup(Set<StateTreeProtocol> datacentersGroup,
+                                             int level, double percentage) {
         int numberObjectsToCreate = Math.round((float) (percentage / 100) * totalObjects);
+        int numberObjectsPerShard = Math.round((float) numberObjectsToCreate / numberShardsPerGroup);
+        Map<Integer, Set<Integer>> shardIdsToKeys = new HashMap<>();
+
         Set<DataObject> result = new HashSet<>();
         Set<Long> nodesGroupIds = datacentersGroup.stream()
                 .map(StateTreeProtocol::getNodeId)
                 .collect(Collectors.toSet());
+
         // System.out.println("Group: " + nodesGroupIds);
+        int shardKeysCounter = 0;
         for (int i = 0; i < numberObjectsToCreate; i++) {
-            result.add(new DataObject(level, nodesGroupIds, i, counter++));
+            DataObject dataObject = new DataObject(level, nodesGroupIds, i, dataObjectCounter++);
+            result.add(dataObject);
+            shardIdsToKeys.computeIfAbsent(currentShardId, k -> new HashSet<>())
+                    .add(dataObject.getKey());
+            shardKeysCounter++;
+            if (shardKeysCounter == numberObjectsPerShard - 1) {
+                shardKeysCounter = 0;
+                currentShardId++;
+            }
         }
         for (StateTreeProtocol datacenter : datacentersGroup) {
             datacenter.addDataObjectsToLevel(result, level);
             GroupsManager.getInstance().addDataObjects(datacenter, result, level);
         }
 
-        return counter;
+        for (int shardId : shardIdsToKeys.keySet()) {
+            GroupsManager.getInstance().addShardMapping(shardId, shardIdsToKeys.get(shardId));
+        }
+
+        splitShardsAmongstDatacenters(shardIdsToKeys.keySet(), datacentersGroup);
+        currentShardId++;
+    }
+
+    private void splitShardsAmongstDatacenters(Set<Integer> shardIds,
+                                               Set<StateTreeProtocol> datacentersGroup) {
+        List<StateTreeProtocol> listOfDcs = new ArrayList<>(datacentersGroup);
+
+        int recursiveCounter = 0;
+        System.out.println("Splitting!");
+        for (Integer shardId : shardIds) {
+            System.out.println("Shard is " + shardId);
+            StateTreeProtocol master = listOfDcs.get(recursiveCounter);
+            GroupsManager.getInstance().addShardMaster(shardId, master, datacentersGroup);
+            recursiveCounter++;
+            if (recursiveCounter == listOfDcs.size()) {
+                recursiveCounter = 0;
+            }
+        }
     }
 
     private Set<StateTreeProtocol> getDatacenters() {

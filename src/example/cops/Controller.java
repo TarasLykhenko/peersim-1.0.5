@@ -65,10 +65,8 @@ public class Controller implements Control {
      */
     private static final String PAR_ACCURACY = "accuracy";
     private static final String PAR_PARTITIONS_FILE = "partitions_file";
-    private final static String PAR_TAKE_STATISTICS_EVERY = "statistics_window";
-    private final static String PAR_WHEN_TO_PARTITION = "partition_start";
-    private final static String PAR_WHEN_TO_UNPARTATITION = "partition_end";
-    private final static String PAR_LEVELS = "levels";
+    private static final String PAR_TAKE_STATISTICS_EVERY = "statistics_window";
+    private static final String PAR_LEVELS = "levels";
 
     /**
      * The protocol to operate on.
@@ -109,8 +107,6 @@ public class Controller implements Control {
     private final String partitionsFile;
 
     private final int takeStatisticsEvery;
-    private final int targetCyclesToPartition;
-    private final int targetCyclesToUnpartition;
     private final int levels;
 
     private int iteration;
@@ -138,8 +134,6 @@ public class Controller implements Control {
         outputFile = Configuration.getString(name + "." + PAR_OUTPUT);
         partitionsFile = Configuration.getString(PAR_PARTITIONS_FILE);
         TAKE_STATISTICS_EVERY = Configuration.getDouble(PAR_TAKE_STATISTICS_EVERY);
-        double WHEN_TO_PARTITION = Configuration.getDouble(PAR_WHEN_TO_PARTITION);
-        double WHEN_TO_UNPARTATITION = Configuration.getDouble(PAR_WHEN_TO_UNPARTATITION);
         levels = Configuration.getInt(PAR_LEVELS);
         int endTime = Configuration.getInt("simulation.endtime");
         logTime = Configuration.getInt("simulation.logtime");
@@ -159,8 +153,6 @@ public class Controller implements Control {
         importantWriter = new PrintWriter(br2);
 
         takeStatisticsEvery = Math.round((float) (TAKE_STATISTICS_EVERY / 100) * cycles);
-        targetCyclesToPartition = Math.round((float) (WHEN_TO_PARTITION / 100) * cycles);
-        targetCyclesToUnpartition = Math.round((float) (WHEN_TO_UNPARTATITION / 100) * cycles);
     }
 
 
@@ -184,10 +176,6 @@ public class Controller implements Control {
 
     public boolean execute() {
         iteration++;
-        //System.out.println("Iteration: " + iteration + " | time: " + CommonState.getTime() + " | partition: " + targetCyclesToPartition);
-        if (iteration == targetCyclesToPartition) {
-            partitionConnections();
-        }
 
         if (iteration != cycles) {
             if (iteration % takeStatisticsEvery != 0) {
@@ -352,34 +340,4 @@ public class Controller implements Control {
         System.out.println("WRITING!");
         importantWriter.println(string);
     }
-
-    private void partitionConnections() {
-        System.out.println("Partitioning at iteration " + iteration + ", time " + CommonState.getTime());
-        try (BufferedReader br = new BufferedReader(new FileReader(partitionsFile))) {
-            String line = br.readLine();
-            int counter = 0;
-            while (line != null) {
-                String[] partitions = line.split("\t");
-                for (int i = 0; i < partitions.length; i++) {
-                    int partition = Integer.valueOf(partitions[i]);
-                    if (partition == 1) {
-                        Node src = Network.get(counter);
-                        Node dst = Network.get(i);
-
-                        PointToPointTransport.partitionTable.get(src.getID())
-                                .put(dst.getID(), targetCyclesToUnpartition * logTime);
-                    }
-                }
-                line = br.readLine();
-                counter++;
-            }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 }
-
-//--------------------------------------------------------------------------
-

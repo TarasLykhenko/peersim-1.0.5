@@ -18,7 +18,6 @@
 
 package example.genericsaturn;
 
-import example.genericsaturn.datatypes.DataObject;
 import peersim.config.Configuration;
 import peersim.core.CommonState;
 import peersim.core.Control;
@@ -37,8 +36,6 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Print statistics over a vector. The vector is defined by a protocol,
