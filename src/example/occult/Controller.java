@@ -218,8 +218,10 @@ public class Controller implements Control {
         long totalMigrations = 0;
         long waitingClients = 0;
         long totalStaleReads = 0;
+        long totalMasterMigrations = 0;
+        long totalFalseShardReads = 0;
         currentPoint += TAKE_STATISTICS_EVERY;
-        print("Observer init ======================");
+        printImportant("Observer init ======================");
         print("CURRENT POINT: " + currentPoint);
         for (int i = 0; i < Network.size(); i++) {
             Node node = Network.get(i);
@@ -233,10 +235,12 @@ public class Controller implements Control {
                     waitingClients++;
                 }
                 totalStaleReads += client.totalStaleReads;
+                totalMasterMigrations += client.totalNumberMasterMigration;
+                totalFalseShardReads += client.totalFalseShardRead;
             }
         }
 
-        printImportant("Total updates: " + aggregateUpdates);
+        //printImportant("Total updates: " + aggregateUpdates);
         int totalOps = aggregateUpdates + aggregateReads ;
         print("Total ops: " + totalOps);
         print("Total ops since last %: " + (totalOps - totalOpsPrevious));
@@ -253,9 +257,11 @@ public class Controller implements Control {
         printImportant("Total Migrations: " + totalMigrations);
         printImportant("Waiting clients: " + waitingClients);
         printImportant("Total stale reads: " + totalStaleReads);
+        printImportant("Total master migrations: " + totalMasterMigrations);
+        printImportant("Total catchAll reads: " + totalFalseShardReads);
         // debugPercentages();
-        print("Observer end =======================");
-        print("");
+        printImportant("Observer end =======================");
+        printImportant("");
         print("");
         /* Terminate if accuracy target is reached */
 
@@ -316,7 +322,7 @@ public class Controller implements Control {
     }
 
     private void partitionDCConnections() {
-        System.out.println("Partitioning at iteration " + iteration + ", time " + CommonState.getTime());
+        System.out.println("Partitioning DCs at iteration " + iteration + ", time " + CommonState.getTime());
         try (BufferedReader br = new BufferedReader(new FileReader(partitionsDCFile))) {
             String line = br.readLine();
             int counter = 0;
@@ -344,7 +350,7 @@ public class Controller implements Control {
      * Epa ya está um bocado copy paste bem agressivo
      */
     private void partitionClientConnections() {
-        System.out.println("Partitioning at iteration " + iteration + ", time " + CommonState.getTime());
+        System.out.println("Partitioning clients at iteration " + iteration + ", time " + CommonState.getTime());
         try (BufferedReader br = new BufferedReader(new FileReader(partitionsClientsFile))) {
             String line = br.readLine();
             int counter = 0;

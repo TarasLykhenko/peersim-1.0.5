@@ -204,6 +204,7 @@ public final class PointToPointTransport implements Transport {
         if (partitionOver != 0) {
             partitionOver -= CommonState.getTime();
             if (partitionOver > 0) {
+                System.out.println("ADDING DELAY!");
                 delay += partitionOver;
             }
         }

@@ -84,7 +84,9 @@ public class Client {
     int numberMigrations = 0;
     long readsTotalLatency = 0;
     long updatesTotalLatency = 0;
+    int totalFalseShardRead = 0;
     int totalStaleReads = 0;
+    int totalNumberMasterMigration = 0;
 
 
     private int MAX_CTS_SIZE = 9;
@@ -154,7 +156,8 @@ public class Client {
             if (numberStaleReads == NUMBER_RETRIES) {
                 int shardId = GroupsManager.getInstance().getShardId(lastReadKey);
                 long master = GroupsManager.getInstance().getMasterServer(shardId).getNodeId();
-                //         System.out.println("Client migrating to master (" + master + ") for read.");
+                totalNumberMasterMigration++;
+                System.out.println("Client migrating to master (" + master + ") for read.");
                 lastOperation = new ReadOperation(lastReadKey, true);
             } else {
                 lastOperation = new ReadOperation(lastReadKey, false);
@@ -255,6 +258,7 @@ public class Client {
     private Integer getShardStampFromCS(int shardId) {
         if (clientTimestamp.size() == MAX_CTS_SIZE) {
             if (clientTimestamp.get(shardId) == null) {
+                totalFalseShardRead++;
                 return catchAllShardStamp;
             } else {
                 return clientTimestamp.get(shardId);
