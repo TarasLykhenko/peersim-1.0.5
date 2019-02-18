@@ -313,6 +313,7 @@ abstract class StateTreeProtocolInstance
 
     @Override
     public boolean isInterested(int key) {
+        System.out.println("Checking key " + key);
         return keyToDataObject.containsKey(key);
     }
 

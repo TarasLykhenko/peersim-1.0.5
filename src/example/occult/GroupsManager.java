@@ -197,6 +197,10 @@ public class GroupsManager {
                                Set<StateTreeProtocol> shardReplicaDCs) {
         Set<StateTreeProtocol> allDCs = new HashSet<>(shardReplicaDCs);
 
+        if (shardToDatacenters.containsKey(shardId)) {
+            throw new RuntimeException("OVERWRITING!");
+        }
+
         shardToDatacenters.put(shardId, allDCs);
         masterShardDatacenter.put(shardId, master);
 

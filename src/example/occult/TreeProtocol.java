@@ -59,6 +59,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
         StateTreeProtocolInstance datacenter = (StateTreeProtocolInstance) node.getProtocol(tree);
 
         for (Client client : clients) {
+         //   System.out.println("Checking client " + client.getId());
             Operation operation = client.nextOperation();
             // Client is waiting for result;
             if (operation == null) {
@@ -69,6 +70,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
 
             // DC doesn't have key, migrate the client
             if (!datacenter.isInterested(operation.getKey())) {
+                System.out.println("DC not interested, migrating");
                 startMigration(node, pid, datacenter, client, event);
                 continue;
             }
@@ -79,8 +81,6 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 ReadOperation readOperation = (ReadOperation) operation;
                 if (readOperation.migrateToMaster()) {
                     System.out.println("Client (" + client.getId() + " wants to migrate. ");
-                    int shardId = GroupsManager.getInstance().getShardId(readOperation.getKey());
-                    StateTreeProtocol master = GroupsManager.getInstance().getMasterServer(shardId);
                     startMigration(node, pid, datacenter, client, event);
                 } else {
                     ReadMessage readMessage = new ReadMessage(this.getNodeId(), client.getId(), operation.getKey());
@@ -90,11 +90,12 @@ public class TreeProtocol extends StateTreeProtocolInstance
             }
 
             // If is local update
-            if (eventIsUpdate(event) && datacenter.isInterested(event.getOperation().getKey())) {
+            if (eventIsUpdate(event)) {
                 // Check if local DC is the shardmaster, otherwise migrate the client to it.
                 int shardId = GroupsManager.getInstance().getShardId(event.getOperation().getKey());
                 StateTreeProtocol masterServer = GroupsManager.getInstance().getMasterServer(shardId);
                 if (this.getNodeId() != masterServer.getNodeId()) {
+                    System.out.println("Am not master, migrating");
                     startMigration(node, pid, datacenter, client, event);
                     continue;
                 }
@@ -132,56 +133,9 @@ public class TreeProtocol extends StateTreeProtocolInstance
         MigrationMessage msg = new MigrationMessage(datacenter.getNodeId(), client.getId());
         client.startMigration();
         sendMessage(node, targetDC, msg, pid);
-     //   System.out.println("Migrating " + client.getId());
+        System.out.println("Migrating " + client.getId() + " from " + datacenter.getNodeId() + " to " + master.getNodeId());
         sentMigrations++;
     }
-
-    private Node getMigrationDatacenter(EventUID event,
-                                        StateTreeProtocol originalDC) {
-
-        Set<Node> interestedNodes = getInterestedDatacenters(event);
-
-        // Then select the datacenter that has the lowest latency to the client
-        return getLowestLatencyDatacenter(originalDC, interestedNodes);
-
-        // Send client to target
-        // TreeProtocol targetDCProtocol = (TreeProtocol) bestNode.getProtocol(tree);
-        // targetDCProtocol.migrateClientQueue(client, client.getCopyOfContext());
-
-        // sentMigrations++;
-    }
-
-    private Set<Node> getInterestedDatacenters(int key) {
-        Set<Node> interestedNodes = new HashSet<>();
-        // First get which datacenters replicate the data
-        for (int i = 0; i < Network.size(); i++) {
-            Node node = Network.get(i);
-            StateTreeProtocol datacenter = (StateTreeProtocol) node.getProtocol(tree);
-
-            if (datacenter.isInterested(key)) {
-                interestedNodes.add(node);
-            }
-        }
-        return interestedNodes;
-    }
-
-    private Set<Node> getInterestedDatacenters(EventUID event) {
-        return getInterestedDatacenters(event.getOperation().getKey());
-    }
-
-    private Node getLowestLatencyDatacenter(StateTreeProtocol originalDC, Set<Node> interestedNodes) {
-        int lowestLatency = Integer.MAX_VALUE;
-        Node bestNode = null;
-        for (Node interestedNode : interestedNodes) {
-            int nodeLatency = PointToPointTransport
-                    .staticGetLatency(originalDC.getNodeId(), interestedNode.getID());
-            if (nodeLatency < lowestLatency) {
-                bestNode = interestedNode;
-            }
-        }
-        return bestNode;
-    }
-
 
     private void sendMessage(Node src, Node dst, Object msg, int pid) {
         ((Transport) src.getProtocol(FastConfig.getTransport(pid)))

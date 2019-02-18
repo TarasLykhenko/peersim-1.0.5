@@ -126,6 +126,7 @@ public class Client {
         }
 
         if (isMigrating) {
+         //   System.out.println("I ("+id+") am migrating");
             return null;
         }
 
@@ -135,7 +136,7 @@ public class Client {
 
         // If the client migrated, repeat the last action
         if (justMigrated) {
-          //  System.out.println("My (" + id +") migration is over. Im doing a " + lastOperation.getType());
+            System.out.println("My (" + id +") migration is over. Im doing a " + lastOperation.getType());
             justMigrated = false;
             if (lastOperation instanceof ReadOperation) {
                 ReadOperation op = (ReadOperation) lastOperation;
@@ -145,7 +146,7 @@ public class Client {
         }
 
         if (hadStaleRead) {
-            System.out.println("Had stale read with " + numberStaleReads);
+           // System.out.println("Had stale read with " + numberStaleReads);
             if (numberStaleReads == NUMBER_RETRIES) {
                 int shardId = GroupsManager.getInstance().getShardId(lastReadKey);
                 long master = GroupsManager.getInstance().getMasterServer(shardId).getNodeId();
@@ -157,12 +158,12 @@ public class Client {
             return lastOperation;
         }
         if (isWaitingForResult) {
-            // System.out.println("WAITING!");
+        //    System.out.println("WAITING!");
             return null;
         }
 
         isWaitingForResult = true;
-        // System.out.println("YAY!");
+       // System.out.println("YAY!");
 
         int readOrUpdate = randomGenerator.nextInt(101);
 
@@ -173,10 +174,10 @@ public class Client {
         }
 
         if (lastOperation instanceof ReadOperation) {
-          //  ReadOperation p = (ReadOperation) lastOperation;
-         // System.out.println("Operation is read and is migrate? " + p.migrateToMaster());
+        //    ReadOperation p = (ReadOperation) lastOperation;
+        //  System.out.println("Operation is read and is migrate? " + p.migrateToMaster());
         } else {
-          //  System.out.println("Operation is " + lastOperation.getType());
+        //    System.out.println("Operation is " + lastOperation.getType());
         }
 
         return lastOperation;
@@ -220,7 +221,7 @@ public class Client {
     // ------------ SERVER RESPONSES -----------
     //------------------------------------------
     void receiveReadResult(long server, OccultReadResult readResult) {
-        System.out.println("I ("+id+") received a read from " + server);
+     //   System.out.println("I ("+id+") received a read from " + server);
         boolean readFromSlave = !readResult.isMaster();
         int shardId = readResult.getShardId();
         int clientShardStamp = clientTimestamp.get(shardId);
@@ -231,9 +232,9 @@ public class Client {
             nextRestTime = RETRY_INTERVAL;
             numberStaleReads++;
             hadStaleRead = true;
-            System.out.println("Increasing stale reads, now at " + numberStaleReads + " master:" + !readFromSlave);
+        //    System.out.println("Increasing stale reads, now at " + numberStaleReads + " master:" + !readFromSlave);
         } else {
-            System.out.println("Read was good! master:" + !readFromSlave);
+        //    System.out.println("Read was good! master:" + !readFromSlave);
             numberStaleReads = 0;
             isWaitingForResult = false;
             hadStaleRead = false;
@@ -249,6 +250,7 @@ public class Client {
             clientTimestamp.put(shardId, updateShardStamp);
         }
 
+        System.out.println("Received update!");
         isWaitingForResult = false;
         lastResultReceivedTimestamp = CommonState.getTime();
         numberUpdates++;
@@ -284,8 +286,12 @@ public class Client {
     }
 
     private DataObject chooseRandomDataObject(int level) {
+        int bound = dataObjectsPerLevel.get(level).size();
+        if (bound == 0) {
+            bound = 1;
+        }
         return dataObjectsPerLevel.get(level).stream()
-                .skip(randomGenerator.nextInt(dataObjectsPerLevel.get(level).size()))
+                .skip(randomGenerator.nextInt(bound))
                 .findFirst().get();
     }
 

@@ -96,6 +96,7 @@ public class InitTreeProtocol implements Control {
     }
 
     private int dataObjectCounter = 0;
+    private int currentShardId = 1_000_000_000;
     private void generateDataObjects(Set<StateTreeProtocol> datacenters) {
         for (int level = 0; level < levelsPercentage.length; level++) {
             Set<StateTreeProtocol> seenDatacenters = new HashSet<>();
@@ -209,7 +210,6 @@ public class InitTreeProtocol implements Control {
 
         // System.out.println("Group: " + nodesGroupIds);
         int shardKeysCounter = 0;
-        int currentShardId = 1_000_000_000;
         for (int i = 0; i < numberObjectsToCreate; i++) {
             DataObject dataObject = new DataObject(level, nodesGroupIds, i, dataObjectCounter++);
             result.add(dataObject);
