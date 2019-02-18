@@ -3,7 +3,7 @@ SIZE 4
 
 # parameters of periodic execution
 # CYCLES 200000
-CYCLES 1000
+CYCLES 100000
 CYCLE 1
 
 # Latency
@@ -18,9 +18,9 @@ simulation.endtime CYCLE*CYCLES
 simulation.logtime CYCLE
 
 ########### CLIENT CONFIGS #############
-clients_per_datacenter 100
-rest_time = 200;
-rest_time_interval = 50;
+clients_per_datacenter 500
+rest_time = 400
+rest_time_interval = 50
 
 client_read_percentage 80
 client_update_percentage 20
@@ -31,7 +31,7 @@ client_update_levels_percentages [80,15,5]
 # percentage clients that use objects up to a given distance
 # eg. with [50,50], half clients will only use objects from the local DC
 # and the other half will use objects from both local and the DCs 1 level away
-client_locality_percentage [0,100,0]
+client_locality_percentage [0,0,100]
 
 clients_eager_percentage 20
 client_read_retries 3
@@ -49,8 +49,8 @@ groups {[0],[0,1],[0,1,2,3]}{[1],[0,1],[0,1,2,3]}{[2],[2,3],[0,1,2,3]}{[3],[2,3]
 statistics_window 5
 
 partitions_file example/partitions/four_nodes_all_connected_partition.top
-partition_start 110
-partition_end 100
+partition_start 120
+partition_end 80
 
 
 

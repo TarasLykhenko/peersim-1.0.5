@@ -68,6 +68,7 @@ public class Client {
     private final boolean isEager;
 
     private boolean isWaitingForResult = false;
+    long waitingSince;
     private int lastReadKey;
     private boolean hadStaleRead = false;
     private int numberStaleReads = 0;
@@ -77,13 +78,15 @@ public class Client {
     private long lastResultReceivedTimestamp = 0;
     private boolean justMigrated = false;
     private long nextRestTime = 0;
-    private boolean isMigrating = false;
 
     int numberReads = 0;
     int numberUpdates = 0;
     int numberMigrations = 0;
     long readsTotalLatency = 0;
     long updatesTotalLatency = 0;
+    int totalStaleReads = 0;
+
+
 
     /**
      * Maps each shardId to shardstamp
@@ -120,15 +123,16 @@ public class Client {
 
     Operation nextOperation() {
         // Just for debug
-        System.out.println("I ("+id+") have " + numberStaleReads + " stale reads");
+     //   System.out.println("I ("+id+") have " + numberStaleReads + " stale reads");
         if (numberStaleReads > NUMBER_RETRIES) {
             throw new RuntimeException("Impossible.");
         }
 
-        if (isMigrating) {
-         //   System.out.println("I ("+id+") am migrating");
+        if (isWaitingForResult) {
+            //    System.out.println("WAITING!");
             return null;
         }
+
 
         if (!restTimeOver()) {
             return null;
@@ -136,33 +140,34 @@ public class Client {
 
         // If the client migrated, repeat the last action
         if (justMigrated) {
-            System.out.println("My (" + id +") migration is over. Im doing a " + lastOperation.getType());
+          //  System.out.println("My (" + id +") migration is over. Im doing a " + lastOperation.getType());
             justMigrated = false;
             if (lastOperation instanceof ReadOperation) {
                 ReadOperation op = (ReadOperation) lastOperation;
                 op.setMigration(false);
             }
+            isWaitingForResult = true;
+            waitingSince = CommonState.getTime();
             return lastOperation;
         }
 
         if (hadStaleRead) {
-           // System.out.println("Had stale read with " + numberStaleReads);
+     //       System.out.println("Had stale read with " + numberStaleReads);
             if (numberStaleReads == NUMBER_RETRIES) {
                 int shardId = GroupsManager.getInstance().getShardId(lastReadKey);
                 long master = GroupsManager.getInstance().getMasterServer(shardId).getNodeId();
-                System.out.println("Client migrating to master (" + master + ") for read.");
+       //         System.out.println("Client migrating to master (" + master + ") for read.");
                 lastOperation = new ReadOperation(lastReadKey, true);
             } else {
                 lastOperation = new ReadOperation(lastReadKey, false);
             }
+            isWaitingForResult = true;
+            waitingSince = CommonState.getTime();
             return lastOperation;
-        }
-        if (isWaitingForResult) {
-        //    System.out.println("WAITING!");
-            return null;
         }
 
         isWaitingForResult = true;
+        waitingSince = CommonState.getTime();
        // System.out.println("YAY!");
 
         int readOrUpdate = randomGenerator.nextInt(101);
@@ -231,17 +236,18 @@ public class Client {
             lastResultReceivedTimestamp = CommonState.getTime();
             nextRestTime = RETRY_INTERVAL;
             numberStaleReads++;
+            totalStaleReads++;
             hadStaleRead = true;
         //    System.out.println("Increasing stale reads, now at " + numberStaleReads + " master:" + !readFromSlave);
         } else {
         //    System.out.println("Read was good! master:" + !readFromSlave);
             numberStaleReads = 0;
-            isWaitingForResult = false;
             hadStaleRead = false;
             lastResultReceivedTimestamp = CommonState.getTime();
             numberReads++;
             readsTotalLatency += (lastResultReceivedTimestamp - lastOperationTimestamp);
         }
+        isWaitingForResult = false;
     }
 
     void receiveUpdateResult(Integer shardId, Integer updateShardStamp) {
@@ -250,7 +256,7 @@ public class Client {
             clientTimestamp.put(shardId, updateShardStamp);
         }
 
-        System.out.println("Received update!");
+   //     System.out.println("Received update!");
         isWaitingForResult = false;
         lastResultReceivedTimestamp = CommonState.getTime();
         numberUpdates++;
@@ -259,7 +265,7 @@ public class Client {
 
     void migrationOver() {
         justMigrated = true;
-        isMigrating = false;
+        isWaitingForResult = false;
         numberMigrations++;
     }
 
@@ -307,7 +313,4 @@ public class Client {
         return new Client(id, isEager, new HashMap<>(dataObjectsPerLevel), datacenter, locality);
     }
 
-    public void startMigration() {
-        isMigrating = true;
-    }
 }

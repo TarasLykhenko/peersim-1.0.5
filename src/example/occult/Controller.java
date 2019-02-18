@@ -200,8 +200,7 @@ public class Controller implements Control {
 
         int nNodes = 0;
         long totalClients = 0;
-        long totalSentMigrations = 0;
-        long totalReceivedMigrations = 0;
+        long totalMigrations = 0;
         long waitingClients = 0;
         long pendingOperations = 0;
         currentPoint += TAKE_STATISTICS_EVERY;
@@ -211,8 +210,10 @@ public class Controller implements Control {
             Node node = Network.get(i);
             StateTreeProtocolInstance v = (StateTreeProtocolInstance) Network.get(i).getProtocol(pid);
             for (Client client : v.clients) {
+                totalClients++;
                 aggregateReads += client.numberReads;
                 aggregateUpdates += client.numberUpdates;
+                totalMigrations += client.numberMigrations;
                 if (client.isWaiting()) {
                     waitingClients++;
                 }
@@ -233,8 +234,8 @@ public class Controller implements Control {
        // print("% of remote reads: " + ((double) (aggregateRemoteReads * 100) / (double) totalOps));
        // print("% (remote reads/total reads): " + ((double) (aggregateRemoteReads * 100) / (double) (totalOps - aggregateUpdates)));
         print("Total clients: " + totalClients);
-        print("Total sent Migrations: " + totalSentMigrations);
-        printImportant("Total received Migrations: " + totalReceivedMigrations);
+        print("Total Migrations: " + totalMigrations);
+        printImportant("Total Migrations: " + totalMigrations);
         printImportant("Waiting clients: " + waitingClients);
         // debugPercentages();
         print("Observer end =======================");
@@ -253,12 +254,19 @@ public class Controller implements Control {
                 }
                 protocol.writer.close();
                 for (Client client : protocol.clients) {
-                    System.out.println("Client " + client.getId() + " locality: " + client.locality + " | getLavgReadLatency: " +
+                    String extraString = "";
+                    if (client.isWaiting()) {
+                        extraString = " | waitingSince: " + client.waitingSince;
+                    }
+                    System.out.println("Client " + client.getId()
+                            + " locality: " + client.locality + " | avgReadLat: " +
                             ((float) client.readsTotalLatency / client.numberReads)
-                            + " | reads: " + client.numberReads +  " | avgUpdateLatency: " +
+                            + " | reads: " + client.numberReads +  " | avgUpdateLat: " +
                             ((float) client.updatesTotalLatency / client.numberUpdates)
                             + " | updates: " + client.numberUpdates
-                            + " | migrations: " + client.numberMigrations) ;
+                            + " | migrations: " + client.numberMigrations
+                            + " | staleReads: " + client.totalStaleReads
+                            + extraString);
                 }
             }
             return true;

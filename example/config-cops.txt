@@ -18,7 +18,7 @@ simulation.endtime CYCLE*CYCLES
 simulation.logtime CYCLE
 
 ########### CLIENT CONFIGS #############
-clients_per_datacenter 50
+clients_per_datacenter 500
 rest_time = 400;
 rest_time_interval = 20;
 
@@ -36,7 +36,7 @@ client_locality_percentage [0,50,50]
 clients_eager_percentage 20
 ########################################
 
-total_objects_per_datacenter 100
+total_objects_per_datacenter 20
 levels 3
 levels_percentage [33,33,34]
 groups {[0],[0,1],[0,1,2,3]}{[1],[0,1],[0,1,2,3]}{[2],[2,3],[0,1,2,3]}{[3],[2,3],[0,1,2,3]}
