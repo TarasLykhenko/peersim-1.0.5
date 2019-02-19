@@ -1,9 +1,17 @@
-package example.cops;
+package example.occult.temporal_compression;
 
+import example.common.CommonMessages;
 import example.common.MigrationMessage;
 import example.common.PointToPointTransport;
-import example.cops.datatypes.EventUID;
-import example.cops.datatypes.Operation;
+import example.occult.ClientInterface;
+import example.occult.GroupsManager;
+import example.occult.StateTreeProtocol;
+import example.occult.datatypes.EventUID;
+import example.occult.datatypes.OccultMasterWrite;
+import example.occult.datatypes.OccultReadResult;
+import example.occult.datatypes.Operation;
+import example.occult.datatypes.ReadOperation;
+import example.occult.datatypes.UpdateOperation;
 import peersim.cdsim.CDProtocol;
 import peersim.config.Configuration;
 import peersim.config.FastConfig;
@@ -56,7 +64,8 @@ public class TreeProtocol extends StateTreeProtocolInstance
     private void doDatabaseMethod(Node node, int pid, Linkable linkable) {
         StateTreeProtocolInstance datacenter = (StateTreeProtocolInstance) node.getProtocol(tree);
 
-        for (Client client : clients) {
+        for (ClientInterface client : clients) {
+         //   System.out.println("Checking client " + client.getId());
             Operation operation = client.nextOperation();
             // Client is waiting for result;
             if (operation == null) {
@@ -65,38 +74,55 @@ public class TreeProtocol extends StateTreeProtocolInstance
             }
             EventUID event = new EventUID(operation, CommonState.getTime(), datacenter.getNodeId(), 0);
 
+            // DC doesn't have key, migrate the client
             if (!datacenter.isInterested(operation.getKey())) {
-                operation.setType(Operation.Type.REMOTE_READ);
+            //    System.out.println("DC not interested, migrating");
+                MigrationMessage msg = new MigrationMessage(datacenter.getNodeId(), client.getId());
+                Node migrationDatacenter = getMigrationDatacenter(event, datacenter);
+
+                sendMessage(node, migrationDatacenter, msg, pid);
+                sentMigrations++;
+                continue;
             }
 
 
             // If is Local Read
             if (eventIsRead(event)) {
-                ReadMessage readMessage = new ReadMessage(this.getNodeId(), client.getId(), operation.getKey());
-                sendMessage(node, node, readMessage, pid);
-                continue;
-            }
-
-            // If it's a remote read, migrate the client
-            // Note: If it's an update but the DC doesn't have the object, it becomes a remote read
-            if (event.getOperation().getType() == Operation.Type.REMOTE_READ) {
-                MigrationMessage msg = new MigrationMessage(datacenter.getNodeId(), client.getId());
-                Node targetDC = getMigrationDatacenter(event, datacenter);
-
-                sendMessage(node, targetDC, msg, pid);
-                sentMigrations++;
+                ReadOperation readOperation = (ReadOperation) operation;
+                if (readOperation.migrateToMaster()) {
+                //    System.out.println("Client (" + client.getId() + " wants to migrate. ");
+                    migrateToMaster(node, pid, datacenter, client, event);
+                } else {
+                    ReadMessage readMessage = new ReadMessage(this.getNodeId(), client.getId(), operation.getKey());
+                    sendMessage(node, node, readMessage, pid);
+                }
                 continue;
             }
 
             // If is local update
-            if (eventIsUpdate(event) && datacenter.isInterested(event.getOperation().getKey())) {
-                LocalUpdate localUpdate = new LocalUpdate(client.getId(), operation.getKey());
+            if (eventIsUpdate(event)) {
+                // Check if local DC is the shardmaster, otherwise migrate the client to it.
+                int shardId = GroupsManager.getInstance().getShardId(event.getOperation().getKey());
+                StateTreeProtocol masterServer = GroupsManager.getInstance().getMasterServer(shardId);
+                if (this.getNodeId() != masterServer.getNodeId()) {
+                 //   System.out.println("Am not master, migrating");
+                    migrateToMaster(node, pid, datacenter, client, event);
+                    continue;
+                }
+
+                UpdateOperation updateOperation = (UpdateOperation) event.getOperation();
+
+                LocalUpdate localUpdate = new LocalUpdate(client.getId(),
+                        datacenter.getNodeId(),
+                        updateOperation.getKey(),
+                        updateOperation.getDeps(),
+                        updateOperation.getCatchAll());
+
                 sendMessage(node, node, localUpdate, pid);
             } else {
                 System.out.println("Unknown scenario!");
             }
         }
-        datacenter.checkIfCanAcceptMigratedClients();
     }
 
     private Node getMigrationDatacenter(EventUID event,
@@ -145,6 +171,28 @@ public class TreeProtocol extends StateTreeProtocolInstance
         return bestNode;
     }
 
+    /**
+     * In occult, clients only want to migrate to the masters.
+     * @param node
+     * @param pid
+     * @param datacenter
+     * @param client
+     * @param event
+     */
+    private void migrateToMaster(Node node, int pid,
+                                 StateTreeProtocolInstance datacenter,
+                                 ClientInterface client, EventUID event) {
+        int key = event.getOperation().getKey();
+        int shardId = GroupsManager.getInstance().getShardId(key);
+        StateTreeProtocol master = GroupsManager.getInstance().getMasterServer(shardId);
+
+        Node targetDC = Network.get(Math.toIntExact(master.getNodeId()));
+        MigrationMessage msg = new MigrationMessage(datacenter.getNodeId(), client.getId());
+
+        sendMessage(node, targetDC, msg, pid);
+    //    System.out.println("Migrating " + client.getId() + " from " + datacenter.getNodeId() + " to " + master.getNodeId());
+        sentMigrations++;
+    }
 
     private void sendMessage(Node src, Node dst, Object msg, int pid) {
         ((Transport) src.getProtocol(FastConfig.getTransport(pid)))
@@ -160,26 +208,30 @@ public class TreeProtocol extends StateTreeProtocolInstance
 
         if (event instanceof LocalUpdate) {
             LocalUpdate localUpdate = (LocalUpdate) event;
+            ClientInterface client = idToClient.get(localUpdate.clientId);
 
-            int newVersion = this.copsPut(localUpdate.key);
-            Client client = idToClient.get(localUpdate.clientId);
+            // This must be the master
+            OccultMasterWrite occultMasterWrite =
+                    this.occultWriteMaster(localUpdate.key, localUpdate.deps, localUpdate.catchAll);
 
-            Set<Node> interestedDatacenters = getInterestedDatacenters(localUpdate.key);
-            // Remove self from remote update list
-            interestedDatacenters.remove(Network.get(Math.toIntExact(this.getNodeId())));
-            for (Node interestedNode : interestedDatacenters) {
+            int shardId = GroupsManager.getInstance().getShardId(localUpdate.key);
+            Set<StateTreeProtocol> slaves = GroupsManager.getInstance().getShardSlaves(shardId);
 
-                RemoteUpdateMessage remoteMsg = new RemoteUpdateMessage(
+            // Update slaves
+            for (StateTreeProtocol slave : slaves) {
+                RemoteUpdateMessage remoteUpdate = new RemoteUpdateMessage(
                         this.getNodeId(),
-                        client.getId(),
                         localUpdate.key,
-                        client.getCopyOfContext(),
-                        newVersion);
+                        occultMasterWrite.getDeps(),
+                        occultMasterWrite.getCatchAll(),
+                        occultMasterWrite.getShardStamp()
+                );
 
-                sendMessage(node, interestedNode, remoteMsg, pid);
+                Node targetNode = Network.get(Math.toIntExact(slave.getNodeId()));
+                sendMessage(node, targetNode, remoteUpdate, pid);
             }
 
-            client.receiveUpdateResult(localUpdate.key, newVersion);
+            client.receiveUpdateResult(shardId, occultMasterWrite.getShardStamp());
         }
 
         if (event instanceof RemoteUpdateMessage) {
@@ -189,11 +241,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 throw new RuntimeException("Remote LOCAL update?");
             }
 
-            // Remote update
-            this.copsPutRemote(msg.key,
-                    msg.context,
-                    msg.version);
-
+            this.occultWriteSlave(msg.key, msg.deps, msg.catchAll, msg.shardStamp);
         }
 
         if (event instanceof MigrationMessage) {
@@ -201,13 +249,14 @@ public class TreeProtocol extends StateTreeProtocolInstance
             StateTreeProtocolInstance originalDC = (StateTreeProtocolInstance)
                     Network.get(Math.toIntExact(msg.senderDC)).getProtocol(tree);
 
-            Client client = originalDC.idToClient.get(msg.clientId);
+            ClientInterface client = originalDC.idToClient.get(msg.clientId);
             // Remove client from original DC
             originalDC.clients.remove(client);
             originalDC.idToClient.remove(msg.clientId);
 
             // Put client on Queue
-            this.migrateClientQueue(client, client.getCopyOfContext());
+            //System.out.println("Node " + node.getID() + " received client " + client.getId());
+            this.migrateClientQueue(client);
         }
 
         if (event instanceof ReadMessage) {
@@ -215,8 +264,8 @@ public class TreeProtocol extends StateTreeProtocolInstance
             if (msg.senderDC != nodeId) {
                 throw new RuntimeException("Reads must ALWAYS be local.");
             }
-            int keyVersion = copsGet(msg.key);
-            this.idToClient.get(msg.clientId).receiveReadResult(msg.key, keyVersion);
+            OccultReadResult read = occultRead(msg.key);
+            this.idToClient.get(msg.clientId).receiveReadResult(this.nodeId, read);
         }
     }
 
@@ -239,7 +288,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
 
     /*
     private void debugCheckIfNodeIsPartitioned(Node bestNode) {
-        Map<Long, Integer> longIntegerMap = PointToPointTransport.partitionTable.get(bestNode.getID());
+        Map<Long, Integer> longIntegerMap = PointToPointTransport.partitionDCTable.get(bestNode.getID());
         for (Long dstNode : longIntegerMap.keySet()) {
             if (longIntegerMap.get(dstNode) > CommonState.getTime()) {
                 System.out.println("MIGRATING TO PARTITIONED NODE!" + longIntegerMap.get(dstNode) + " | " + CommonState.getTime());
@@ -270,12 +319,18 @@ public class TreeProtocol extends StateTreeProtocolInstance
     class LocalUpdate {
 
         final int clientId;
+        final long datacenterId; // for debug
         final int key;
+        final Map<Integer, Integer> deps;
+        final int catchAll;
         final long timestamp;
 
-        public LocalUpdate(int clientId, int key) {
+        LocalUpdate(int clientId, long datacenterId, int key, Map<Integer, Integer> deps, int catchAll) {
             this.clientId = clientId;
+            this.datacenterId = datacenterId;
             this.key = key;
+            this.deps = deps;
+            this.catchAll = catchAll;
             timestamp = CommonState.getTime();
         }
 
@@ -284,25 +339,25 @@ public class TreeProtocol extends StateTreeProtocolInstance
     class RemoteUpdateMessage {
 
         final long senderDC;
-        final int clientId;
-        // final EventUID event;
         final int key;
-        final Map<Integer, Integer> context;
-        final Integer version;
+        // final EventUID event;
+        final Map<Integer, Integer> deps;
+        final int catchAll;
+        final int shardStamp;
         final long timestamp;
 
         RemoteUpdateMessage(long sender,
-                            int clientId,
                             int key,
                             // EventUID event,
-                            Map<Integer, Integer> context,
-                            Integer version) {
+                            Map<Integer, Integer> deps,
+                            int catchAll,
+                            int shardStamp) {
             this.senderDC = sender;
-            this.clientId = clientId;
             this.key = key;
             //this.event = event;
-            this.context = context;
-            this.version = version;
+            this.deps = deps;
+            this.catchAll = catchAll;
+            this.shardStamp = shardStamp;
             timestamp = CommonState.getTime();
         }
     }

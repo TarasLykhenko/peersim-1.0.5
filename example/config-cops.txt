@@ -57,7 +57,7 @@ should_partition_clients false
 partitions_datacenters example/partitions/four_nodes_all_connected_partition.top
 partitions_clients example/client-partitions/four_nodes_all_connected_partition.top
 partition_start 20
-partition_end 40
+partition_end 80
 
 
 

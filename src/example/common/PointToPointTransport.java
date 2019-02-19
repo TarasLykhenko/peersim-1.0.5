@@ -119,9 +119,11 @@ public final class PointToPointTransport implements Transport {
         }
 
         if (shouldPartitionDC) {
+            System.out.println("ADDING PARTITION TO DC");
             partitionConnections(partitionsDCFile, partitionDCTable, timePartitionOver);
         }
         if (shouldPartitionClients) {
+            System.out.println("ADDInG PARTITION TO CLIENT");
             partitionConnections(partitionsClientsFile, partitionClientTable, timePartitionOver);
         }
     }
@@ -231,7 +233,7 @@ public final class PointToPointTransport implements Transport {
         if (partitionOver != 0) {
             partitionOver -= currentTime;
             if (partitionOver > 0) {
-                System.out.println("ADDING DELAY!");
+                System.out.println("ADDING DELAY TO " + msg.getClass().getSimpleName());
                 delay += partitionOver;
             }
         }
@@ -254,7 +256,7 @@ public final class PointToPointTransport implements Transport {
      * we need them to be immune to partitions.
      */
     private boolean messageIsMigration(Object msg) {
-        return msg instanceof CommonMessages.MigrationMessage;
+        return msg instanceof MigrationMessage;
     }
 
     private void partitionConnections(String partitionsFile,

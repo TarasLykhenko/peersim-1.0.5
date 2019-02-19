@@ -19,7 +19,7 @@ simulation.logtime CYCLE
 
 ########### CLIENT CONFIGS #############
 clients_per_datacenter 500
-rest_time = 400
+rest_time = 200
 rest_time_interval = 50
 
 client_read_percentage 80
@@ -42,7 +42,7 @@ total_objects_per_datacenter 100
 shards_per_object_group 10
 
 levels 3
-levels_percentage [33,33,34]
+levels_percentage [80,15,5]
 groups {[0],[0,1],[0,1,2,3]}{[1],[0,1],[0,1,2,3]}{[2],[2,3],[0,1,2,3]}{[3],[2,3],[0,1,2,3]}
 
 
@@ -53,7 +53,7 @@ should_partition_clients false
 partitions_datacenters example/partitions/four_nodes_all_connected_partition.top
 partitions_clients example/client-partitions/four_nodes_all_connected_partition.top
 partition_start 20
-partition_end 120
+partition_end 80
 
 
 
