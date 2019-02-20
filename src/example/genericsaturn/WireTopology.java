@@ -1,5 +1,6 @@
 package example.genericsaturn;
 
+import example.common.PointToPointTransport;
 import peersim.config.Configuration;
 import peersim.core.Node;
 import peersim.dynamics.WireGraph;
@@ -37,6 +38,7 @@ public class WireTopology extends WireGraph {
     private static final String PAR_PATH = "topology_path";
 
     private static final String PAR_TOPOLOGY = "topology_file";
+    private static final String PAR_CLIENT_REQUEST_DELAY = "client_request_latency";
 
 
     // --------------------------------------------------------------------------
@@ -69,24 +71,26 @@ public class WireTopology extends WireGraph {
     }
 
     public void wire(Graph graph) {
+        int clientRequestDelay = Configuration.getInt(PAR_CLIENT_REQUEST_DELAY);
         try (BufferedReader br = new BufferedReader(new FileReader(path + "/" + topology))) {
             String line = br.readLine();
-            int counter = 0;
+            int source = 0;
             while (line != null) {
                 String[] latencies = line.split("	");
-                for (int i = 0; i < latencies.length; i++) {
-                    int latency = Integer.parseInt(latencies[i]);
+                for (int target = 0; target < latencies.length; target++) {
+                    int latency = Integer.parseInt(latencies[target]);
                     if (latency >= 0) {
-                        graph.setEdge(counter, i);
+                        graph.setEdge(source, target);
 
-                        Node src = (Node) graph.getNode(counter);
-                        Node dst = (Node) graph.getNode(i);
-                        TypeProtocol srcType = (TypeProtocol) src.getProtocol(typePid);
-                        srcType.setLatency(dst.getID(), latency);
+                        graph.setEdge(source, target);
+
+                        PointToPointTransport.addLatency((long) source, (long) target, latency);
+                    } else if (latency == -1) {
+                        PointToPointTransport.addLatency((long) source, (long) target, clientRequestDelay);
                     }
                 }
                 line = br.readLine();
-                counter++;
+                source++;
             }
         } catch (IOException e) {
             e.printStackTrace();

@@ -106,6 +106,10 @@ public class Controller implements Control {
     private int logTime;
     private int cycles;
     private int totalOpsPrevious;
+    private long totalMigrationsPrevious;
+    private long totalStaleReadsPrevious;
+    private long totalCatchAllPrevious;
+    private long totalMasterMigrationsPrevious;
 
 
 //--------------------------------------------------------------------------
@@ -197,9 +201,9 @@ public class Controller implements Control {
             for (ClientInterface ClientInterface : v.clients) {
                 Client client = (Client) ClientInterface;
                 totalClients++;
-                aggregateReads += client.numberReads;
-                aggregateUpdates += client.numberUpdates;
-                totalMigrations += client.numberMigrations;
+                aggregateReads += client.getNumberReads();
+                aggregateUpdates += client.getNumberUpdates();
+                totalMigrations += client.getNumberMigrations();
                 if (client.isWaiting()) {
                     waitingClients++;
                 }
@@ -214,23 +218,27 @@ public class Controller implements Control {
         print("Total ops: " + totalOps);
         print("Total ops since last %: " + (totalOps - totalOpsPrevious));
         print("CURRENT POINT & Total ops since last %: " + currentPoint + " - " + (totalOps - totalOpsPrevious));
-        printImportant("Total ops (%: " + currentPoint + ") - " + (totalOps - totalOpsPrevious));
-        this.totalOpsPrevious = totalOps;
         print("% of reads: " + ((double) ((aggregateReads) * 100) / (double) totalOps));
         print("% of updates: " + ((double) (aggregateUpdates * 100) / (double) totalOps));
         print("% of local reads: " + ((double) (aggregateReads * 100) / (double) totalOps));
-       // print("% of remote reads: " + ((double) (aggregateRemoteReads * 100) / (double) totalOps));
-       // print("% (remote reads/total reads): " + ((double) (aggregateRemoteReads * 100) / (double) (totalOps - aggregateUpdates)));
+        // print("% of remote reads: " + ((double) (aggregateRemoteReads * 100) / (double) totalOps));
+        // print("% (remote reads/total reads): " + ((double) (aggregateRemoteReads * 100) / (double) (totalOps - aggregateUpdates)));
         print("Total clients: " + totalClients);
         print("Total Migrations: " + totalMigrations);
-        printImportant("Total Migrations: " + totalMigrations);
+        printImportant(">> Total ops (%: " + currentPoint + ") - " + (totalOps - totalOpsPrevious));
+        printImportant("Total Migrations: " + (totalMigrations - totalMigrationsPrevious));
         printImportant("Waiting clients: " + waitingClients);
-        printImportant("Total stale reads: " + totalStaleReads);
-        printImportant("Total master migrations: " + totalMasterMigrations);
-        printImportant("Total catchAll reads: " + totalFalseShardReads);
-        // debugPercentages();
+        printImportant("Total stale reads: " + (totalStaleReads - totalStaleReadsPrevious));
+        printImportant("Total master migrations: " + (totalMasterMigrations - totalMasterMigrationsPrevious));
+        printImportant("Total catchAll reads: " + (totalFalseShardReads - totalCatchAllPrevious));
         printImportant("Observer end =======================");
         printImportant("");
+        this.totalOpsPrevious = totalOps;
+        this.totalMigrationsPrevious = totalMigrations;
+        this.totalCatchAllPrevious = totalFalseShardReads;
+        this.totalStaleReadsPrevious = totalStaleReads;
+        this.totalMasterMigrationsPrevious = totalMasterMigrations;
+        // debugPercentages();
         print("");
         /* Terminate if accuracy target is reached */
 
@@ -238,6 +246,7 @@ public class Controller implements Control {
             writer.close();
             importantWriter.close();
             for (int i = 0; i < Network.size(); i++) {
+
                 StateTreeProtocolInstance protocol = (StateTreeProtocolInstance) Network.get(i).getProtocol(pid);
                 protocol.writer.println("----- END RESULTS -----");
                 for (Integer key : protocol.keysToCausalTimestamps.keySet()) {
@@ -257,8 +266,11 @@ public class Controller implements Control {
                             + " | avgUpdateLat: " + client.getAverageUpdateLatency()
                             + " | migrations: " + client.getNumberMigrations()
                             + " | staleReads: " + client.getNumberStaleReads()
+                            + " | CatchAll: " + ((Client) client).totalFalseShardRead
+                            + " | timeStamp size: " + ((Client) client).clientTimestamp.size()
                             + extraString);
                 }
+
             }
             return true;
         }

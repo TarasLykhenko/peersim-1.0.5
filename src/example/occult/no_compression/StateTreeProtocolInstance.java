@@ -115,26 +115,6 @@ abstract class StateTreeProtocolInstance
         return null;
     }
 
-    //--------------------------------------------------------------------------
-    //methods
-    //--------------------------------------------------------------------------
-
-    public long getAverageLatency() {
-        return averageLatency;
-    }
-
-    public void setAverageLatency(long averageLatency) {
-        this.averageLatency = averageLatency;
-    }
-
-    public double getAverageProcessing() {
-        return averageProcessing;
-    }
-
-    public void setAverageProcessing(double averageProcessing) {
-        this.averageProcessing = averageProcessing;
-    }
-
     // --------------------
     // OCCULT methods
     // --------------------

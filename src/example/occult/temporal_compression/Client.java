@@ -30,6 +30,7 @@ public class Client implements ClientInterface {
     private static final String PAR_REST_TIME_INTERVAL = "rest_time_interval";
     private static final String PAR_CLIENT_NUMBER_RETRIES = "client_read_retries";
     private static final String PAR_CLIENT_RETRY_INTERVAL = "client_read_retry_interval";
+    private static final String PAR_CLIENT_TS_SIZE = "client_ts_size";
 
     private static final int READ_PERCENTAGE;
     private static final int UPDATE_PERCENTAGE;
@@ -92,13 +93,13 @@ public class Client implements ClientInterface {
     int totalNumberMasterMigration = 0;
 
 
-    private int MAX_CTS_SIZE = 9;
 
     /**
      * Maps each shardId to shardstamp
      */
-    private Map<Integer, Integer> clientTimestamp = new HashMap<>(MAX_CTS_SIZE);
+    Map<Integer, Integer> clientTimestamp = new HashMap<>();
     private int catchAllShardStamp = 0;
+    private final int maxCtsSize;
 
 
     private final StateTreeProtocol datacenter; // Used for debugging
@@ -106,6 +107,7 @@ public class Client implements ClientInterface {
 
 
     public Client(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality) {
+        this.maxCtsSize = Configuration.getInt(PAR_CLIENT_TS_SIZE);
         this.id = id;
         this.dataObjectsPerLevel = new HashMap<>(dataObjectsPerLevel);
         this.possibleDataObjects = dataObjectsPerLevel
@@ -234,7 +236,7 @@ public class Client implements ClientInterface {
 
     @Override
     public void receiveReadResult(long server, OccultReadResult readResult) {
-        //   System.out.println("I ("+id+") received a read from " + server);
+        //System.out.println("I ("+id+") received a read from " + server);
         boolean readFromSlave = !readResult.isMaster();
         int shardId = readResult.getShardId();
         int clientShardStamp = getShardStampFromCS(shardId);
@@ -248,7 +250,7 @@ public class Client implements ClientInterface {
             hadStaleRead = true;
             //    System.out.println("Increasing stale reads, now at " + numberStaleReads + " master:" + !readFromSlave);
         } else {
-            //    System.out.println("Read was good! master:" + !readFromSlave);
+          //  System.out.println("Read was good! master:" + !readFromSlave);
             numberStaleReads = 0;
             hadStaleRead = false;
             lastResultReceivedTimestamp = CommonState.getTime();
@@ -263,7 +265,7 @@ public class Client implements ClientInterface {
     }
 
     private Integer getShardStampFromCS(int shardId) {
-        if (clientTimestamp.size() == MAX_CTS_SIZE) {
+        if (clientTimestamp.size() == maxCtsSize) {
             if (clientTimestamp.get(shardId) == null) {
                 totalFalseShardRead++;
                 return catchAllShardStamp;
@@ -291,18 +293,19 @@ public class Client implements ClientInterface {
         // System.out.println("My ts: " + clientTimestamp);
         // System.out.println("ShardID: " + shardId + " | updateStamp: " + updateShardStamp);
         if (clientTimestamp.containsKey(shardId)) {
-            // System.out.println("Updating...");
+        //    System.out.println("Scenario 1 Updating...");
             int oldShardStamp = clientTimestamp.get(shardId);
             if (updateShardStamp > oldShardStamp) {
                 clientTimestamp.put(shardId, updateShardStamp);
             }
-        } else if (clientTimestamp.size() < MAX_CTS_SIZE) {
+        } else if (clientTimestamp.size() < maxCtsSize) {
             // System.out.println("Adding..");
             // Scenario 2: Client TS does not contain the entry but
             // has space for more entries, therefore add it
+         //   System.out.println("Scenario 2: My Size: " + clientTimestamp.size() + " | maxSize: " + maxCtsSize);
             clientTimestamp.put(shardId, updateShardStamp);
         } else {
-            // System.out.println("Adding to catch all.");
+         //   System.out.println("Adding to catch all. (MySize: " + clientTimestamp.size()+")");
             // Scenario 3: ShardID not explicitly tracked, add Catchall
             int lowestShardId = 0;
             int lowestShardIdStamp = Integer.MAX_VALUE;
@@ -318,7 +321,7 @@ public class Client implements ClientInterface {
                 catchAllShardStamp = lowestShardIdStamp;
             }
         }
-        if (clientTimestamp.size() > MAX_CTS_SIZE) {
+        if (clientTimestamp.size() > maxCtsSize) {
             // System.out.println("My ts is " + clientTimestamp);
             throw new RuntimeException("update failed");
         }
@@ -346,7 +349,7 @@ public class Client implements ClientInterface {
             // Case 1: Both maps contain the same shardIdTwo, update
             if (result.containsKey(shardIdTwo) && result.get(shardIdTwo) < shardStampTwo) {
                 result.put(shardIdTwo, shardStampTwo);
-            } else if (result.size() < MAX_CTS_SIZE) {
+            } else if (result.size() < maxCtsSize) {
                 // Case 2: Client Timestamp can have more entries, add to result
                 result.put(shardIdTwo, shardStampTwo);
             } else {
@@ -366,7 +369,7 @@ public class Client implements ClientInterface {
                 }
             }
         }
-        if (result.size() > MAX_CTS_SIZE) {
+        if (result.size() > maxCtsSize) {
             // System.out.println("My ts is " + clientTimestamp);
             throw new RuntimeException("Merge failed");
         }
@@ -446,6 +449,11 @@ public class Client implements ClientInterface {
     @Override
     public int getNumberStaleReads() {
         return numberStaleReads;
+    }
+
+    @Override
+    public int getNumberMasterMigrations() {
+        return totalNumberMasterMigration;
     }
 
     @Override

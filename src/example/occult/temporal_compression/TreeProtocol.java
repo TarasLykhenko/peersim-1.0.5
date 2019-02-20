@@ -1,6 +1,5 @@
 package example.occult.temporal_compression;
 
-import example.common.CommonMessages;
 import example.common.MigrationMessage;
 import example.common.PointToPointTransport;
 import example.occult.ClientInterface;

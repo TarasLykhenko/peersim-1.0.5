@@ -3,7 +3,7 @@ SIZE 4
 
 # parameters of periodic execution
 # CYCLES 200000
-CYCLES 100000
+CYCLES 50000
 CYCLE 1
 
 # Latency
@@ -18,15 +18,16 @@ simulation.endtime CYCLE*CYCLES
 simulation.logtime CYCLE
 
 ########### CLIENT CONFIGS #############
-clients_per_datacenter 500
-rest_time = 400
+client_ts_size 5000
+clients_per_datacenter 200
+rest_time = 200
 rest_time_interval = 50
 
-client_read_percentage 80
-client_update_percentage 20
+client_read_percentage 95
+client_update_percentage 5
 
-client_read_levels_percentage [80,15,5]
-client_update_levels_percentages [80,15,5]
+client_read_levels_percentage [0,0,100]
+client_update_levels_percentages [0,0,100]
 
 # percentage clients that use objects up to a given distance
 # eg. with [50,50], half clients will only use objects from the local DC
@@ -34,15 +35,15 @@ client_update_levels_percentages [80,15,5]
 client_locality_percentage [0,0,100]
 
 clients_eager_percentage 20
-client_read_retries 3
-client_read_retry_interval 100
+client_read_retries 5
+client_read_retry_interval 1000
 ########################################
 
 total_objects_per_datacenter 100
-shards_per_object_group 10
+objects_per_shard 2
 
 levels 3
-levels_percentage [33,33,34]
+levels_percentage [0,0,100]
 groups {[0],[0,1],[0,1,2,3]}{[1],[0,1],[0,1,2,3]}{[2],[2,3],[0,1,2,3]}{[3],[2,3],[0,1,2,3]}
 
 
@@ -53,7 +54,7 @@ should_partition_clients false
 partitions_datacenters example/partitions/four_nodes_all_connected_partition.top
 partitions_clients example/client-partitions/four_nodes_all_connected_partition.top
 partition_start 20
-partition_end 120
+partition_end 80
 
 
 

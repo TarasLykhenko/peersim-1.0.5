@@ -107,6 +107,9 @@ public class Controller implements Control {
     private int logTime;
     private int cycles;
     private int totalOpsPrevious;
+    private long totalMigrationsPrevious;
+    private long totalStaleReadsPrevious;
+    private long totalMasterMigrationsPrevious;
 
 
 //--------------------------------------------------------------------------
@@ -186,9 +189,10 @@ public class Controller implements Control {
         long totalMigrations = 0;
         long waitingClients = 0;
         long pendingOperations = 0;
+        long totalMasterMigrations = 0;
         long totalStaleReads = 0;
         currentPoint += TAKE_STATISTICS_EVERY;
-        print("Observer init ======================");
+        printImportant("Observer init ======================");
         print("CURRENT POINT: " + currentPoint);
         for (int i = 0; i < Network.size(); i++) {
             Node node = Network.get(i);
@@ -198,6 +202,7 @@ public class Controller implements Control {
                 aggregateReads += client.getNumberReads();
                 aggregateUpdates += client.getNumberUpdates();
                 totalMigrations += client.getNumberMigrations();
+                totalMasterMigrations += client.getNumberMasterMigrations();
                 if (client.isWaiting()) {
                     waitingClients++;
                 }
@@ -205,26 +210,30 @@ public class Controller implements Control {
             }
         }
 
-        printImportant("Total updates: " + aggregateUpdates);
+        // printImportant("Total updates: " + aggregateUpdates);
         int totalOps = aggregateUpdates + aggregateReads ;
         print("Total ops: " + totalOps);
         print("Total ops since last %: " + (totalOps - totalOpsPrevious));
         print("CURRENT POINT & Total ops since last %: " + currentPoint + " - " + (totalOps - totalOpsPrevious));
-        printImportant("Total ops (%: " + currentPoint + ") - " + (totalOps - totalOpsPrevious));
-        this.totalOpsPrevious = totalOps;
         print("% of reads: " + ((double) ((aggregateReads) * 100) / (double) totalOps));
         print("% of updates: " + ((double) (aggregateUpdates * 100) / (double) totalOps));
         print("% of local reads: " + ((double) (aggregateReads * 100) / (double) totalOps));
-       // print("% of remote reads: " + ((double) (aggregateRemoteReads * 100) / (double) totalOps));
-       // print("% (remote reads/total reads): " + ((double) (aggregateRemoteReads * 100) / (double) (totalOps - aggregateUpdates)));
+        // print("% of remote reads: " + ((double) (aggregateRemoteReads * 100) / (double) totalOps));
+        // print("% (remote reads/total reads): " + ((double) (aggregateRemoteReads * 100) / (double) (totalOps - aggregateUpdates)));
         print("Total clients: " + totalClients);
         print("Total Migrations: " + totalMigrations);
-        printImportant("Total Migrations: " + totalMigrations);
+        printImportant(">> Total ops (%: " + currentPoint + ") - " + (totalOps - totalOpsPrevious));
+        printImportant("Total Migrations: " + (totalMigrations - totalMigrationsPrevious));
         printImportant("Waiting clients: " + waitingClients);
-        printImportant("Total stale reads: " + totalStaleReads);
+        printImportant("Total stale reads: " + (totalStaleReads - totalStaleReadsPrevious));
+        printImportant("Total master migrations: " + (totalMasterMigrations - totalMasterMigrationsPrevious));
+        printImportant("Observer end =======================");
         // debugPercentages();
-        print("Observer end =======================");
-        print("");
+        printImportant("");
+        this.totalOpsPrevious = totalOps;
+        this.totalMigrationsPrevious = totalMigrations;
+        this.totalStaleReadsPrevious = totalStaleReads;
+        this.totalMasterMigrationsPrevious = totalMasterMigrations;
         print("");
         /* Terminate if accuracy target is reached */
 

@@ -89,6 +89,7 @@ public class Client implements ClientInterface {
     long readsTotalLatency = 0;
     long updatesTotalLatency = 0;
     int totalStaleReads = 0;
+    int totalNumberMasterMigration = 0;
 
 
 
@@ -164,6 +165,7 @@ public class Client implements ClientInterface {
             if (numberStaleReads == NUMBER_RETRIES) {
                 int shardId = GroupsManager.getInstance().getShardId(lastReadKey);
                 long master = GroupsManager.getInstance().getMasterServer(shardId).getNodeId();
+                totalNumberMasterMigration++;
        //         System.out.println("Client migrating to master (" + master + ") for read.");
                 lastOperation = new ReadOperation(lastReadKey, true);
             } else {
@@ -242,21 +244,30 @@ public class Client implements ClientInterface {
         int shardStamp = readResult.getShardStamp();
 
         if (readFromSlave && shardStamp < clientShardStamp) {
-            lastResultReceivedTimestamp = CommonState.getTime();
-            nextRestTime = RETRY_INTERVAL;
-            numberStaleReads++;
-            totalStaleReads++;
-            hadStaleRead = true;
-        //    System.out.println("Increasing stale reads, now at " + numberStaleReads + " master:" + !readFromSlave);
+            handleStaleRead();
         } else {
-        //    System.out.println("Read was good! master:" + !readFromSlave);
-            numberStaleReads = 0;
-            hadStaleRead = false;
-            lastResultReceivedTimestamp = CommonState.getTime();
-            numberReads++;
-            readsTotalLatency += (lastResultReceivedTimestamp - lastOperationTimestamp);
+            handleCorrectRead();
         }
         isWaitingForResult = false;
+    }
+
+    private void handleCorrectRead() {
+        //    System.out.println("Read was good! master:" + !readFromSlave);
+        numberStaleReads = 0;
+        hadStaleRead = false;
+        lastResultReceivedTimestamp = CommonState.getTime();
+        numberReads++;
+        readsTotalLatency += (lastResultReceivedTimestamp - lastOperationTimestamp);
+    }
+
+    private void handleStaleRead() {
+        System.out.println("GOT A STALE READ!");
+        //    System.out.println("Increasing stale reads, now at " + numberStaleReads + " master:" + !readFromSlave);
+        lastResultReceivedTimestamp = CommonState.getTime();
+        nextRestTime = RETRY_INTERVAL;
+        numberStaleReads++;
+        totalStaleReads++;
+        hadStaleRead = true;
     }
 
     @Override
@@ -297,7 +308,12 @@ public class Client implements ClientInterface {
 
     @Override
     public int getNumberStaleReads() {
-        return numberStaleReads;
+        return totalStaleReads;
+    }
+
+    @Override
+    public int getNumberMasterMigrations() {
+        return totalNumberMasterMigration;
     }
 
     @Override

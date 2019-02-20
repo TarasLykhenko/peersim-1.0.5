@@ -161,7 +161,7 @@ public final class PointToPointTransport implements Transport {
      */
     private static Map<Long, Map<Long, Integer>> latencies = new HashMap<>();
 
-    static void addLatency(Long src, Long dst, int latency) {
+    public static void addLatency(Long src, Long dst, int latency) {
         latencies.computeIfAbsent(src, k -> new HashMap<>()).put(dst, latency);
     }
 
@@ -254,9 +254,11 @@ public final class PointToPointTransport implements Transport {
     /**
      * Migration messages are sent from the client to the target DC, so
      * we need them to be immune to partitions.
+     *
+     * This is not very typeSafe, but we need it to be like this because of Saturn
      */
     private boolean messageIsMigration(Object msg) {
-        return msg instanceof MigrationMessage;
+        return msg.getClass().getSimpleName().equals("MigrationMessage");
     }
 
     private void partitionConnections(String partitionsFile,

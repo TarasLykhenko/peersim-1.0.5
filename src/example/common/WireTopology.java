@@ -1,7 +1,6 @@
 package example.common;
 
 import peersim.config.Configuration;
-import peersim.core.Node;
 import peersim.dynamics.WireGraph;
 import peersim.graph.Graph;
 
@@ -63,25 +62,22 @@ public class WireTopology extends WireGraph {
         int clientRequestDelay = Configuration.getInt(PAR_CLIENT_REQUEST_DELAY);
         try (BufferedReader br = new BufferedReader(new FileReader(path + "/" + topology))) {
             String line = br.readLine();
-            int counter = 0;
+            int source = 0;
             while (line != null) {
                 String[] latencies = line.split("	");
-                for (int i = 0; i < latencies.length; i++) {
-                    int latency = Integer.parseInt(latencies[i]);
-
-                    Node src = (Node) graph.getNode(counter);
-                    Node dst = (Node) graph.getNode(i);
+                for (int target = 0; target < latencies.length; target++) {
+                    int latency = Integer.parseInt(latencies[target]);
 
                     if (latency >= 0) {
-                        graph.setEdge(counter, i);
+                        graph.setEdge(source, target);
 
-                        PointToPointTransport.addLatency(src.getID(), dst.getID(), latency);
+                        PointToPointTransport.addLatency((long) source, (long) target, latency);
                     } else if (latency == -1) {
-                        PointToPointTransport.addLatency(src.getID(), dst.getID(), clientRequestDelay);
+                        PointToPointTransport.addLatency( (long) source, (long) target, clientRequestDelay);
                     }
                 }
                 line = br.readLine();
-                counter++;
+                source++;
             }
         } catch (IOException e) {
             e.printStackTrace();
