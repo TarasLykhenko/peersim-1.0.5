@@ -33,6 +33,8 @@ public interface ClientInterface {
 
     int getNumberMasterMigrations();
 
+    int getNumberCatchAll();
+
     int getNumberStaleReads();
 
     int getLocality();

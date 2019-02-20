@@ -19,7 +19,7 @@ simulation.logtime CYCLE
 
 ########### CLIENT CONFIGS #############
 client_ts_size 5000
-clients_per_datacenter 200
+clients_per_datacenter 20
 rest_time = 200
 rest_time_interval = 50
 

@@ -99,7 +99,6 @@ public class Controller implements Control {
     private final PrintWriter writer;
     private final PrintWriter importantWriter;
 
-
     private final int takeStatisticsEvery;
     private final int levels;
 
@@ -109,6 +108,7 @@ public class Controller implements Control {
     private int totalOpsPrevious;
     private long totalMigrationsPrevious;
     private long totalStaleReadsPrevious;
+    private long totalCatchAllPrevious;
     private long totalMasterMigrationsPrevious;
 
 
@@ -188,9 +188,9 @@ public class Controller implements Control {
         long totalClients = 0;
         long totalMigrations = 0;
         long waitingClients = 0;
-        long pendingOperations = 0;
-        long totalMasterMigrations = 0;
         long totalStaleReads = 0;
+        long totalMasterMigrations = 0;
+        long totalFalseShardReads = 0;
         currentPoint += TAKE_STATISTICS_EVERY;
         printImportant("Observer init ======================");
         print("CURRENT POINT: " + currentPoint);
@@ -207,6 +207,7 @@ public class Controller implements Control {
                     waitingClients++;
                 }
                 totalStaleReads += client.getNumberStaleReads();
+                totalFalseShardReads += client.getNumberCatchAll();
             }
         }
 
@@ -227,6 +228,7 @@ public class Controller implements Control {
         printImportant("Waiting clients: " + waitingClients);
         printImportant("Total stale reads: " + (totalStaleReads - totalStaleReadsPrevious));
         printImportant("Total master migrations: " + (totalMasterMigrations - totalMasterMigrationsPrevious));
+        printImportant("Total catchAll: " + (totalFalseShardReads - totalCatchAllPrevious));
         printImportant("Observer end =======================");
         // debugPercentages();
         printImportant("");
@@ -234,6 +236,7 @@ public class Controller implements Control {
         this.totalMigrationsPrevious = totalMigrations;
         this.totalStaleReadsPrevious = totalStaleReads;
         this.totalMasterMigrationsPrevious = totalMasterMigrations;
+        this.totalCatchAllPrevious = totalFalseShardReads;
         print("");
         /* Terminate if accuracy target is reached */
 
@@ -260,6 +263,7 @@ public class Controller implements Control {
                             + " | avgUpdateLat: " + client.getAverageUpdateLatency()
                             + " | migrations: " + client.getNumberMigrations()
                             + " | staleReads: " + client.getNumberStaleReads()
+                            + " | CatchAll: " + client.getNumberCatchAll()
                             + extraString);
                 }
             }

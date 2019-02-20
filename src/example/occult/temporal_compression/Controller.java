@@ -209,7 +209,7 @@ public class Controller implements Control {
                 }
                 totalStaleReads += client.totalStaleReads;
                 totalMasterMigrations += client.totalNumberMasterMigration;
-                totalFalseShardReads += client.totalFalseShardRead;
+                totalFalseShardReads += client.totalCatchAllReads;
             }
         }
 
@@ -266,7 +266,7 @@ public class Controller implements Control {
                             + " | avgUpdateLat: " + client.getAverageUpdateLatency()
                             + " | migrations: " + client.getNumberMigrations()
                             + " | staleReads: " + client.getNumberStaleReads()
-                            + " | CatchAll: " + ((Client) client).totalFalseShardRead
+                            + " | CatchAll: " + ((Client) client).totalCatchAllReads
                             + " | timeStamp size: " + ((Client) client).clientTimestamp.size()
                             + extraString);
                 }

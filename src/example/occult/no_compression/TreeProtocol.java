@@ -114,7 +114,8 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 LocalUpdate localUpdate = new LocalUpdate(client.getId(),
                         datacenter.getNodeId(),
                         updateOperation.getKey(),
-                        updateOperation.getDeps());
+                        updateOperation.getDeps(),
+                        updateOperation.getCatchAll());
 
                 sendMessage(node, node, localUpdate, pid);
             } else {
@@ -196,7 +197,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
 
             // This must be the master
             OccultMasterWrite occultMasterWrite =
-                    this.occultWriteMaster(localUpdate.key, localUpdate.deps, 0);
+                    this.occultWriteMaster(localUpdate.key, localUpdate.deps, localUpdate.catchAll);
 
             int shardId = GroupsManager.getInstance().getShardId(localUpdate.key);
             Set<StateTreeProtocol> slaves = GroupsManager.getInstance().getShardSlaves(shardId);
@@ -207,6 +208,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
                         this.getNodeId(),
                         localUpdate.key,
                         occultMasterWrite.getDeps(),
+                        occultMasterWrite.getCatchAll(),
                         occultMasterWrite.getShardStamp()
                 );
 
@@ -224,7 +226,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 throw new RuntimeException("Remote LOCAL update?");
             }
 
-            this.occultWriteSlave(msg.key, msg.deps, 0, msg.shardStamp);
+            this.occultWriteSlave(msg.key, msg.deps, msg.catchAll, msg.shardStamp);
         }
 
         if (event instanceof MigrationMessage) {
@@ -305,13 +307,15 @@ public class TreeProtocol extends StateTreeProtocolInstance
         final long datacenterId; // for debug
         final int key;
         final Map<Integer, Integer> deps;
+        final int catchAll;
         final long timestamp;
 
-        LocalUpdate(int clientId, long datacenterId, int key, Map<Integer, Integer> deps) {
+        LocalUpdate(int clientId, long datacenterId, int key, Map<Integer, Integer> deps, int catchAll) {
             this.clientId = clientId;
             this.datacenterId = datacenterId;
             this.key = key;
             this.deps = deps;
+            this.catchAll = catchAll;
             timestamp = CommonState.getTime();
         }
 
@@ -323,6 +327,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
         final int key;
         // final EventUID event;
         final Map<Integer, Integer> deps;
+        final int catchAll;
         final int shardStamp;
         final long timestamp;
 
@@ -330,11 +335,13 @@ public class TreeProtocol extends StateTreeProtocolInstance
                             int key,
                             // EventUID event,
                             Map<Integer, Integer> deps,
+                            int catchAll,
                             int shardStamp) {
             this.senderDC = sender;
             this.key = key;
             //this.event = event;
             this.deps = deps;
+            this.catchAll = catchAll;
             this.shardStamp = shardStamp;
             timestamp = CommonState.getTime();
         }

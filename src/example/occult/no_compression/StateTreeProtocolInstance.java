@@ -148,10 +148,12 @@ abstract class StateTreeProtocolInstance
         }
 
         int newTimeShard = shardStamps.get(shardId) + 1;
-        shardStamps.put(shardId, newTimeShard);
 
         Map<Integer, Integer> updatedDeps = new HashMap<>(deps);
         updatedDeps.put(shardId, newTimeShard);
+
+        shardStamps.put(shardId, newTimeShard);
+        keysToCausalTimestamps.put(key, new HashMap<>(updatedDeps));
 
         return new OccultMasterWrite(updatedDeps, newTimeShard);
     }

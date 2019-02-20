@@ -317,6 +317,11 @@ public class Client implements ClientInterface {
     }
 
     @Override
+    public int getNumberCatchAll() {
+        return 0;
+    }
+
+    @Override
     public int getLocality() {
         return locality;
     }

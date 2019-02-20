@@ -13,6 +13,7 @@ import peersim.config.Configuration;
 import peersim.core.CommonState;
 import peersim.util.ExtendedRandom;
 
+import java.sql.SQLOutput;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -88,7 +89,7 @@ public class Client implements ClientInterface {
     int numberMigrations = 0;
     long readsTotalLatency = 0;
     long updatesTotalLatency = 0;
-    int totalFalseShardRead = 0;
+    int totalCatchAllReads = 0;
     int totalStaleReads = 0;
     int totalNumberMasterMigration = 0;
 
@@ -265,15 +266,11 @@ public class Client implements ClientInterface {
     }
 
     private Integer getShardStampFromCS(int shardId) {
-        if (clientTimestamp.size() == maxCtsSize) {
-            if (clientTimestamp.get(shardId) == null) {
-                totalFalseShardRead++;
-                return catchAllShardStamp;
-            } else {
-                return clientTimestamp.get(shardId);
-            }
+        if (clientTimestamp.containsKey(shardId)) {
+            return clientTimestamp.get(shardId);
         } else {
-            return 0;
+            totalCatchAllReads++;
+            return catchAllShardStamp;
         }
     }
 
@@ -293,19 +290,20 @@ public class Client implements ClientInterface {
         // System.out.println("My ts: " + clientTimestamp);
         // System.out.println("ShardID: " + shardId + " | updateStamp: " + updateShardStamp);
         if (clientTimestamp.containsKey(shardId)) {
-        //    System.out.println("Scenario 1 Updating...");
             int oldShardStamp = clientTimestamp.get(shardId);
+            //System.out.println("Scenario 1 Updating...(" + oldShardStamp + " - " + updateShardStamp);
             if (updateShardStamp > oldShardStamp) {
+            //    System.out.println("Updated!");
                 clientTimestamp.put(shardId, updateShardStamp);
             }
         } else if (clientTimestamp.size() < maxCtsSize) {
             // System.out.println("Adding..");
             // Scenario 2: Client TS does not contain the entry but
             // has space for more entries, therefore add it
-         //   System.out.println("Scenario 2: My Size: " + clientTimestamp.size() + " | maxSize: " + maxCtsSize);
+          //  System.out.println("Scenario 2: My Size: " + clientTimestamp.size() + " | maxSize: " + maxCtsSize);
             clientTimestamp.put(shardId, updateShardStamp);
         } else {
-         //   System.out.println("Adding to catch all. (MySize: " + clientTimestamp.size()+")");
+          //  System.out.println("Adding to catch all. (MySize: " + clientTimestamp.size()+")");
             // Scenario 3: ShardID not explicitly tracked, add Catchall
             int lowestShardId = 0;
             int lowestShardIdStamp = Integer.MAX_VALUE;
@@ -332,10 +330,10 @@ public class Client implements ClientInterface {
             Map<Integer, Integer> timestamp2, int catchAllTwo) {
         // We start the merge by copying the first map.
         Map<Integer, Integer> result = new HashMap<>(timeStamp1);
-       // System.out.println("M1: " + timeStamp1);
-       // System.out.println("M2: " + timestamp2);
-       // System.out.println("CatchAll 1:" + catchAllOne);
-       // System.out.println("Catch all 2:" + catchAllTwo);
+        //System.out.println("M1: " + timeStamp1);
+        //System.out.println("M2: " + timestamp2);
+        //System.out.println("CatchAll 1:" + catchAllOne);
+        //System.out.println("Catch all 2:" + catchAllTwo);
         int highestCatchAll = 0;
         if (catchAllOne < catchAllTwo) {
             highestCatchAll = catchAllTwo;
@@ -349,12 +347,13 @@ public class Client implements ClientInterface {
             // Case 1: Both maps contain the same shardIdTwo, update
             if (result.containsKey(shardIdTwo) && result.get(shardIdTwo) < shardStampTwo) {
                 result.put(shardIdTwo, shardStampTwo);
-            } else if (result.size() < maxCtsSize) {
-                // Case 2: Client Timestamp can have more entries, add to result
+            } else if (!result.containsKey(shardIdTwo) && result.size() < maxCtsSize) {
+                // Case 2: Client Timestamp does not contain sameKey
+                // but can have more entries, add to result
                 result.put(shardIdTwo, shardStampTwo);
-            } else {
+            } else if (result.size() == maxCtsSize){
                 // Case 3: Map 2 contains a key that Map 1 does not, check if
-                // its value is higher
+                // its value is higher and the result is already filled
                 for (Integer resultShardId : result.keySet()) {
                     int resultShardStamp = result.get(resultShardId);
                     if (resultShardStamp < shardStampTwo) {
@@ -454,6 +453,11 @@ public class Client implements ClientInterface {
     @Override
     public int getNumberMasterMigrations() {
         return totalNumberMasterMigration;
+    }
+
+    @Override
+    public int getNumberCatchAll() {
+        return totalCatchAllReads;
     }
 
     @Override

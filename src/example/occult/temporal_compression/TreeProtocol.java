@@ -131,12 +131,6 @@ public class TreeProtocol extends StateTreeProtocolInstance
 
         // Then select the datacenter that has the lowest latency to the client
         return getLowestLatencyDatacenter(originalDC, interestedNodes);
-
-        // Send client to target
-        // TreeProtocol targetDCProtocol = (TreeProtocol) bestNode.getProtocol(tree);
-        // targetDCProtocol.migrateClientQueue(client, client.getCopyOfContext());
-
-        // sentMigrations++;
     }
 
     private Set<Node> getInterestedDatacenters(int key) {
@@ -170,14 +164,6 @@ public class TreeProtocol extends StateTreeProtocolInstance
         return bestNode;
     }
 
-    /**
-     * In occult, clients only want to migrate to the masters.
-     * @param node
-     * @param pid
-     * @param datacenter
-     * @param client
-     * @param event
-     */
     private void migrateToMaster(Node node, int pid,
                                  StateTreeProtocolInstance datacenter,
                                  ClientInterface client, EventUID event) {

@@ -20,7 +20,6 @@ package example.occult.temporal_compression;
 
 import example.common.datatypes.DataObject;
 import example.occult.ClientInterface;
-import example.occult.ClientInterface;
 import example.occult.GroupsManager;
 import example.occult.StateTreeProtocol;
 import example.occult.datatypes.EventUID;
@@ -167,12 +166,16 @@ abstract class StateTreeProtocolInstance
                     + this.getNodeId() + ", master is " + masterServer.getNodeId() + ", shard is " + shardId);
         }
 
+
         int newTimeShard = shardStamps.get(shardId) + 1;
-        shardStamps.put(shardId, newTimeShard);
 
         Map<Integer, Integer> updatedDeps = new HashMap<>(deps);
+        if (!updatedDeps.containsKey(shardId)) {
+//            throw new RuntimeException("wow");
+        }
         updatedDeps.put(shardId, newTimeShard);
 
+        shardStamps.put(shardId, newTimeShard);
         keysToCausalTimestamps.put(key, new HashMap<>(updatedDeps));
         keysToCatchAll.put(key, catchAll);
 
