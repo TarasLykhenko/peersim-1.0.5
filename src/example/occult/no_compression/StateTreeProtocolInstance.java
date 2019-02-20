@@ -74,7 +74,7 @@ abstract class StateTreeProtocolInstance
     protected long sentMigrations = 0;
     protected long receivedMigrations = 0;
 
-    private Map<Integer, Set<StateTreeProtocol>> levelsToNodes = new HashMap<>();
+    private Map<Integer, Set<example.occult.StateTreeProtocol>> levelsToNodes = new HashMap<>();
     private Map<Integer, Set<DataObject>> levelToDataObjects = new HashMap<>();
     private Set<DataObject> allDataObjects = new HashSet<>();
 
@@ -141,7 +141,7 @@ abstract class StateTreeProtocolInstance
     public OccultMasterWrite occultWriteMaster(int key, Map<Integer, Integer> deps, int catchAll) {
         int shardId = GroupsManager.getInstance().getShardId(key);
 
-        StateTreeProtocol masterServer = GroupsManager.getInstance().getMasterServer(shardId);
+        example.occult.StateTreeProtocol masterServer = GroupsManager.getInstance().getMasterServer(shardId);
         if (!masterServer.equals(this)) {
             throw new RuntimeException("Writing to a slave?! I am "
                     + this.getNodeId() + ", master is " + masterServer.getNodeId() + ", shard is " + shardId);
@@ -204,12 +204,12 @@ abstract class StateTreeProtocolInstance
     }
 
     @Override
-    public void setLevelsToNodes(Map<Integer, Set<StateTreeProtocol>> levelsToNodes) {
+    public void setLevelsToNodes(Map<Integer, Set<example.occult.StateTreeProtocol>> levelsToNodes) {
         this.levelsToNodes = levelsToNodes;
     }
 
     @Override
-    public Set<StateTreeProtocol> getLevelsToNodes(Integer level) {
+    public Set<example.occult.StateTreeProtocol> getLevelsToNodes(Integer level) {
         return levelsToNodes.get(level);
     }
 
@@ -293,13 +293,18 @@ abstract class StateTreeProtocolInstance
         }
     }
 
+    @Override
+    public Set<ClientInterface> getClients() {
+        return this.clients;
+    }
+
     //--------------------------------------------------------------------------
     // Replication groups methods
     //--------------------------------------------------------------------------
 
     @Override
     public boolean isInterested(int key) {
-    //    System.out.println("Checking key " + key);
+        //    System.out.println("Checking key " + key);
         return keyToDataObject.containsKey(key);
     }
 
@@ -337,7 +342,7 @@ abstract class StateTreeProtocolInstance
     public Map<Integer, Set<DataObject>> getAllDataObjectsPerLevel() {
         return levelToDataObjects;
     }
-    
+
     private void debug(String s) {
         // System.out.println(s);
     }
@@ -357,8 +362,8 @@ abstract class StateTreeProtocolInstance
             if (o == this) {
                 return true;
             }
-            if (!(o instanceof  RemoteUpdateQueueEntry)) {
-               return false;
+            if (!(o instanceof RemoteUpdateQueueEntry)) {
+                return false;
             }
             RemoteUpdateQueueEntry entry = (RemoteUpdateQueueEntry) o;
             return (this.key == entry.key) && (this.version == entry.version);

@@ -319,6 +319,11 @@ abstract class StateTreeProtocolInstance
         }
     }
 
+    @Override
+    public Set<ClientInterface> getClients() {
+        return this.clients;
+    }
+
     //--------------------------------------------------------------------------
     // Replication groups methods
     //--------------------------------------------------------------------------

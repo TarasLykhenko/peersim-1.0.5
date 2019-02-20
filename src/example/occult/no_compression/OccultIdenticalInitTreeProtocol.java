@@ -1,4 +1,4 @@
-package example.occult.temporal_compression;
+package example.occult.no_compression;
 
 import example.common.datatypes.DataObject;
 import example.occult.ClientInterface;
@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class InitTreeProtocol implements Control {
+public class OccultIdenticalInitTreeProtocol implements Control {
     // ------------------------------------------------------------------------
     // Parameters
     // ------------------------------------------------------------------------
@@ -51,7 +51,7 @@ public class InitTreeProtocol implements Control {
     // Constructor
     // ------------------------------------------------------------------------
 
-    public InitTreeProtocol(String prefix) {
+    public OccultIdenticalInitTreeProtocol(String prefix) {
         tree = Configuration.getPid(prefix + "." + PAR_TREE_PROT);
         maxClients = Configuration.getInt(PAR_MAX_CLIENTS);
         totalObjects = Configuration.getInt(PAR_TOTAL_OBJECTS_PER_DATACENTER);
@@ -99,6 +99,7 @@ public class InitTreeProtocol implements Control {
 
     private int dataObjectCounter = 0;
     private int currentShardId = 1_000_000_000;
+
     private void generateDataObjects(Set<StateTreeProtocol> datacenters) {
         for (int level = 0; level < levelsPercentage.length; level++) {
             Set<StateTreeProtocol> seenDatacenters = new HashSet<>();
@@ -202,6 +203,7 @@ public class InitTreeProtocol implements Control {
     private void generateDataObjectsForGroup(Set<StateTreeProtocol> datacentersGroup,
                                              int level, double percentage) {
         int numberObjectsToCreate = Math.round((float) (percentage / 100) * totalObjects);
+        System.out.println("Generating " + numberObjectsToCreate + " objects for group.");
         Map<Integer, Set<Integer>> shardIdsToKeys = new HashMap<>();
 
         Set<DataObject> result = new HashSet<>();

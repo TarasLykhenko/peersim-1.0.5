@@ -16,9 +16,8 @@
  *
  */
 
-package example.occult.no_compression;
+package example.occult;
 
-import example.occult.ClientInterface;
 import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.core.Network;
@@ -32,7 +31,6 @@ import java.io.PrintWriter;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
-import java.util.Map;
 
 /**
  * Print statistics over a vector. The vector is defined by a protocol,
@@ -196,8 +194,8 @@ public class Controller implements Control {
         print("CURRENT POINT: " + currentPoint);
         for (int i = 0; i < Network.size(); i++) {
             Node node = Network.get(i);
-            StateTreeProtocolInstance v = (StateTreeProtocolInstance) Network.get(i).getProtocol(pid);
-            for (ClientInterface client : v.clients) {
+            StateTreeProtocol v = (StateTreeProtocol) Network.get(i).getProtocol(pid);
+            for (ClientInterface client : v.getClients()) {
                 totalClients++;
                 aggregateReads += client.getNumberReads();
                 aggregateUpdates += client.getNumberUpdates();
@@ -244,13 +242,15 @@ public class Controller implements Control {
             writer.close();
             importantWriter.close();
             for (int i = 0; i < Network.size(); i++) {
-                StateTreeProtocolInstance protocol = (StateTreeProtocolInstance) Network.get(i).getProtocol(pid);
-                protocol.writer.println("----- END RESULTS -----");
+                StateTreeProtocol protocol = (StateTreeProtocol) Network.get(i).getProtocol(pid);
+
+                /*protocol.writer.println("----- END RESULTS -----");
                 for (Integer key : protocol.keysToCausalTimestamps.keySet()) {
                     protocol.writer.println("Have key:" + key + "|v:" + protocol.keysToCausalTimestamps.get(key));
                 }
                 protocol.writer.close();
-                for (ClientInterface client : protocol.clients) {
+                */
+                for (ClientInterface client : protocol.getClients()) {
                     String extraString = "";
                     if (client.isWaiting()) {
                         extraString = " | waitingSince: " + client.getWaitingSince();
@@ -274,6 +274,7 @@ public class Controller implements Control {
 
     }
 
+    /*
     private void debugPercentages() {
         int totalCount = 0;
         for (Map.Entry<Integer, Integer> entry : Client.levelsToCount.entrySet()) {
@@ -284,6 +285,7 @@ public class Controller implements Control {
         }
 
     }
+    */
 
     private void print(String string) {
         if (WRITE_TO_FILE) {

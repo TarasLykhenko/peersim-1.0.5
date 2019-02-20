@@ -1,4 +1,4 @@
-package example.occult.no_compression;
+package example.occult.temporal_compression;
 
 import example.common.MigrationMessage;
 import example.common.PointToPointTransport;
@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Set;
 
 
-public class TreeProtocol extends StateTreeProtocolInstance
+public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
         implements CDProtocol, EDProtocol {
 
     private static final String PAR_TREE_PROT = "tree_protocol";
@@ -38,7 +38,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
 // Initialization
 //--------------------------------------------------------------------------
 
-    public TreeProtocol(String prefix) {
+    public OccultIdenticalTreeProtocol(String prefix) {
         tree = Configuration.getPid(prefix + "." + PAR_TREE_PROT);
         this.prefix = prefix;
     }
@@ -124,8 +124,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
         }
     }
 
-    private Node getMigrationDatacenter(EventUID event,
-                                        StateTreeProtocol originalDC) {
+    private Node getMigrationDatacenter(EventUID event, StateTreeProtocol originalDC) {
 
         Set<Node> interestedNodes = getInterestedDatacenters(event);
 
@@ -260,7 +259,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
 
 
     public Object clone() {
-        return new TreeProtocol(prefix);
+        return new OccultIdenticalTreeProtocol(prefix);
     }
 
     private boolean eventIsRead(EventUID event) {

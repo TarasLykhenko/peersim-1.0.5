@@ -3,7 +3,7 @@ SIZE 4
 
 # parameters of periodic execution
 # CYCLES 200000
-CYCLES 50000
+CYCLES 100000
 CYCLE 1
 
 # Latency
@@ -18,7 +18,7 @@ simulation.endtime CYCLE*CYCLES
 simulation.logtime CYCLE
 
 ########### CLIENT CONFIGS #############
-client_ts_size 5000
+client_ts_size 1000
 clients_per_datacenter 20
 rest_time = 200
 rest_time_interval = 50
@@ -54,7 +54,7 @@ should_partition_clients false
 partitions_datacenters example/partitions/four_nodes_all_connected_partition.top
 partitions_clients example/client-partitions/four_nodes_all_connected_partition.top
 partition_start 20
-partition_end 80
+partition_end 60
 
 
 
@@ -74,7 +74,7 @@ tree tree
 
 protocol.link peersim.core.IdleProtocol
 
-protocol.tree example.occult.temporal_compression.TreeProtocol
+protocol.tree example.occult.temporal_compression.OccultIdenticalTreeProtocol
 protocol.tree.step CYCLE
 protocol.tree.transport tr
 protocol.tree.tree_protocol tree
@@ -96,7 +96,7 @@ init.1.topology_file four_nodes_all_connected.top
 init.1.protocol link
 
 ### Inits queues based on graph
-init.2 example.occult.temporal_compression.InitTreeProtocol
+init.2 example.occult.temporal_compression.OccultIdenticalInitTreeProtocol
 init.2.tree_protocol tree
 init.2.clients_cycle 1
 
@@ -106,7 +106,7 @@ init.sch.randstart
 
 ################ control ==============================
 
-control.0 example.occult.temporal_compression.Controller
+control.0 example.occult.Controller
 control.0.protocol tree
 control.0.step CYCLE
 control.0.output_file output/optimal5

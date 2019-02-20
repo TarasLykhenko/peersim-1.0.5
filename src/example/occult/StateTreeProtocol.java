@@ -48,6 +48,8 @@ public interface StateTreeProtocol {
 
     void addClients(Set<ClientInterface> clientList);
 
+    Set<ClientInterface> getClients();
+
     //--------------------------------------------------------------------------
     //Statistics
     //--------------------------------------------------------------------------
