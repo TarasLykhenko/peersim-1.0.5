@@ -55,19 +55,19 @@ public class Client extends OccultClient {
         // System.out.println("ShardID: " + shardId + " | updateStamp: " + updateShardStamp);
         if (clientTimestamp.containsKey(shardId)) {
             int oldShardStamp = clientTimestamp.get(shardId);
-            System.out.println("Scenario 1 Updating...(" + oldShardStamp + " - " + updateShardStamp);
+            //System.out.println("Scenario 1 Updating...(" + oldShardStamp + " - " + updateShardStamp);
             if (updateShardStamp > oldShardStamp) {
                 //    System.out.println("Updated!");
                 clientTimestamp.put(shardId, updateShardStamp);
             }
         } else if (clientTimestamp.size() < maxCtsSize) {
-            System.out.println("Adding..");
+           // System.out.println("Adding..");
             // Scenario 2: Client TS does not contain the entry but
             // has space for more entries, therefore add it
             //  System.out.println("Scenario 2: My Size: " + clientTimestamp.size() + " | maxSize: " + maxCtsSize);
             clientTimestamp.put(shardId, updateShardStamp);
         } else {
-            System.out.println("Adding to catch all. (MySize: " + clientTimestamp.size() + ")");
+           // System.out.println("Adding to catch all. (MySize: " + clientTimestamp.size() + ")");
             // Scenario 3: ShardID not explicitly tracked, add Catchall
             int lowestShardId = 0;
             int lowestShardIdStamp = Integer.MAX_VALUE;

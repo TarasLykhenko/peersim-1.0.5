@@ -20,7 +20,7 @@ simulation.logtime CYCLE
 ########### CLIENT CONFIGS #############
 occult_type temporal_compression
 client_ts_size 500
-clients_per_datacenter 20
+clients_per_datacenter 250
 rest_time 200
 rest_time_interval 50
 
@@ -48,7 +48,7 @@ levels_percentage [0,0,100]
 groups {[0],[0,1],[0,1,2,3]}{[1],[0,1],[0,1,2,3]}{[2],[2,3],[0,1,2,3]}{[3],[2,3],[0,1,2,3]}
 
 
-statistics_window 5
+statistics_window 1
 
 should_partition_DC true
 should_partition_clients false
@@ -57,7 +57,8 @@ partitions_clients example/client-partitions/four_nodes_all_connected_partition.
 partition_start 20
 partition_end 60
 
-
+printImportant true
+printVerbose false
 
 
 

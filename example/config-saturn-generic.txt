@@ -48,7 +48,8 @@ partitions_datacenters example/partitions/four_nodes_three_brokers_partition.top
 partition_start 30
 partition_end 80
 
-
+printImportant true
+printVerbose false
 
 
 

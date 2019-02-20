@@ -18,27 +18,27 @@ simulation.endtime CYCLE*CYCLES
 simulation.logtime CYCLE
 
 ########### CLIENT CONFIGS #############
-clients_per_datacenter 500
+clients_per_datacenter 250
 rest_time = 400
 rest_time_interval = 20
 
-client_read_percentage 80
-client_update_percentage 20
+client_read_percentage 95
+client_update_percentage 5
 
-client_read_levels_percentage [80,15,5]
-client_update_levels_percentages [80,15,5]
+client_read_levels_percentage [33,33,34]
+client_update_levels_percentages [33,33,34]
 
 # percentage clients that use objects up to a given distance
 # eg. with [50,50], half clients will only use objects from the local DC
 # and the other half will use objects from both local and the DCs 1 level away
-client_locality_percentage [0,50,50]
+client_locality_percentage [50,40,10]
 
-clients_eager_percentage 20
+clients_eager_percentage 0
 
 
 ########################################
 
-total_objects_per_datacenter 20
+total_objects_per_datacenter 300
 
 
 levels 3
@@ -46,20 +46,17 @@ levels_percentage [33,33,34]
 groups {[0],[0,1],[0,1,2,3]}{[1],[0,1],[0,1,2,3]}{[2],[2,3],[0,1,2,3]}{[3],[2,3],[0,1,2,3]}
 
 
-statistics_window 5
-
-partitions_file example/partitions/four_nodes_all_connected_partition_between_countries.top
-partition_start 120
-partition_end 100
+statistics_window 1
 
 should_partition_DC true
 should_partition_clients false
 partitions_datacenters example/partitions/four_nodes_all_connected_partition.top
 partitions_clients example/client-partitions/four_nodes_all_connected_partition.top
-partition_start 20
-partition_end 80
+partition_start 35
+partition_end 55
 
-
+printImportant true
+printVerbose false
 
 
 

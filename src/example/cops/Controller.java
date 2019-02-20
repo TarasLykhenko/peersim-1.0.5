@@ -64,9 +64,10 @@ public class Controller implements Control {
      * @see #execute
      */
     private static final String PAR_ACCURACY = "accuracy";
-    private static final String PAR_PARTITIONS_FILE = "partitions_file";
     private static final String PAR_TAKE_STATISTICS_EVERY = "statistics_window";
     private static final String PAR_LEVELS = "levels";
+    private static final String PAR_PRINT_IMPORTANT = "printImportant";
+    private static final String PAR_PRINT_VERBOSE = "printVerbose";
 
     /**
      * The protocol to operate on.
@@ -75,7 +76,6 @@ public class Controller implements Control {
      */
     private static final String PAR_PROT = "protocol";
     private static final String PAR_OUTPUT = "output_file";
-    private static final boolean WRITE_TO_FILE = true;
     private static final boolean WRITE_TO_SOUT = true;
 
     // These are percentages
@@ -101,10 +101,11 @@ public class Controller implements Control {
      * Protocol identifier
      */
     private final int pid;
-    private final PrintWriter writer;
-    private final PrintWriter importantWriter;
+    private PrintWriter writer;
+    private PrintWriter importantWriter;
+    private final boolean printImportant;
+    private final boolean printVerbose;
 
-    private final String partitionsFile;
 
     private final int takeStatisticsEvery;
     private final int levels;
@@ -132,25 +133,32 @@ public class Controller implements Control {
 
         iteration = 1;
         outputFile = Configuration.getString(name + "." + PAR_OUTPUT);
-        partitionsFile = Configuration.getString(PAR_PARTITIONS_FILE);
         TAKE_STATISTICS_EVERY = Configuration.getDouble(PAR_TAKE_STATISTICS_EVERY);
         levels = Configuration.getInt(PAR_LEVELS);
         int endTime = Configuration.getInt("simulation.endtime");
         logTime = Configuration.getInt("simulation.logtime");
         cycles = endTime / logTime;
 
+        printImportant = Configuration.getBoolean(PAR_PRINT_IMPORTANT);
+        printVerbose = Configuration.getBoolean(PAR_PRINT_VERBOSE);
+
         DateFormat dateFormat = new SimpleDateFormat("-yyyy-MM-dd-HH-mm-ss");
         Calendar cal = Calendar.getInstance();
 
-        String pathfile = outputFile + dateFormat.format(cal.getTime()) + ".txt";
-        FileWriter fr = new FileWriter(pathfile, true);
-        BufferedWriter br = new BufferedWriter(fr);
-        writer = new PrintWriter(br);
+        if (printVerbose) {
+            String pathfile = outputFile + dateFormat.format(cal.getTime()) + ".txt";
+            FileWriter fr = new FileWriter(pathfile, true);
+            BufferedWriter br = new BufferedWriter(fr);
+            writer = new PrintWriter(br);
+        }
 
-        String importantPathfile = outputFile + dateFormat.format(cal.getTime()) + "-2.txt";
-        FileWriter fr2 = new FileWriter(importantPathfile, true);
-        BufferedWriter br2 = new BufferedWriter(fr2);
-        importantWriter = new PrintWriter(br2);
+        if (printImportant) {
+            String importantPathfile = outputFile + dateFormat.format(cal.getTime()) + "-2.txt";
+            FileWriter fr2 = new FileWriter(importantPathfile, true);
+            BufferedWriter br2 = new BufferedWriter(fr2);
+            importantWriter = new PrintWriter(br2);
+        }
+
 
         takeStatisticsEvery = Math.round((float) (TAKE_STATISTICS_EVERY / 100) * cycles);
     }
@@ -196,7 +204,7 @@ public class Controller implements Control {
         long waitingClients = 0;
         long pendingOperations = 0;
         currentPoint += TAKE_STATISTICS_EVERY;
-        print("Observer init ======================");
+        printImportant("Observer init ======================");
         print("CURRENT POINT: " + currentPoint);
         for (int i = 0; i < Network.size(); i++) {
             Node node = Network.get(i);
@@ -262,12 +270,12 @@ public class Controller implements Control {
 
 
         print("Average processing time(" + nNodes + "nodes): " + ((double) aggregateProcessing / (double) nNodes));
-        printImportant("Total updates: " + aggregateUpdates);
+        print("Total updates: " + aggregateUpdates);
         int totalOps = aggregateUpdates + aggregateReads + aggregateRemoteReads;
         print("Total ops: " + totalOps);
         print("Total ops since last %: " + (totalOps - totalOpsPrevious));
         print("CURRENT POINT & Total ops since last %: " + currentPoint + " - " + (totalOps - totalOpsPrevious));
-        printImportant("Total ops (%: " + currentPoint + ") - " + (totalOps - totalOpsPrevious));
+        printImportant(">> Total ops (%: " + currentPoint + ") - " + (totalOps - totalOpsPrevious));
         this.totalOpsPrevious = totalOps;
         print("% of reads: " + ((double) ((aggregateReads + aggregateRemoteReads) * 100) / (double) totalOps));
         print("% of updates: " + ((double) (aggregateUpdates * 100) / (double) totalOps));
@@ -282,14 +290,18 @@ public class Controller implements Control {
         print("Total clients + pending clients: " + (totalClients + totalPendingClients));
         print("Waiting clients: " + waitingClients);
         // debugPercentages();
-        print("Observer end =======================");
-        print("");
+        printImportant("Observer end =======================");
+        printImportant("");
         print("");
         /* Terminate if accuracy target is reached */
 
         if (cycles == iteration) {
-            writer.close();
-            importantWriter.close();
+            if (printVerbose) {
+                writer.close();
+            }
+            if (printImportant) {
+                importantWriter.close();
+            }
             for (int i = 0; i < Network.size(); i++) {
                 StateTreeProtocolInstance protocol = (StateTreeProtocolInstance) Network.get(i).getProtocol(pid);
                 protocol.writer.println("----- END RESULTS -----");
@@ -328,7 +340,7 @@ public class Controller implements Control {
     }
 
     private void print(String string) {
-        if (WRITE_TO_FILE) {
+        if (printVerbose) {
             writer.println(string);
         }
         if (WRITE_TO_SOUT) {
@@ -337,7 +349,8 @@ public class Controller implements Control {
     }
 
     private void printImportant(String string) {
-        System.out.println("WRITING!");
-        importantWriter.println(string);
+        if (printImportant) {
+            importantWriter.println(string);
+        }
     }
 }

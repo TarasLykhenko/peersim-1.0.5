@@ -63,6 +63,8 @@ public class Controller implements Control {
     private static final String PAR_ACCURACY = "accuracy";
     private final static String PAR_TAKE_STATISTICS_EVERY = "statistics_window";
     private final static String PAR_LEVELS = "levels";
+    private static final String PAR_PRINT_IMPORTANT = "printImportant";
+    private static final String PAR_PRINT_VERBOSE = "printVerbose";
 
     /**
      * The protocol to operate on.
@@ -72,7 +74,6 @@ public class Controller implements Control {
     private static final String PAR_PROT = "protocol";
     private static final String PAR_TYPE = "type";
     private static final String PAR_OUTPUT = "output_file";
-    private static final boolean WRITE_TO_FILE = true;
     private static final boolean WRITE_TO_SOUT = true;
 
     // These are percentages
@@ -99,8 +100,10 @@ public class Controller implements Control {
      */
     private final int pid;
     private final int pidType;
-    private final PrintWriter writer;
-    private final PrintWriter importantWriter;
+    private PrintWriter writer;
+    private PrintWriter importantWriter;
+    private final boolean printImportant;
+    private final boolean printVerbose;
 
     private final int takeStatisticsEvery;
 
@@ -137,18 +140,25 @@ public class Controller implements Control {
         logTime = Configuration.getInt("simulation.logtime");
         cycles = endTime / logTime;
 
+        printImportant = Configuration.getBoolean(PAR_PRINT_IMPORTANT);
+        printVerbose = Configuration.getBoolean(PAR_PRINT_VERBOSE);
+
         DateFormat dateFormat = new SimpleDateFormat("-yyyy-MM-dd-HH-mm-ss");
         Calendar cal = Calendar.getInstance();
 
-        String pathfile = outputFile + dateFormat.format(cal.getTime()) + ".txt";
-        FileWriter fr = new FileWriter(pathfile, true);
-        BufferedWriter br = new BufferedWriter(fr);
-        writer = new PrintWriter(br);
+        if (printVerbose) {
+            String pathfile = outputFile + dateFormat.format(cal.getTime()) + ".txt";
+            FileWriter fr = new FileWriter(pathfile, true);
+            BufferedWriter br = new BufferedWriter(fr);
+            writer = new PrintWriter(br);
+        }
 
-        String importantPathfile = outputFile + dateFormat.format(cal.getTime()) + "-2.txt";
-        FileWriter fr2 = new FileWriter(importantPathfile, true);
-        BufferedWriter br2 = new BufferedWriter(fr2);
-        importantWriter = new PrintWriter(br2);
+        if (printImportant) {
+            String importantPathfile = outputFile + dateFormat.format(cal.getTime()) + "-2.txt";
+            FileWriter fr2 = new FileWriter(importantPathfile, true);
+            BufferedWriter br2 = new BufferedWriter(fr2);
+            importantWriter = new PrintWriter(br2);
+        }
 
         takeStatisticsEvery = Math.round((float) (TAKE_STATISTICS_EVERY / 100) * cycles);
     }
@@ -273,8 +283,12 @@ public class Controller implements Control {
         /* Terminate if accuracy target is reached */
 
         if (cycles == iteration) {
-            writer.close();
-            importantWriter.close();
+            if (printVerbose) {
+                writer.close();
+            }
+            if (printImportant) {
+                importantWriter.close();
+            }
             return true;
         }
         return false;
@@ -294,7 +308,7 @@ public class Controller implements Control {
     }
 
     private void print(String string) {
-        if (WRITE_TO_FILE) {
+        if (printVerbose) {
             writer.println(string);
         }
         if (WRITE_TO_SOUT) {
@@ -303,8 +317,9 @@ public class Controller implements Control {
     }
 
     private void printImportant(String string) {
-        System.out.println("WRITING!");
-        importantWriter.println(string);
+        if (printImportant) {
+            importantWriter.println(string);
+        }
     }
 }
 
