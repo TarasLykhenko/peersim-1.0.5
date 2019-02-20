@@ -1,9 +1,6 @@
-package example.occult.temporal_compression;
+package example.occult;
 
 import example.common.datatypes.DataObject;
-import example.occult.ClientInterface;
-import example.occult.GroupsManager;
-import example.occult.StateTreeProtocol;
 import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.core.Network;
@@ -19,7 +16,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class OccultIdenticalInitTreeProtocol implements Control {
+public class InitTreeProtocol implements Control {
     // ------------------------------------------------------------------------
     // Parameters
     // ------------------------------------------------------------------------
@@ -32,6 +29,10 @@ public class OccultIdenticalInitTreeProtocol implements Control {
     private static final String PAR_CLIENTS_EAGER = "clients_eager_percentage";
     private static final String PAR_CLIENTS_LOCALITY_PERCENTAGE = "client_locality_percentage";
     private static final String PAR_NUMBER_OBJECTS_PER_SHARD = "objects_per_shard";
+    private static final String PAR_OCCULT_TYPE = "occult_type";
+
+    private static final String OCCULT_NO_COMPRESSION = "no_compression";
+    private static final String OCCULT_TEMPORAL_COMPRESSION = "temporal_compression";
 
 
     // ------------------------------------------------------------------------
@@ -45,13 +46,14 @@ public class OccultIdenticalInitTreeProtocol implements Control {
     private final int[] clientsLocalityPercentages;
     private final int clientEagerPercentage;
     private final int numberObjectsPerShard;
+    private final String clientType;
 
 
     // ------------------------------------------------------------------------
     // Constructor
     // ------------------------------------------------------------------------
 
-    public OccultIdenticalInitTreeProtocol(String prefix) {
+    public InitTreeProtocol(String prefix) {
         tree = Configuration.getPid(prefix + "." + PAR_TREE_PROT);
         maxClients = Configuration.getInt(PAR_MAX_CLIENTS);
         totalObjects = Configuration.getInt(PAR_TOTAL_OBJECTS_PER_DATACENTER);
@@ -71,6 +73,7 @@ public class OccultIdenticalInitTreeProtocol implements Control {
                 .toArray();
         clientEagerPercentage = Configuration.getInt(PAR_CLIENTS_EAGER);
         numberObjectsPerShard = Configuration.getInt(PAR_NUMBER_OBJECTS_PER_SHARD);
+        clientType = Configuration.getString(PAR_OCCULT_TYPE);
     }
 
     // ------------------------------------------------------------------------
@@ -152,13 +155,29 @@ public class OccultIdenticalInitTreeProtocol implements Control {
                 for (int i = 0; i < amountLocalityClients; i++) {
                     totalClients++;
                     if (i < amountEagerClients) {
-                        clients.add(new Client(totalClients, true, allDataObjectsOfNeighbours, datacenter, localityDistance));
+                        ClientInterface newClient = clientFactory(totalClients, true, allDataObjectsOfNeighbours, datacenter, localityDistance);
+                        clients.add(newClient);
                     } else {
-                        clients.add(new Client(totalClients, false, allDataObjectsOfNeighbours, datacenter, localityDistance));
+                        ClientInterface newClient = clientFactory(totalClients, false, allDataObjectsOfNeighbours, datacenter, localityDistance);
+                        clients.add(newClient);
                     }
                 }
                 datacenter.addClients(clients);
             }
+        }
+    }
+
+    private ClientInterface clientFactory(int totalClients,
+                                          boolean isEager,
+                                          Map<Integer, Set<DataObject>> allDataObjectsOfNeighbours,
+                                          StateTreeProtocol datacenter,
+                                          int localityDistance) {
+        if (clientType.equals(OCCULT_NO_COMPRESSION)) {
+            return new example.occult.no_compression.Client(totalClients, isEager, allDataObjectsOfNeighbours, datacenter, localityDistance);
+        } else if (clientType.equals(OCCULT_TEMPORAL_COMPRESSION)) {
+            return new example.occult.temporal_compression.Client(totalClients, isEager, allDataObjectsOfNeighbours, datacenter, localityDistance);
+        } else {
+            throw new RuntimeException("Wrong occult type");
         }
     }
 

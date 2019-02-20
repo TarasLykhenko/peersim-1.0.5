@@ -10,9 +10,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-class Client extends OccultClient {
+public class Client extends OccultClient {
 
-    Client(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality) {
+    public Client(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality) {
         super(id, isEager, dataObjectsPerLevel, datacenter, locality);
 
         for (DataObject dataObject : possibleDataObjects) {

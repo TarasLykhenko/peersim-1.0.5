@@ -18,6 +18,7 @@ simulation.endtime CYCLE*CYCLES
 simulation.logtime CYCLE
 
 ########### CLIENT CONFIGS #############
+occult_type no_compression
 clients_per_datacenter 20
 rest_time = 200
 rest_time_interval = 50
@@ -95,7 +96,7 @@ init.1.topology_file four_nodes_all_connected.top
 init.1.protocol link
 
 ### Inits queues based on graph
-init.2 example.occult.no_compression.OccultIdenticalInitTreeProtocol
+init.2 example.occult.InitTreeProtocol
 init.2.tree_protocol tree
 init.2.clients_cycle 1
 

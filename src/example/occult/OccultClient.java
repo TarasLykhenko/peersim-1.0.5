@@ -108,11 +108,6 @@ public abstract class OccultClient implements ClientInterface {
         this.isEager = isEager;
         this.datacenter = datacenter;
         this.locality = locality;
-
-        for (DataObject dataObject : possibleDataObjects) {
-            int shardId = GroupsManager.getInstance().getShardId(dataObject.getKey());
-            clientTimestamp.put(shardId, 0);
-        }
     }
 
     @Override

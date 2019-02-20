@@ -3,7 +3,6 @@ package example.occult.temporal_compression;
 import example.common.datatypes.DataObject;
 import example.occult.OccultClient;
 import example.occult.StateTreeProtocol;
-import example.occult.datatypes.OccultReadResult;
 import peersim.config.Configuration;
 import peersim.core.CommonState;
 
@@ -11,28 +10,15 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-class Client extends OccultClient {
+public class Client extends OccultClient {
 
     private static final String PAR_CLIENT_TS_SIZE = "client_ts_size";
 
-    /**
-     * Maps each shardId to shardstamp
-     */
-    Map<Integer, Integer> clientTimestamp = new HashMap<>();
-    private int catchAllShardStamp = 0;
     private final int maxCtsSize;
 
     public Client(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality) {
         super(id, isEager, dataObjectsPerLevel, datacenter, locality);
         this.maxCtsSize = Configuration.getInt(PAR_CLIENT_TS_SIZE);
-
-        /*
-        // TODO TIRAR ISTO
-        for (DataObject dataObject : possibleDataObjects) {
-            int shardId = GroupsManager.getInstance().getShardId(dataObject.getKey());
-            clientTimestamp.put(shardId, 0);
-        }
-        */
     }
 
     //------------------------------------------
@@ -43,6 +29,9 @@ class Client extends OccultClient {
     public int getShardStampFromCS(int shardId) {
         if (clientTimestamp.containsKey(shardId)) {
             return clientTimestamp.get(shardId);
+        } else if (clientTimestamp.size() < maxCtsSize) {
+            // Special case: Still filling the ClientTimestamp:
+            return 0;
         } else {
             totalCatchAllReads++;
             return catchAllShardStamp;
@@ -68,17 +57,17 @@ class Client extends OccultClient {
             int oldShardStamp = clientTimestamp.get(shardId);
             System.out.println("Scenario 1 Updating...(" + oldShardStamp + " - " + updateShardStamp);
             if (updateShardStamp > oldShardStamp) {
-            //    System.out.println("Updated!");
+                //    System.out.println("Updated!");
                 clientTimestamp.put(shardId, updateShardStamp);
             }
         } else if (clientTimestamp.size() < maxCtsSize) {
-             System.out.println("Adding..");
+            System.out.println("Adding..");
             // Scenario 2: Client TS does not contain the entry but
             // has space for more entries, therefore add it
-          //  System.out.println("Scenario 2: My Size: " + clientTimestamp.size() + " | maxSize: " + maxCtsSize);
+            //  System.out.println("Scenario 2: My Size: " + clientTimestamp.size() + " | maxSize: " + maxCtsSize);
             clientTimestamp.put(shardId, updateShardStamp);
         } else {
-            System.out.println("Adding to catch all. (MySize: " + clientTimestamp.size()+")");
+            System.out.println("Adding to catch all. (MySize: " + clientTimestamp.size() + ")");
             // Scenario 3: ShardID not explicitly tracked, add Catchall
             int lowestShardId = 0;
             int lowestShardIdStamp = Integer.MAX_VALUE;
@@ -116,6 +105,7 @@ class Client extends OccultClient {
         } else {
             highestCatchAll = catchAllOne;
         }
+        //System.out.println("Highest catchAll: " + highestCatchAll);
 
         for (Integer shardIdTwo : timestamp2.keySet()) {
             int shardStampTwo = timestamp2.get(shardIdTwo);
@@ -127,7 +117,7 @@ class Client extends OccultClient {
                 // Case 2: Client Timestamp does not contain sameKey
                 // but can have more entries, add to result
                 result.put(shardIdTwo, shardStampTwo);
-            } else if (result.size() == maxCtsSize){
+            } else if (result.size() == maxCtsSize) {
                 // Case 3: Map 2 contains a key that Map 1 does not, check if
                 // its value is higher and the result is already filled
                 for (Integer resultShardId : result.keySet()) {
@@ -136,7 +126,7 @@ class Client extends OccultClient {
                         result.remove(resultShardId);
                         result.put(shardIdTwo, shardStampTwo);
                         if (resultShardStamp > highestCatchAll) {
-                         //   System.out.println("Updating catchall");
+                            //   System.out.println("Updating catchall");
                             highestCatchAll = resultShardStamp;
                         }
                         break;
