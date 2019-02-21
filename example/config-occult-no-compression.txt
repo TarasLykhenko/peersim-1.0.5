@@ -47,9 +47,9 @@ levels_percentage [33,33,34]
 groups {[0],[0,1],[0,1,2,3]}{[1],[0,1],[0,1,2,3]}{[2],[2,3],[0,1,2,3]}{[3],[2,3],[0,1,2,3]}
 
 
-statistics_window 5
+statistics_window 1
 
-should_partition_DC false
+should_partition_DC true
 should_partition_clients false
 partitions_datacenters example/partitions/four_nodes_all_connected_partition.top
 partitions_clients example/client-partitions/four_nodes_all_connected_partition.top

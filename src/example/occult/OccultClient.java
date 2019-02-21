@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public abstract class OccultClient implements ClientInterface {
+public abstract class OccultClient implements OccultClientInterface {
 
     private static final String PAR_READ_PERCENTAGE = "client_read_percentage";
     private static final String PAR_READ_LEVEL_PERCENTAGES = "client_read_levels_percentage";

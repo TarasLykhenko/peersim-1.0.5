@@ -428,6 +428,18 @@ abstract class StateTreeProtocolInstance
         }
     }
 
+    /**
+     * Used for statistics ONLY.
+     * @return Sum of current clients + queued clients
+     */
+    @Override
+    public Set<Client> getClients() {
+        Set<Client> result = new HashSet<>();
+        result.addAll(clients);
+        result.addAll(clientToDepsQueue.keySet());
+        return result;
+    }
+
     //--------------------------------------------------------------------------
     // Replication groups methods
     //--------------------------------------------------------------------------

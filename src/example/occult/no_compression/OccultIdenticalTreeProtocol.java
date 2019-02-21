@@ -2,7 +2,7 @@ package example.occult.no_compression;
 
 import example.common.MigrationMessage;
 import example.common.PointToPointTransport;
-import example.occult.ClientInterface;
+import example.occult.OccultClientInterface;
 import example.occult.GroupsManager;
 import example.occult.StateTreeProtocol;
 import example.occult.datatypes.EventUID;
@@ -63,7 +63,7 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
     private void doDatabaseMethod(Node node, int pid, Linkable linkable) {
         StateTreeProtocolInstance datacenter = (StateTreeProtocolInstance) node.getProtocol(tree);
 
-        for (ClientInterface client : clients) {
+        for (OccultClientInterface client : clients) {
          //   System.out.println("Checking client " + client.getId());
             Operation operation = client.nextOperation();
             // Client is waiting for result;
@@ -165,7 +165,7 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
 
     private void migrateToMaster(Node node, int pid,
                                  StateTreeProtocolInstance datacenter,
-                                 ClientInterface client, EventUID event) {
+                                 OccultClientInterface client, EventUID event) {
         int key = event.getOperation().getKey();
         int shardId = GroupsManager.getInstance().getShardId(key);
         StateTreeProtocol master = GroupsManager.getInstance().getMasterServer(shardId);
@@ -192,7 +192,7 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
 
         if (event instanceof LocalUpdate) {
             LocalUpdate localUpdate = (LocalUpdate) event;
-            ClientInterface client = idToClient.get(localUpdate.clientId);
+            OccultClientInterface client = idToClient.get(localUpdate.clientId);
 
             // This must be the master
             OccultMasterWrite occultMasterWrite =
@@ -233,7 +233,7 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
             StateTreeProtocolInstance originalDC = (StateTreeProtocolInstance)
                     Network.get(Math.toIntExact(msg.senderDC)).getProtocol(tree);
 
-            ClientInterface client = originalDC.idToClient.get(msg.clientId);
+            OccultClientInterface client = originalDC.idToClient.get(msg.clientId);
             // Remove client from original DC
             originalDC.clients.remove(client);
             originalDC.idToClient.remove(msg.clientId);

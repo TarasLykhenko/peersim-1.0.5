@@ -1,5 +1,6 @@
 package example.cops;
 
+import example.common.BasicClientInterface;
 import example.common.datatypes.DataObject;
 import example.cops.datatypes.Operation;
 import example.cops.datatypes.Operation.Type;
@@ -18,7 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class Client {
+public class Client implements BasicClientInterface {
 
     private static final String PAR_READ_PERCENTAGE = "client_read_percentage";
     private static final String PAR_READ_LEVEL_PERCENTAGES = "client_read_levels_percentage";
@@ -93,12 +94,50 @@ public class Client {
         return id;
     }
 
+    @Override
+    public int getNumberReads() {
+        return numberReads;
+    }
+
+    @Override
+    public int getNumberUpdates() {
+        return numberUpdates;
+    }
+
+    @Override
+    public int getNumberMigrations() {
+        return numberMigrations;
+    }
+
+    @Override
+    public int getLocality() {
+        return locality;
+    }
+
+    //TODO
+    @Override
+    public long getWaitingSince() {
+        return 0;
+        // return waitingSince;
+    }
+
+    @Override
+    public float getAverageReadLatency() {
+        return (float) readsTotalLatency / numberReads;
+    }
+
+    @Override
+    public float getAverageUpdateLatency() {
+        return (float) updatesTotalLatency / numberUpdates;
+    }
 
     private boolean isWaitingForResult = false;
 
-    boolean isWaiting() {
+    @Override
+    public boolean isWaiting() {
         return isWaitingForResult;
     }
+
     Operation nextOperation() {
         if (isWaitingForResult) {
            // System.out.println("WAITING!");
@@ -127,7 +166,10 @@ public class Client {
     long readsTotalLatency = 0;
     long updatesTotalLatency = 0;
     long lastOperationTimestamp = 0;
+    int numberMigrations = 0;
+
     private long lastResultReceivedTimestamp = 0;
+
     private Operation doRead() {
         lastOperationTimestamp = CommonState.getTime();
         lastOperationType = Type.READ;
@@ -186,11 +228,14 @@ public class Client {
         updatesTotalLatency += (lastResultReceivedTimestamp - lastOperationTimestamp);
     }
 
-    void migrationOver() {
+    //TODO FAZER BEM
+    @Override
+    public void migrationOver() {
+        numberMigrations++;
         if (lastOperationType == Type.READ) {
             readsTotalLatency += (CommonState.getTime() - lastOperationTimestamp);
         } else {
-            numberUpdates--;
+         //   numberUpdates--;
         }
         isWaitingForResult = false;
     }

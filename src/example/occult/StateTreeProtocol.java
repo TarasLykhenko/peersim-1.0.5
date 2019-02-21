@@ -18,6 +18,7 @@
 
 package example.occult;
 
+import example.common.BasicStateTreeProtocol;
 import example.common.datatypes.DataObject;
 import example.occult.datatypes.EventUID;
 import example.occult.datatypes.OccultMasterWrite;
@@ -30,11 +31,13 @@ import java.util.Set;
  * The implementor class has a single parameter. This interface
  * provides access to that parameter.
  */
-public interface StateTreeProtocol {
+public interface StateTreeProtocol extends BasicStateTreeProtocol {
 
     int timestamp();
 
     void setNodeId(Long nodeId);
+
+    long getNodeId();
 
     //--------------------------------------------------------------------------
     //Replication groups methods
@@ -46,33 +49,9 @@ public interface StateTreeProtocol {
     //Client methods
     //--------------------------------------------------------------------------
 
-    void addClients(Set<ClientInterface> clientList);
+    void addClients(Set<OccultClientInterface> clientList);
 
-    Set<ClientInterface> getClients();
-
-    //--------------------------------------------------------------------------
-    //Statistics
-    //--------------------------------------------------------------------------
-
-    void incrementUpdates();
-
-    void incrementRemoteReads();
-
-    void incrementLocalReads();
-
-    int getNumberUpdates();
-
-    int getNumberRemoteReads();
-
-    int getNumberLocalReads();
-
-    void addNewReadCompleted(long timeToComplete);
-
-    void addNewUpdateCompleted(long timeToComplete);
-
-    long getAverageReadLatency();
-
-    long getAverageUpdateLatency();
+    Set<OccultClientInterface> getClients();
 
     //--------------------------------------------------------------------------
     //Delivered remote methods
@@ -85,8 +64,6 @@ public interface StateTreeProtocol {
 
 
     // NEW
-
-    long getNodeId();
 
     void setLevelsToNodes(Map<Integer, Set<StateTreeProtocol>> levelsToNodes);
 

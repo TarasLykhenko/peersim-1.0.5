@@ -18,6 +18,7 @@
 
 package example.cops;
 
+import example.common.BasicStateTreeProtocol;
 import example.common.datatypes.DataObject;
 import example.cops.datatypes.EventUID;
 
@@ -29,11 +30,9 @@ import java.util.Set;
  * The implementor class has a single parameter. This interface
  * provides access to that parameter.
  */
-public interface StateTreeProtocol {
+public interface StateTreeProtocol extends BasicStateTreeProtocol {
 
     int timestamp();
-
-    void setNodeId(Long nodeId);
 
     //--------------------------------------------------------------------------
     //Replication groups methods
@@ -47,29 +46,6 @@ public interface StateTreeProtocol {
 
     void addClients(Set<Client> clientList);
 
-    //--------------------------------------------------------------------------
-    //Statistics
-    //--------------------------------------------------------------------------
-
-    void incrementUpdates();
-
-    void incrementRemoteReads();
-
-    void incrementLocalReads();
-
-    int getNumberUpdates();
-
-    int getNumberRemoteReads();
-
-    int getNumberLocalReads();
-
-    void addNewReadCompleted(long timeToComplete);
-
-    void addNewUpdateCompleted(long timeToComplete);
-
-    long getAverageReadLatency();
-
-    long getAverageUpdateLatency();
 
     //--------------------------------------------------------------------------
     //Delivered remote methods
@@ -79,11 +55,6 @@ public interface StateTreeProtocol {
 
     void addRemoteRead(EventUID event);
 
-
-
-    // NEW
-
-    long getNodeId();
 
     void setLevelsToNodes(Map<Integer, Set<StateTreeProtocol>> levelsToNodes);
 

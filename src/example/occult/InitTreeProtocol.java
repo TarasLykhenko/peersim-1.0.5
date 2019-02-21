@@ -151,14 +151,14 @@ public class InitTreeProtocol implements Control {
                 Map<Integer, Set<DataObject>> allDataObjectsOfNeighbours =
                         getDataObjectsOfNeighbours(localityNeighboursOfDatacenter);
 
-                Set<ClientInterface> clients = new HashSet<>();
+                Set<OccultClientInterface> clients = new HashSet<>();
                 for (int i = 0; i < amountLocalityClients; i++) {
                     totalClients++;
                     if (i < amountEagerClients) {
-                        ClientInterface newClient = clientFactory(totalClients, true, allDataObjectsOfNeighbours, datacenter, localityDistance);
+                        OccultClientInterface newClient = clientFactory(totalClients, true, allDataObjectsOfNeighbours, datacenter, localityDistance);
                         clients.add(newClient);
                     } else {
-                        ClientInterface newClient = clientFactory(totalClients, false, allDataObjectsOfNeighbours, datacenter, localityDistance);
+                        OccultClientInterface newClient = clientFactory(totalClients, false, allDataObjectsOfNeighbours, datacenter, localityDistance);
                         clients.add(newClient);
                     }
                 }
@@ -167,11 +167,11 @@ public class InitTreeProtocol implements Control {
         }
     }
 
-    private ClientInterface clientFactory(int totalClients,
-                                          boolean isEager,
-                                          Map<Integer, Set<DataObject>> allDataObjectsOfNeighbours,
-                                          StateTreeProtocol datacenter,
-                                          int localityDistance) {
+    private OccultClientInterface clientFactory(int totalClients,
+                                                boolean isEager,
+                                                Map<Integer, Set<DataObject>> allDataObjectsOfNeighbours,
+                                                StateTreeProtocol datacenter,
+                                                int localityDistance) {
         if (clientType.equals(OCCULT_NO_COMPRESSION)) {
             return new example.occult.no_compression.Client(totalClients, isEager, allDataObjectsOfNeighbours, datacenter, localityDistance);
         } else if (clientType.equals(OCCULT_TEMPORAL_COMPRESSION)) {

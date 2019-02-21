@@ -19,7 +19,7 @@
 package example.occult.temporal_compression;
 
 import example.common.datatypes.DataObject;
-import example.occult.ClientInterface;
+import example.occult.OccultClientInterface;
 import example.occult.GroupsManager;
 import example.occult.StateTreeProtocol;
 import example.occult.datatypes.EventUID;
@@ -66,8 +66,8 @@ abstract class StateTreeProtocolInstance
 
     protected long averageLatency = 0;
 
-    protected Set<ClientInterface> clients = new HashSet<>();
-    protected Map<Integer, ClientInterface> idToClient = new HashMap<>();
+    protected Set<OccultClientInterface> clients = new HashSet<>();
+    protected Map<Integer, OccultClientInterface> idToClient = new HashMap<>();
 
     protected long nodeId;
 
@@ -193,12 +193,12 @@ abstract class StateTreeProtocolInstance
     /**
      * Migrations in occult can be instant
      */
-    void migrateClientQueue(ClientInterface client) {
+    void migrateClientQueue(OccultClientInterface client) {
         incrementRemoteReads();
         acceptClient(client);
     }
 
-    private void acceptClient(ClientInterface client) {
+    private void acceptClient(OccultClientInterface client) {
         clients.add(client);
         idToClient.put(client.getId(), client);
         client.migrationOver();
@@ -312,15 +312,15 @@ abstract class StateTreeProtocolInstance
     //--------------------------------------------------------------------------
 
     @Override
-    public void addClients(Set<ClientInterface> clientList) {
+    public void addClients(Set<OccultClientInterface> clientList) {
         clients.addAll(clientList);
-        for (ClientInterface client : clientList) {
+        for (OccultClientInterface client : clientList) {
             idToClient.put(client.getId(), client);
         }
     }
 
     @Override
-    public Set<ClientInterface> getClients() {
+    public Set<OccultClientInterface> getClients() {
         return this.clients;
     }
 

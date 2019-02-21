@@ -1,13 +1,11 @@
 package example.occult;
 
+import example.common.BasicClientInterface;
 import example.occult.datatypes.OccultReadResult;
 import example.occult.datatypes.Operation;
 import example.occult.no_compression.Client;
 
-public interface ClientInterface {
-    int getId();
-
-    boolean isWaiting();
+public interface OccultClientInterface extends BasicClientInterface {
 
     Operation nextOperation();
 
@@ -19,30 +17,9 @@ public interface ClientInterface {
 
     void receiveUpdateResult(Integer shardId, Integer updateShardStamp);
 
-    void migrationOver();
-
-    //------------------------------------------
-    // ------------ CLIENT STATISTICS ----------
-    //------------------------------------------
-
-    int getNumberReads();
-
-    int getNumberUpdates();
-
-    int getNumberMigrations();
-
     int getNumberMasterMigrations();
 
     int getNumberCatchAll();
 
     int getNumberStaleReads();
-
-    int getLocality();
-
-    long getWaitingSince();
-
-    float getAverageReadLatency();
-
-    float getAverageUpdateLatency();
-
 }
