@@ -33,6 +33,10 @@ import java.util.Calendar;
 import java.util.HashSet;
 import java.util.Set;
 
+import static example.common.Settings.PRINT_IMPORTANT;
+import static example.common.Settings.PRINT_VERBOSE;
+import static example.common.Settings.STATISTICS_WINDOW;
+
 /**
  * Print statistics over a vector. The vector is defined by a protocol,
  * specified by {@value #PAR_PROT}, that has to  implement
@@ -58,18 +62,14 @@ public abstract class AbstractController implements Control {
      * @config
      * @see #execute
      */
-    private static final String PAR_LEVELS = "levels";
 
     /**
      * The protocol to operate on.
      *
      * @config
      */
-    private static final String PAR_TAKE_STATISTICS_EVERY = "statistics_window";
     private static final String PAR_PROT = "protocol";
     private static final String PAR_OUTPUT = "output_file";
-    private static final String PAR_PRINT_IMPORTANT = "printImportant";
-    private static final String PAR_PRINT_VERBOSE = "printVerbose";
 
     private static final boolean WRITE_TO_SOUT = true;
 
@@ -94,11 +94,8 @@ public abstract class AbstractController implements Control {
      * Protocol identifier
      */
     protected final int pid;
-    private final double takeStatisticsEveryPercentage;
     private PrintWriter writer;
     private PrintWriter importantWriter;
-    private final boolean printImportant;
-    private final boolean printVerbose;
     private int currentPoint = 0;
 
 
@@ -126,33 +123,29 @@ public abstract class AbstractController implements Control {
         pid = Configuration.getPid(name + "." + PAR_PROT);
                 outputFile = Configuration.getString(name + "." + PAR_OUTPUT);
 
-        takeStatisticsEveryPercentage = Configuration.getDouble(PAR_TAKE_STATISTICS_EVERY);
 
         int endTime = Configuration.getInt("simulation.endtime");
         int logTime = Configuration.getInt("simulation.logtime");
         cycles = endTime / logTime;
-        printImportant = Configuration.getBoolean(PAR_PRINT_IMPORTANT);
-        printVerbose = Configuration.getBoolean(PAR_PRINT_VERBOSE);
 
         DateFormat dateFormat = new SimpleDateFormat("-yyyy-MM-dd-HH-mm-ss");
         Calendar cal = Calendar.getInstance();
 
-        if (printVerbose) {
+        if (PRINT_VERBOSE) {
             String pathfile = outputFile + dateFormat.format(cal.getTime()) + ".txt";
             FileWriter fr = new FileWriter(pathfile, true);
             BufferedWriter br = new BufferedWriter(fr);
             writer = new PrintWriter(br);
         }
 
-        if (printImportant) {
+        if (PRINT_IMPORTANT) {
             String importantPathfile = outputFile + dateFormat.format(cal.getTime()) + "-2.txt";
             FileWriter fr2 = new FileWriter(importantPathfile, true);
             BufferedWriter br2 = new BufferedWriter(fr2);
             importantWriter = new PrintWriter(br2);
         }
 
-        takeStatisticsEvery = Math.round((float)
-                (takeStatisticsEveryPercentage / 100) * cycles);
+        takeStatisticsEvery = Math.round((STATISTICS_WINDOW / 100) * cycles);
     }
 
 
@@ -181,7 +174,7 @@ public abstract class AbstractController implements Control {
             }
         }
 
-        currentPoint += takeStatisticsEveryPercentage;
+        currentPoint += STATISTICS_WINDOW;
         Set<BasicClientInterface> clients = new HashSet<>();
         int aggregateUpdates = 0;
         int aggregateReads = 0;
@@ -224,10 +217,10 @@ public abstract class AbstractController implements Control {
         printImportant("");
 
         if (cycles == iteration) {
-            if (printVerbose) {
+            if (PRINT_VERBOSE) {
                 writer.close();
             }
-            if (printImportant) {
+            if (PRINT_IMPORTANT) {
                 importantWriter.close();
             }
             doEndExecution(clients);
@@ -241,7 +234,7 @@ public abstract class AbstractController implements Control {
     public abstract void doEndExecution(Set<BasicClientInterface> clients);
 
     protected void print(String string) {
-        if (printVerbose) {
+        if (PRINT_VERBOSE) {
             writer.println(string);
         }
         if (WRITE_TO_SOUT) {
@@ -250,7 +243,7 @@ public abstract class AbstractController implements Control {
     }
 
     protected void printImportant(String string) {
-        if (printImportant) {
+        if (PRINT_IMPORTANT) {
             importantWriter.println(string);
         }
     }

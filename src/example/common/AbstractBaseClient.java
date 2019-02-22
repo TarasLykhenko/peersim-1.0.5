@@ -15,41 +15,30 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static example.common.Settings.CLIENT_READ_LEVEL_PERCENTAGE;
+import static example.common.Settings.CLIENT_READ_PERCENTAGE;
+import static example.common.Settings.CLIENT_UPDATE_LEVEL_PERCENTAGE;
+import static example.common.Settings.REST_TIME;
+import static example.common.Settings.REST_TIME_INTERVAL;
+
 public abstract class AbstractBaseClient implements BasicClientInterface {
 
-    private static final String PAR_READ_PERCENTAGE = "client_read_percentage";
-    private static final String PAR_READ_LEVEL_PERCENTAGES = "client_read_levels_percentage";
-    private static final String PAR_UPDATE_PERCENTAGE = "client_update_percentage";
-    private static final String PAR_UPDATE_LEVEL_PERCENTAGES = "client_update_levels_percentages";
-    private static final String PAR_REST_TIME = "rest_time";
-    private static final String PAR_REST_TIME_INTERVAL = "rest_time_interval";
-
-    private static final int READ_PERCENTAGE;
-    private static final int UPDATE_PERCENTAGE;
     private static final int[] READ_LEVEL_PERCENTAGE;
     private static final int[] UPDATE_LEVEL_PERCENTAGE;
-    private static final long REST_TIME;
-    private static final long REST_TIME_INTERVAL;
 
     static {
-        READ_PERCENTAGE = Configuration.getInt(PAR_READ_PERCENTAGE);
-        UPDATE_PERCENTAGE = Configuration.getInt(PAR_UPDATE_PERCENTAGE);
-        String rawReadLevelPercentage = Configuration.getString(PAR_READ_LEVEL_PERCENTAGES);
-        String rawUpdateLevelPercentage = Configuration.getString(PAR_UPDATE_LEVEL_PERCENTAGES);
-        READ_LEVEL_PERCENTAGE = Arrays.stream(rawReadLevelPercentage
+        READ_LEVEL_PERCENTAGE = Arrays.stream(CLIENT_READ_LEVEL_PERCENTAGE
                 .replace("[", "")
                 .replace("]", "")
                 .split(","))
                 .mapToInt(Integer::parseInt)
                 .toArray();
-        UPDATE_LEVEL_PERCENTAGE = Arrays.stream(rawUpdateLevelPercentage
+        UPDATE_LEVEL_PERCENTAGE = Arrays.stream(CLIENT_UPDATE_LEVEL_PERCENTAGE
                 .replace("[", "")
                 .replace("]", "")
                 .split(","))
                 .mapToInt(Integer::parseInt)
                 .toArray();
-        REST_TIME = Configuration.getLong(PAR_REST_TIME);
-        REST_TIME_INTERVAL = Configuration.getLong(PAR_REST_TIME_INTERVAL);
     }
 
     // Type of Client
@@ -168,7 +157,7 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
 
         int readOrUpdate = randomGenerator.nextInt(101);
 
-        if (isBetween(readOrUpdate, 0, READ_PERCENTAGE )) {
+        if (isBetween(readOrUpdate, 0, CLIENT_READ_PERCENTAGE )) {
             lastOperation = doRead();
         } else {
             lastOperation = doUpdate();

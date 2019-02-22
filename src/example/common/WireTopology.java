@@ -8,6 +8,8 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 
+import static example.common.Settings.CLIENT_REQUEST_LATENCY;
+
 /**
  * creates a undirected graph based on matrix (in text file)
  *
@@ -27,8 +29,6 @@ public class WireTopology extends WireGraph {
 
     private static final String PAR_PATH = "topology_path";
     private static final String PAR_TOPOLOGY = "topology_file";
-    private static final String PAR_CLIENT_REQUEST_DELAY = "client_request_latency";
-
 
     // --------------------------------------------------------------------------
     // Fields
@@ -59,7 +59,6 @@ public class WireTopology extends WireGraph {
     }
 
     public void wire(Graph graph) {
-        int clientRequestDelay = Configuration.getInt(PAR_CLIENT_REQUEST_DELAY);
         try (BufferedReader br = new BufferedReader(new FileReader(path + "/" + topology))) {
             String line = br.readLine();
             int source = 0;
@@ -73,7 +72,7 @@ public class WireTopology extends WireGraph {
 
                         PointToPointTransport.addLatency((long) source, (long) target, latency);
                     } else if (latency == -1) {
-                        PointToPointTransport.addLatency( (long) source, (long) target, clientRequestDelay);
+                        PointToPointTransport.addLatency( (long) source, (long) target, CLIENT_REQUEST_LATENCY);
                     }
                 }
                 line = br.readLine();

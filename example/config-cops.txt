@@ -2,61 +2,19 @@
 SIZE 4
 
 # parameters of periodic execution
-# CYCLES 200000
 CYCLES 100000
 CYCLE 1
-
-# Latency
-client_request_latency 10
-client_migration_latency 10 # How long it takes for a client to connect to other DC
-mindelay 5
-maxdelay 10
 
 # random.seed 1234567890
 network.size SIZE
 simulation.endtime CYCLES
 simulation.logtime CYCLE
 
-########### CLIENT CONFIGS #############
-clients_per_datacenter 250
-rest_time = 400
-rest_time_interval = 20
 
-client_read_percentage 0
-client_update_percentage 100
-
-client_read_levels_percentage [100,0,0]
-client_update_levels_percentages [100,0,0]
-
-# percentage clients that use objects up to a given distance
-# eg. with [50,50], half clients will only use objects from the local DC
-# and the other half will use objects from both local and the DCs 1 level away
-client_locality_percentage [100,0,0]
-
-clients_eager_percentage 20
-
-
-########################################
-
-total_objects_per_datacenter 300
-
-
-levels 3
-levels_percentage [33,33,34]
 groups {[0],[0,1],[0,1,2,3]}{[1],[0,1],[0,1,2,3]}{[2],[2,3],[0,1,2,3]}{[3],[2,3],[0,1,2,3]}
 
-
-statistics_window 1
-
-should_partition_DC false
-should_partition_clients false
 partitions_datacenters example/partitions/four_nodes_all_connected_partition.top
 partitions_clients example/client-partitions/four_nodes_all_connected_partition.top
-partition_start 35
-partition_end 55
-
-printImportant true
-printVerbose false
 
 
 

@@ -13,10 +13,8 @@ import java.util.stream.Collectors;
 public class GroupsManager {
 
     private static final String PAR_TREE = "tree";
-    private static final String PAR_LEVELS = "levels";
     private static final String PAR_GROUPS = "groups";
     private final int tree;
-    private final int levels;
 
     private Map<Long, Map<Integer, Set<StateTreeProtocol>>> nodeToLevelNeighbours = new HashMap<>();
 
@@ -33,7 +31,6 @@ public class GroupsManager {
 
     private GroupsManager() {
         tree = Configuration.getPid(PAR_TREE);
-        levels = Configuration.getInt(PAR_LEVELS);
         String rawStringGroups = Configuration.getString(PAR_GROUPS);
         populate(rawStringGroups);
     }

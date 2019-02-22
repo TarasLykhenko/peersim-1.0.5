@@ -32,6 +32,13 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import static example.common.Settings.MAX_DELAY;
+import static example.common.Settings.MIN_DELAY;
+import static example.common.Settings.PARTITION_START_PERCENTAGE;
+import static example.common.Settings.PARTITION_STOP_PERCENTAGE;
+import static example.common.Settings.SHOULD_PARTITION_CLIENTS;
+import static example.common.Settings.SHOULD_PARTITION_DC;
+
 
 /**
  * Implement a transport layer that reliably delivers messages with a random
@@ -47,17 +54,9 @@ public final class PointToPointTransport implements Transport {
 //Parameters
 //---------------------------------------------------------------------
 
-    private static final String PAR_MINDELAY = "mindelay";
-    private static final String PAR_MAXDELAY = "maxdelay";
-    private static final String PAR_CLIENT_MIGRATION = "client_migration_latency";
-
     private static final String PAR_DURATION = "CYCLES";
     private static final String PAR_PARTITIONS_FILE = "partitions_datacenters";
     private static final String PAR_PARTITIONS_CLIENTS = "partitions_clients";
-    private static final String PAR_WHEN_TO_PARTITION = "partition_start";
-    private static final String PAR_WHEN_TO_UNPARTATITION = "partition_end";
-    private static final String PAR_SHOULD_PARTITION_DC = "should_partition_DC";
-    private static final String PAR_SHOULD_PARTITION_CLIENTS = "should_partition_clients";
 
 //---------------------------------------------------------------------
 //Fields
@@ -81,30 +80,23 @@ public final class PointToPointTransport implements Transport {
     //---------------------------------------------------------------------
 //Initialization
 //---------------------------------------------------------------------
-    private final int MIGRATION_REQUEST_LATENCY;
 
     /**
      * Reads configuration parameter.
      */
     public PointToPointTransport(String prefix) {
-        min = Configuration.getLong(PAR_MINDELAY);
-        max = Configuration.getLong(PAR_MAXDELAY);
-        MIGRATION_REQUEST_LATENCY = Configuration.getInt(PAR_CLIENT_MIGRATION);
+        min = MIN_DELAY;
+        max = MAX_DELAY;
 
         int duration = Configuration.getInt(PAR_DURATION);
         String partitionsDCFile = Configuration.getString(PAR_PARTITIONS_FILE);
         String partitionsClientsFile = Configuration.getString(PAR_PARTITIONS_CLIENTS);
-        boolean shouldPartitionDC = Configuration.getBoolean(PAR_SHOULD_PARTITION_DC);
-        boolean shouldPartitionClients = Configuration.getBoolean(PAR_SHOULD_PARTITION_CLIENTS);
 
-        double whenToPartitionPercentage = Configuration.getDouble(PAR_WHEN_TO_PARTITION);
-        double whenToUnpartitionPercentage = Configuration.getDouble(PAR_WHEN_TO_UNPARTATITION);
-
-        timePartitionStart = Math.round((float) (whenToPartitionPercentage / 100) * duration);
-        timePartitionOver = Math.round((float) (whenToUnpartitionPercentage / 100) * duration);
+        timePartitionStart = Math.round((float) (PARTITION_START_PERCENTAGE / 100) * duration);
+        timePartitionOver = Math.round((float) (PARTITION_STOP_PERCENTAGE / 100) * duration);
 
         if (max < min)
-            throw new IllegalParameterException(prefix + "." + PAR_MAXDELAY,
+            throw new IllegalParameterException(prefix + ".",
                     "The maximum latency cannot be smaller than the minimum latency");
         // Initializing tables
         for (long i = 0; i < Network.size(); i++) {
@@ -118,11 +110,11 @@ public final class PointToPointTransport implements Transport {
             }
         }
 
-        if (shouldPartitionDC) {
+        if (SHOULD_PARTITION_DC) {
             System.out.println("ADDING PARTITION TO DC");
             partitionConnections(partitionsDCFile, partitionDCTable, timePartitionOver);
         }
-        if (shouldPartitionClients) {
+        if (SHOULD_PARTITION_CLIENTS) {
             System.out.println("ADDInG PARTITION TO CLIENT");
             partitionConnections(partitionsClientsFile, partitionClientTable, timePartitionOver);
         }
