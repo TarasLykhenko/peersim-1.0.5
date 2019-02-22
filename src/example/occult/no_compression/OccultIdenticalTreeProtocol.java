@@ -2,13 +2,13 @@ package example.occult.no_compression;
 
 import example.common.MigrationMessage;
 import example.common.PointToPointTransport;
+import example.common.datatypes.Operation;
 import example.occult.OccultClientInterface;
 import example.occult.GroupsManager;
 import example.occult.StateTreeProtocol;
 import example.occult.datatypes.EventUID;
 import example.occult.datatypes.OccultMasterWrite;
 import example.occult.datatypes.OccultReadResult;
-import example.occult.datatypes.Operation;
 import example.occult.datatypes.ReadOperation;
 import example.occult.datatypes.UpdateOperation;
 import peersim.cdsim.CDProtocol;
@@ -215,7 +215,7 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
                 sendMessage(node, targetNode, remoteUpdate, pid);
             }
 
-            client.receiveUpdateResult(shardId, occultMasterWrite.getShardStamp());
+            client.occultReceiveUpdateResult(shardId, occultMasterWrite.getShardStamp());
         }
 
         if (event instanceof RemoteUpdateMessage) {
@@ -249,7 +249,7 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
                 throw new RuntimeException("Reads must ALWAYS be local.");
             }
             OccultReadResult read = occultRead(msg.key);
-            this.idToClient.get(msg.clientId).receiveReadResult(this.nodeId, read);
+            this.idToClient.get(msg.clientId).occultReceiveReadResult(this.nodeId, read);
         }
     }
 

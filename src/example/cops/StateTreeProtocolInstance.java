@@ -325,14 +325,6 @@ abstract class StateTreeProtocolInstance
     // Delivered remote methods
     //--------------------------------------------------------------------------
 
-    public boolean isAlreadyDelivered(EventUID event) {
-        return deliveredRemoteReads.contains(event.getOperation().getKey() + "," + event.getTimestamp());
-    }
-
-    public void addRemoteRead(EventUID event) {
-        deliveredRemoteReads.add(event.getOperation().getKey() + "," + event.getTimestamp());
-    }
-
     @Override
     public long getNodeId() {
         return nodeId;

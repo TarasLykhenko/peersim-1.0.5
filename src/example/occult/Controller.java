@@ -83,8 +83,14 @@ public class Controller extends AbstractController {
     }
 
     public void doEndExecution(Set<BasicClientInterface> clients) {
+        int totalReads = 0;
+        int totalUpdates = 0;
+
         for (BasicClientInterface basicClient : clients) {
             OccultClientInterface client = (OccultClientInterface) basicClient;
+
+            totalReads += client.getNumberReads();
+            totalUpdates += client.getNumberUpdates();
 
             String extraString = "";
             if (client.isWaiting()) {
@@ -101,5 +107,8 @@ public class Controller extends AbstractController {
                     + " | CatchAll: " + client.getNumberCatchAll()
                     + extraString);
         }
+
+        System.out.println("Average reads: " + ((float) totalReads / clients.size()));
+        System.out.println("Average updates: " + ((float) totalUpdates / clients.size()));
     }
 }

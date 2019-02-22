@@ -1,5 +1,7 @@
 package example.cops.datatypes;
 
+import example.common.datatypes.Operation;
+
 public class EventUID {
 
     private long timestamp;

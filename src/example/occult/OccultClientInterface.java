@@ -1,9 +1,8 @@
 package example.occult;
 
 import example.common.BasicClientInterface;
+import example.common.datatypes.Operation;
 import example.occult.datatypes.OccultReadResult;
-import example.occult.datatypes.Operation;
-import example.occult.no_compression.Client;
 
 public interface OccultClientInterface extends BasicClientInterface {
 
@@ -13,9 +12,9 @@ public interface OccultClientInterface extends BasicClientInterface {
     // ------------ SERVER RESPONSES -----------
     //------------------------------------------
 
-    void receiveReadResult(long server, OccultReadResult readResult);
+    void occultReceiveReadResult(long server, OccultReadResult readResult);
 
-    void receiveUpdateResult(Integer shardId, Integer updateShardStamp);
+    void occultReceiveUpdateResult(Integer shardId, Integer updateShardStamp);
 
     int getNumberMasterMigrations();
 

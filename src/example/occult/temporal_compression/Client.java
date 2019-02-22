@@ -39,13 +39,12 @@ public class Client extends OccultClient {
     }
 
     @Override
-    public void receiveUpdateResult(Integer shardId, Integer updateShardStamp) {
+    public void occultReceiveUpdateResult(Integer shardId, Integer updateShardStamp) {
         updateClientTimeStamp(shardId, updateShardStamp);
 
         //     System.out.println("Received update!");
         isWaitingForResult = false;
         lastResultReceivedTimestamp = CommonState.getTime();
-        numberUpdates++;
         updatesTotalLatency += (lastResultReceivedTimestamp - lastOperationTimestamp);
     }
 
@@ -144,10 +143,4 @@ public class Client extends OccultClient {
         this.catchAllShardStamp = highestCatchAll;
         this.clientTimestamp = result;
     }
-
-
-    public Client clone() {
-        return new Client(id, isEager, new HashMap<>(dataObjectsPerLevel), datacenter, locality);
-    }
-
 }

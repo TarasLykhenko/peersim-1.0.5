@@ -2,20 +2,19 @@ package example.occult.temporal_compression;
 
 import example.common.MigrationMessage;
 import example.common.PointToPointTransport;
+import example.common.datatypes.Operation;
 import example.occult.OccultClientInterface;
 import example.occult.GroupsManager;
 import example.occult.StateTreeProtocol;
 import example.occult.datatypes.EventUID;
 import example.occult.datatypes.OccultMasterWrite;
 import example.occult.datatypes.OccultReadResult;
-import example.occult.datatypes.Operation;
 import example.occult.datatypes.ReadOperation;
 import example.occult.datatypes.UpdateOperation;
 import peersim.cdsim.CDProtocol;
 import peersim.config.Configuration;
 import peersim.config.FastConfig;
 import peersim.core.CommonState;
-import peersim.core.Linkable;
 import peersim.core.Network;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
@@ -53,14 +52,13 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
      * {@link peersim.edsim.CDScheduler} component in the configuration.
      */
     public void nextCycle(Node node, int pid) {
-        Linkable linkable = (Linkable) node.getProtocol(FastConfig.getLinkable(pid));
-        doDatabaseMethod(node, pid, linkable);
+        doDatabaseMethod(node, pid);
     }
 
     /**
      * Every client attempts to do something.
      */
-    private void doDatabaseMethod(Node node, int pid, Linkable linkable) {
+    private void doDatabaseMethod(Node node, int pid) {
         StateTreeProtocolInstance datacenter = (StateTreeProtocolInstance) node.getProtocol(tree);
 
         for (OccultClientInterface client : clients) {
@@ -215,7 +213,7 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
                 sendMessage(node, targetNode, remoteUpdate, pid);
             }
 
-            client.receiveUpdateResult(shardId, occultMasterWrite.getShardStamp());
+            client.occultReceiveUpdateResult(shardId, occultMasterWrite.getShardStamp());
         }
 
         if (event instanceof RemoteUpdateMessage) {
@@ -249,7 +247,7 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
                 throw new RuntimeException("Reads must ALWAYS be local.");
             }
             OccultReadResult read = occultRead(msg.key);
-            this.idToClient.get(msg.clientId).receiveReadResult(this.nodeId, read);
+            this.idToClient.get(msg.clientId).occultReceiveReadResult(this.nodeId, read);
         }
     }
 

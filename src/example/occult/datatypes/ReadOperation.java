@@ -1,5 +1,7 @@
 package example.occult.datatypes;
 
+import example.common.datatypes.Operation;
+
 public class ReadOperation extends Operation {
 
 	private boolean migrateToMaster;

@@ -1,5 +1,7 @@
 package example.occult.datatypes;
 
+import example.common.datatypes.Operation;
+
 import java.util.HashMap;
 import java.util.Map;
 

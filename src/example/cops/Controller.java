@@ -27,10 +27,6 @@ import java.util.Set;
 
 public class Controller extends AbstractController {
 
-//--------------------------------------------------------------------------
-// Constructor
-//--------------------------------------------------------------------------
-
     public Controller(String name) throws IOException {
         super(name);
     }
@@ -62,13 +58,30 @@ public class Controller extends AbstractController {
     }
 
     public void doEndExecution(Set<BasicClientInterface> clients) {
+        int totalReads = 0;
+        int totalUpdates = 0;
+
         for (BasicClientInterface basicClient : clients) {
             Client client = (Client) basicClient;
-            System.out.println("Client " + client.getId() + " locality: " + client.locality + " | getLavgReadLatency: " +
-                    ((float) client.readsTotalLatency / client.numberReads)
-                    + " | reads: " + client.numberReads +  " | avgUpdateLatency: " +
-                    ((float) client.updatesTotalLatency / client.numberUpdates)
-                    + " | updates: " + client.numberUpdates) ;
+
+            totalReads += client.getNumberReads();
+            totalUpdates += client.getNumberUpdates();
+
+            String extraString = "";
+            if (client.isWaiting()) {
+                extraString = " | waitingSince: " + client.getWaitingSince();
+            }
+            System.out.println("Client " + client.getId()
+                    + " locality: " + client.getLocality()
+                    + " | reads: " + client.getNumberReads()
+                    + " | avgReadLat: " + client.getAverageReadLatency()
+                    + " | updates: " + client.getNumberReads()
+                    + " | avgUpdateLat: " + client.getAverageUpdateLatency()
+                    + " | migrations: " + client.getNumberMigrations()
+                    + extraString);
         }
+
+        System.out.println("Average reads: " + ((float) totalReads / clients.size()));
+        System.out.println("Average updates: " + ((float) totalUpdates / clients.size()));
     }
 }

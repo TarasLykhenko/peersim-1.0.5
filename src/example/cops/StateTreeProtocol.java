@@ -51,11 +51,6 @@ public interface StateTreeProtocol extends BasicStateTreeProtocol {
     //Delivered remote methods
     //--------------------------------------------------------------------------
 
-    boolean isAlreadyDelivered(EventUID event);
-
-    void addRemoteRead(EventUID event);
-
-
     void setLevelsToNodes(Map<Integer, Set<StateTreeProtocol>> levelsToNodes);
 
     Set<StateTreeProtocol> getLevelsToNodes(Integer level);

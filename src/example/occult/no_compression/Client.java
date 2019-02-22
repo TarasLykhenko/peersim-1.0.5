@@ -1,12 +1,10 @@
 package example.occult.no_compression;
 
 import example.common.datatypes.DataObject;
-import example.occult.GroupsManager;
 import example.occult.OccultClient;
 import example.occult.StateTreeProtocol;
 import peersim.core.CommonState;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -14,11 +12,6 @@ public class Client extends OccultClient {
 
     public Client(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality) {
         super(id, isEager, dataObjectsPerLevel, datacenter, locality);
-
-        for (DataObject dataObject : possibleDataObjects) {
-            int shardId = GroupsManager.getInstance().getShardId(dataObject.getKey());
-            clientTimestamp.put(shardId, 0);
-        }
     }
 
 
@@ -28,7 +21,7 @@ public class Client extends OccultClient {
 
     @Override
     public int getShardStampFromCS(int shardId) {
-        return clientTimestamp.get(shardId);
+        return clientTimestamp.getOrDefault(shardId, 0);
     }
 
     @Override
@@ -51,8 +44,8 @@ public class Client extends OccultClient {
     }
 
     @Override
-    public void receiveUpdateResult(Integer shardId, Integer updateShardStamp) {
-        int oldShardStamp = clientTimestamp.get(shardId);
+    public void occultReceiveUpdateResult(Integer shardId, Integer updateShardStamp) {
+        int oldShardStamp = clientTimestamp.getOrDefault(shardId, 0);
         if (updateShardStamp > oldShardStamp) {
             clientTimestamp.put(shardId, updateShardStamp);
         }
@@ -60,17 +53,7 @@ public class Client extends OccultClient {
    //     System.out.println("Received update!");
         isWaitingForResult = false;
         lastResultReceivedTimestamp = CommonState.getTime();
-        numberUpdates++;
         updatesTotalLatency += (lastResultReceivedTimestamp - lastOperationTimestamp);
     }
-
-    @Override
-    public Client clone() {
-        return new Client(
-                id,
-                isEager,
-                new HashMap<>(dataObjectsPerLevel), datacenter, locality);
-    }
-
 
 }
