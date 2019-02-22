@@ -14,6 +14,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static example.common.Settings.CLIENTS_PER_DATACENTER;
+import static example.common.Settings.CLIENT_EAGER_PERCENTAGE;
+import static example.common.Settings.CLIENT_LOCALITY_PERCENTAGE;
+import static example.common.Settings.LEVELS_PERCENTAGE;
+import static example.common.Settings.TOTAL_OBJECTS_PER_DATACENTER;
+
 public class InitTreeProtocol implements Control {
     // ------------------------------------------------------------------------
     // Parameters
@@ -21,12 +27,6 @@ public class InitTreeProtocol implements Control {
 
     private static final String PAR_TREE_PROT = "tree_protocol";
     private static final String PAR_TYPE_PROT = "type_protocol";
-
-    private static final String PAR_MAX_CLIENTS = "clients_per_datacenter";
-    private static final String PAR_TOTAL_OBJECTS_PER_DATACENTER = "total_objects_per_datacenter";
-    private static final String PAR_LEVELS_PERCENTAGE = "levels_percentage";
-    private static final String PAR_CLIENTS_EAGER = "clients_eager_percentage";
-    private static final String PAR_CLIENTS_LOCALITY_PERCENTAGE = "client_locality_percentage";
 
 
     // ------------------------------------------------------------------------
@@ -36,11 +36,8 @@ public class InitTreeProtocol implements Control {
     private final int tree;
     private final int type;
 
-    private final int maxClients;
-    private final int totalObjects;
     private final int[] levelsPercentage;
     private final int[] clientsLocalityPercentages;
-    private final int clientEagerPercentage;
 
 
     // ------------------------------------------------------------------------
@@ -50,23 +47,20 @@ public class InitTreeProtocol implements Control {
     public InitTreeProtocol(String prefix) {
         tree = Configuration.getPid(prefix + "." + PAR_TREE_PROT);
         type = Configuration.getPid(prefix + "." + PAR_TYPE_PROT);
-        maxClients = Configuration.getInt(PAR_MAX_CLIENTS);
-        totalObjects = Configuration.getInt(PAR_TOTAL_OBJECTS_PER_DATACENTER);
-        String rawLevelPercentage = Configuration.getString(PAR_LEVELS_PERCENTAGE);
-        levelsPercentage = Arrays.stream(rawLevelPercentage
+
+        levelsPercentage = Arrays.stream(LEVELS_PERCENTAGE
                 .replace("[", "")
                 .replace("]", "")
                 .split(","))
                 .mapToInt(Integer::parseInt)
                 .toArray();
-        String rawClientsLocalityPercentage = Configuration.getString(PAR_CLIENTS_LOCALITY_PERCENTAGE);
-        clientsLocalityPercentages = Arrays.stream(rawClientsLocalityPercentage
+
+        clientsLocalityPercentages = Arrays.stream(CLIENT_LOCALITY_PERCENTAGE
                 .replace("[", "")
                 .replace("]", "")
                 .split(","))
                 .mapToInt(Integer::parseInt)
                 .toArray();
-        clientEagerPercentage = Configuration.getInt(PAR_CLIENTS_EAGER);
     }
 
     // ------------------------------------------------------------------------
@@ -120,9 +114,9 @@ public class InitTreeProtocol implements Control {
              localityDistance++) {
 
             int amountLocalityClients =
-                    Math.round((float) ((double) clientsLocalityPercentages[localityDistance] / 100) * maxClients);
+                    Math.round((float) ((double) clientsLocalityPercentages[localityDistance] / 100) * CLIENTS_PER_DATACENTER);
             int amountEagerClients =
-                    Math.round((float) ((double) clientEagerPercentage / 100) * amountLocalityClients);
+                    Math.round((float) ((double) CLIENT_EAGER_PERCENTAGE / 100) * amountLocalityClients);
 
             for (StateTreeProtocol datacenter : datacenters) {
 
@@ -189,7 +183,7 @@ public class InitTreeProtocol implements Control {
 
     private int generateDataObjectsForGroup(Set<StateTreeProtocol> datacentersGroup,
                                              int level, double percentage, int counter) {
-        int numberObjectsToCreate = Math.round((float) (percentage / 100) * totalObjects);
+        int numberObjectsToCreate = Math.round((float) (percentage / 100) * TOTAL_OBJECTS_PER_DATACENTER);
         Set<DataObject> result = new HashSet<>();
         Set<Long> nodesGroupIds = datacentersGroup.stream()
                 .map(StateTreeProtocol::getNodeId)

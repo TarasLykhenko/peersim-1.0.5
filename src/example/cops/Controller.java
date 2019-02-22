@@ -61,8 +61,7 @@ public class Controller extends AbstractController {
         int totalReads = 0;
         int totalUpdates = 0;
 
-        for (BasicClientInterface basicClient : clients) {
-            Client client = (Client) basicClient;
+        for (BasicClientInterface client : clients) {
 
             totalReads += client.getNumberReads();
             totalUpdates += client.getNumberUpdates();

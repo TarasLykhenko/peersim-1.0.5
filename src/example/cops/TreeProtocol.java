@@ -265,7 +265,6 @@ public class TreeProtocol extends StateTreeProtocolInstance
             this.key = key;
             timestamp = CommonState.getTime();
         }
-
     }
 
     class RemoteUpdateMessage {

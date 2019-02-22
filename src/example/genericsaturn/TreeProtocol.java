@@ -1,11 +1,12 @@
 package example.genericsaturn;
 
+import example.common.PointToPointTransport;
+import example.common.datatypes.Operation;
 import example.genericsaturn.datatypes.EventUID;
-import example.genericsaturn.datatypes.Operation;
-import example.genericsaturn.datatypes.UpdateOperation;
 import peersim.cdsim.CDProtocol;
 import peersim.config.Configuration;
 import peersim.config.FastConfig;
+import peersim.core.CommonState;
 import peersim.core.Linkable;
 import peersim.core.Network;
 import peersim.core.Node;
@@ -14,7 +15,6 @@ import peersim.transport.Transport;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -69,29 +69,39 @@ public class TreeProtocol extends StateTreeProtocolInstance
      * Every client attempts to do something.
      */
     private void doDatabaseMethod(Node node, int pid, Linkable linkable) {
-        Iterator<Client> it = clients.iterator();
-        while (it.hasNext()) {
-            Client client = it.next();
+        for (Client client : clients) {
             Operation operation = client.nextOperation();
+            if (operation == null) {
+                continue;
+            }
             EventUID event = new EventUID(operation, client.timestamp(), getEpoch(), node.getID(), 0);
-            analyzeEvent(node, event);
 
-            // If there isn't a remote operation, continue
-            if (event.getOperation().getType() == Operation.Type.READ) {
+            // If the datacenter does not have the object, migrate it
+            if (!this.isInterested(operation.getKey())) {
+                migrateClientStart(client, event, node, linkable, pid);
                 continue;
             }
 
-            // If it's a remote read, migrate the client
-            if (event.getOperation().getType() == Operation.Type.REMOTE_READ) {
-                migrateClientStart(client, event, node, linkable, pid);
-                it.remove();
+            // If is Local Read
+            if (eventIsRead(event)) {
+                ReadMessage readMessage = new ReadMessage(this.getNodeId(), client.getId(), operation.getKey());
+                sendMessage(node, node, readMessage, pid);
+                continue;
             }
 
-            handleRemoteOperation(node, pid, linkable, operation, event);
+            // If is local update
+            if (eventIsUpdate(event)) {
+                LocalUpdate localUpdate = new LocalUpdate(client.getId(), operation.getKey(), event);
+                sendMessage(node, node, localUpdate, pid);
+                // handleRemoteOperation(node, pid, linkable, operation, event);
+            } else {
+                System.out.println("Unknown scenario!");
+            }
         }
     }
 
-    private void handleRemoteOperation(Node node, int pid, Linkable linkable, Operation operation, EventUID event) {
+    private void handleRemoteOperation(Node node, int pid, EventUID event) {
+        Linkable linkable = (Linkable) node.getProtocol(FastConfig.getLinkable(pid));
         for (int i = 0; i < linkable.degree(); i++) {
             Node peern = linkable.getNeighbor(i);
             EventUID eventToSend = event.clone();
@@ -106,31 +116,13 @@ public class TreeProtocol extends StateTreeProtocolInstance
 
             TypeProtocol ntype = (TypeProtocol) peern.getProtocol(typePid);
             if (ntype.getType() == Type.DATACENTER) {
-                if (isInterested(peern.getID(), operation.getKey())) {
+                StateTreeProtocol peerDatacenter = (StateTreeProtocol) peern.getProtocol(tree);
+                if (peerDatacenter.isInterested(event.getOperation().getKey())) {
                     sendMessage(node, peern, new DataMessage(eventToSend, "data", getEpoch()), pid);
                 }
             } else if (ntype.getType() == Type.BROKER) {
                 sendMessage(node, peern, new MetadataMessage(eventToSend, getEpoch(), node.getID()), pid);
             }
-        }
-    }
-
-    private void analyzeEvent(Node node, EventUID event) {
-        if (event.getOperation().getType() == Operation.Type.READ) {
-            long key = event.getOperation().getKey();
-
-            if (isInterested(node.getID(), key)) {
-                this.incrementLocalReads();
-            } else {
-                //remote read
-                this.incrementRemoteReads();
-                event.getOperation().setType(Operation.Type.REMOTE_READ);
-            }
-        } else if (event.getOperation().getType() == Operation.Type.UPDATE) {
-            incrementUpdates();
-            UpdateOperation update = (UpdateOperation) event.getOperation();
-            addFullMetadata(update.getMetadataFull());
-            addPartialMetadata(update.getMetadataPartial());
         }
     }
 
@@ -172,35 +164,26 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 continue;
             }
 
-            if (isInterested(node.getID(), event.getOperation().getKey())) {
+            StateTreeProtocol datacenter = (StateTreeProtocol) node.getProtocol(tree);
+
+
+            if (datacenter.isInterested(event.getOperation().getKey())) {
                 interestedNodes.add(node);
             }
         }
 
         // Then select the datacenter that has the lowest latency to the client
-        TypeProtocol ntype = (TypeProtocol) originalDC.getProtocol(typePid);
         int lowestLatency = Integer.MAX_VALUE;
         Node bestNode = null;
         for (Node interestedNode : interestedNodes) {
-            int nodeLatency = ntype.getLatency(interestedNode.getID());
+            int nodeLatency = PointToPointTransport.staticGetLatency(this.nodeId, interestedNode.getID());
             if (nodeLatency < lowestLatency) {
                 bestNode = interestedNode;
             }
         }
 
-        // Check if node is under partition
-        /*
-
-        Map<Long, Integer> longIntegerMap = PointToPointTransport.partitionTable.get(bestNode.getID());
-        for (Long dstNode : longIntegerMap.keySet()) {
-            if (longIntegerMap.get(dstNode) > CommonState.getTime()) {
-                System.out.println("MIGRATING TO PARTITIONED NODE!" + longIntegerMap.get(dstNode) + " | " + CommonState.getTime());
-            }
-        }
-        */
-
         // Generate Migration Label;
-             EventUID migrationLabel = event.clone();
+        EventUID migrationLabel = event.clone();
         migrationLabel.setMigration(true, bestNode.getID());
 
         // Send client to target
@@ -232,6 +215,15 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 .send(src, dst, msg, pid);
     }
 
+    private boolean eventIsRead(EventUID event) {
+        return event.getOperation().getType() == Operation.Type.READ;
+    }
+
+    private boolean eventIsUpdate(EventUID event) {
+        return event.getOperation().getType() == Operation.Type.UPDATE;
+    }
+
+
 //--------------------------------------------------------------------------
 
     /**
@@ -240,6 +232,23 @@ public class TreeProtocol extends StateTreeProtocolInstance
     public void processEvent(Node node, int pid, Object event) {
 
         /* ************** DATACENTERS ****************** */
+
+        if (event instanceof ReadMessage) {
+            ReadMessage msg = (ReadMessage) event;
+            if (msg.senderDC != nodeId) {
+                throw new RuntimeException("Reads must ALWAYS be local.");
+            }
+
+            this.idToClient.get(msg.clientId).receiveReadResult(msg.key, null);
+        }
+
+        if (event instanceof LocalUpdate) {
+            LocalUpdate localUpdate = (LocalUpdate) event;
+            Client client = idToClient.get(localUpdate.clientId);
+            client.receiveUpdateResult(localUpdate.key, null);
+            handleRemoteOperation(node, pid, localUpdate.event);
+        }
+
         if (event instanceof DataMessage) {
             DataMessage msg = (DataMessage) event;
             this.addData(msg.event, msg.data);
@@ -289,6 +298,36 @@ public class TreeProtocol extends StateTreeProtocolInstance
 
 //--------------------------------------------------------------------------
 //--------------------------------------------------------------------------
+
+    class ReadMessage {
+
+        final long senderDC;
+        final int clientId;
+        final int key;
+        final long timestamp;
+
+        public ReadMessage(long senderDC, int clientId, int key) {
+            this.senderDC = senderDC;
+            this.clientId = clientId;
+            this.key = key;
+            timestamp = CommonState.getTime();
+        }
+    }
+
+    class LocalUpdate {
+
+        final int clientId;
+        final int key;
+        final EventUID event;
+        final long timestamp;
+
+        public LocalUpdate(int clientId, int key, EventUID event) {
+            this.clientId = clientId;
+            this.key = key;
+            this.event = event;
+            timestamp = CommonState.getTime();
+        }
+    }
 
     class DataMessage {
 

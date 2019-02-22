@@ -124,7 +124,7 @@ public class GroupsManager {
 
     public boolean datacenterContainsObject(StateTreeProtocol datacenter, int key) {
         if (!datacenterToObjects.containsKey(datacenter)) {
-            // TODO SUPER HARDOCDED, ATM ISTO SIGNIFICA QUE TODOS OS BROKERS RECEBEM
+            // TODO SUPER HARDCODED, ATM ISTO SIGNIFICA QUE TODOS OS BROKERS RECEBEM
             // TODO TODAS AS CENAS.
             return true;
         }

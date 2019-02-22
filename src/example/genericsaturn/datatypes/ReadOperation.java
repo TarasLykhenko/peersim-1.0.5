@@ -1,6 +1,8 @@
 package example.genericsaturn.datatypes;
 
-import static example.genericsaturn.datatypes.Operation.Type.READ;
+import example.common.datatypes.Operation;
+
+import static example.common.datatypes.Operation.Type.READ;
 
 public class ReadOperation extends Operation {
 

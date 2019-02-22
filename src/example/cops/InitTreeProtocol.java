@@ -57,7 +57,6 @@ public class InitTreeProtocol implements Control {
                 .split(","))
                 .mapToInt(Integer::parseInt)
                 .toArray();
-
     }
 
     // ------------------------------------------------------------------------

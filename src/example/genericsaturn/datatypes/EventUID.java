@@ -1,5 +1,7 @@
 package example.genericsaturn.datatypes;
 
+import example.common.datatypes.Operation;
+
 import java.util.UUID;
 
 public class EventUID {

@@ -18,14 +18,13 @@
 
 package example.genericsaturn;
 
+import example.common.BasicClientInterface;
 import example.common.datatypes.DataObject;
 import example.genericsaturn.datatypes.EventUID;
-import example.genericsaturn.datatypes.Operation;
 import example.genericsaturn.datatypes.PendingEventUID;
 import example.genericsaturn.datatypes.VersionVector;
 import peersim.config.Configuration;
 import peersim.core.Linkable;
-import peersim.core.Network;
 import peersim.core.Node;
 import peersim.core.Protocol;
 
@@ -79,6 +78,8 @@ public abstract class StateTreeProtocolInstance
     protected int countProcessed = 0;
     protected long averageLatency = 0;
     protected Set<Client> clients = new HashSet<>();
+    protected Map<Integer, Client> idToClient = new HashMap<>();
+
     protected long nodeId;
 
     protected Map<UUID, Client> pendingClientsQueue = new HashMap<>();
@@ -87,6 +88,7 @@ public abstract class StateTreeProtocolInstance
 
     private Map<Integer, Set<StateTreeProtocol>> levelsToNodes = new HashMap<>();
     private Map<Integer, Set<DataObject>> levelToDataObjects = new HashMap<>();
+    private Map<Integer, DataObject> keyToDataObject = new HashMap<>();
     private Set<DataObject> allDataObjects = new HashSet<>();
 
 
@@ -154,6 +156,9 @@ public abstract class StateTreeProtocolInstance
     @Override
     public void addDataObjectsToLevel(Set<DataObject> dataObjects, int level) {
         levelToDataObjects.put(level, dataObjects);
+        for (DataObject dataObject : dataObjects) {
+            keyToDataObject.put(dataObject.getKey(), dataObject);
+        }
     }
 
     @Override
@@ -209,9 +214,46 @@ public abstract class StateTreeProtocolInstance
     // Client methods
     //--------------------------------------------------------------------------
 
+
+    @Override
+    public Set<? extends BasicClientInterface> getClients() {
+        Set<Client> result = new HashSet<>();
+        result.addAll(clients);
+        result.addAll(pendingClientsQueue.values());
+        return result;
+    }
+
+    @Override
+    public void addNewReadCompleted(long timeToComplete) {
+
+    }
+
+    @Override
+    public void addNewUpdateCompleted(long timeToComplete) {
+
+    }
+
+    @Override
+    public long getAverageReadLatency() {
+        return 0;
+    }
+
+    @Override
+    public long getAverageUpdateLatency() {
+        return 0;
+    }
+
+    @Override
+    public void setNodeId(Long nodeId) {
+        this.nodeId = nodeId;
+    }
+
     @Override
     public void addClients(Set<Client> clientList) {
         clients.addAll(clientList);
+        for (Client client : clientList) {
+            idToClient.put(client.getId(), client);
+        }
     }
 
     public void setClientsCycle(int clientsCycle) {
@@ -226,12 +268,8 @@ public abstract class StateTreeProtocolInstance
     // Replication groups methods
     //--------------------------------------------------------------------------
 
-    // Tbh isto provavelmente pode ser feito usando os proprios datasets locais do objecto
-    public boolean isInterested(long node, long key) {
-        StateTreeProtocol datacenter = (StateTreeProtocol) Network
-                .get(Math.toIntExact(node)).getProtocol(tree);
-        return GroupsManager.getInstance()
-                .datacenterContainsObject(datacenter, Math.toIntExact(key));
+    public boolean isInterested(int key) {
+        return keyToDataObject.containsKey(key);
     }
 
     //--------------------------------------------------------------------------
@@ -274,7 +312,7 @@ public abstract class StateTreeProtocolInstance
         for (EventUID event : queue) {
             if (event.isMigration() && id == event.getMigrationTarget()) {
                 acceptClient(event.getIdentifier());
-            } else if (isInterested(id, event.getOperation().getKey())) {
+            } else if (isInterested(event.getOperation().getKey())) {
                 // System.out.println("Adding metadata!");
                 addMetadata(event);
             }
@@ -359,6 +397,8 @@ public abstract class StateTreeProtocolInstance
     // Processed methods
     //--------------------------------------------------------------------------
 
+    // TODO CBA arranjar isto para versão sem remote read.
+    /*
     public void addProcessedEvent(EventUID event) {
         //System.out.println("PROCESSING EVENT!");
         //System.out.println("Processing event "+event.getKey()+","+event.getTimestamp()+" from: "+event.getSrc()+" to: "+event.getDst()+" with latency: "+event.getLatency()+
@@ -370,6 +410,23 @@ public abstract class StateTreeProtocolInstance
                 this.processed.add(event);
             }
         } else {
+            averageProcessing = (averageProcessing + (getEpoch() - event.getEpoch()));
+            countProcessed++;
+            this.processed.add(event);
+        }
+    }
+    */
+
+    public void addProcessedEvent(EventUID event) {
+        //System.out.println("PROCESSING EVENT!");
+        //System.out.println("Processing event "+event.getKey()+","+event.getTimestamp()+" from: "+event.getSrc()+" to: "+event.getDst()+" with latency: "+event.getLatency()+
+        //		" tool "+(getEpoch() - event.getEpoch())+" cycles");
+            if (!isAlreadyDelivered(event)) {
+                averageProcessing = (averageProcessing + (getEpoch() - event.getEpoch()));
+                countProcessed++;
+                this.processed.add(event);
+            }
+         else {
             averageProcessing = (averageProcessing + (getEpoch() - event.getEpoch()));
             countProcessed++;
             this.processed.add(event);

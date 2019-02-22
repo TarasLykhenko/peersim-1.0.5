@@ -22,7 +22,6 @@ public class TypeProtocol implements Protocol {
 
     //private int type;
     private Type type;
-    private Map<Long, Integer> latencies;
 
     enum Type {
         DATACENTER,
@@ -44,33 +43,15 @@ public class TypeProtocol implements Protocol {
     public TypeProtocol(String prefix) {
         /* Un-initialized coordinates defaults to -1. */
         type = null;
-        latencies = new HashMap<>();
     }
 
     public Object clone() {
         TypeProtocol inp = null;
         try {
             inp = (TypeProtocol) super.clone();
-            inp.cloneLatencies(latencies);
         } catch (CloneNotSupportedException e) {
         } // never happens
         return inp;
-    }
-    
-    public void cloneLatencies(Map<Long, Integer> latenciesInit){
-        latencies = new HashMap<>();
-    	for (Long key : latenciesInit.keySet()){
-    		latencies.put(key, latenciesInit.get(key));
-    	}
-    }
-    
-
-    public void setLatency(long to, int latency){
-    	latencies.put(to, latency);
-    }
-    
-    public int getLatency(long to){
-        return latencies.getOrDefault(to, -1);
     }
     
     public Type getType() {

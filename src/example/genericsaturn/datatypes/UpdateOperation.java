@@ -1,5 +1,7 @@
 package example.genericsaturn.datatypes;
 
+import example.common.datatypes.Operation;
+
 public class UpdateOperation extends Operation {
 
 	int metadataFull;

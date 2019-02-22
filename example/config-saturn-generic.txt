@@ -13,7 +13,7 @@ simulation.logtime CYCLE
 partitions_clients example/partitions/four_nodes_all_connected_partition.top
 partitions_datacenters example/partitions/four_nodes_three_brokers_partition.top
 
-
+levels 3
 
 
 

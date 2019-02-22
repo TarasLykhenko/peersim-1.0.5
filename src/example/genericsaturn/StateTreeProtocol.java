@@ -18,6 +18,7 @@
 
 package example.genericsaturn;
 
+import example.common.BasicStateTreeProtocol;
 import example.common.datatypes.DataObject;
 import example.genericsaturn.datatypes.EventUID;
 import example.genericsaturn.datatypes.PendingEventUID;
@@ -32,8 +33,9 @@ import java.util.Set;
  * The implementor class has a single parameter. This interface
  * provides access to that parameter.
  */
-public interface StateTreeProtocol {
+public interface StateTreeProtocol extends BasicStateTreeProtocol {
 
+    boolean isInterested(int key);
     /**
      * Returns
      * 0: New and no matching data
@@ -97,11 +99,6 @@ public interface StateTreeProtocol {
     void initQueue(Node node);
 
     double getAverageProcessingTime();
-    //--------------------------------------------------------------------------
-    //Replication groups methods
-    //--------------------------------------------------------------------------
-
-    boolean isInterested(long node, long key);
 
     //--------------------------------------------------------------------------
     //Client methods

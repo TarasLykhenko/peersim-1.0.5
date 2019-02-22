@@ -27,7 +27,7 @@ public class InitTypeProtocol implements Control {
     // Fields
     // ------------------------------------------------------------------------
 
-    /** Protocol identifier, obtained from config property {@link #PAR_PROT}. */
+    /** Protocol identifier, obtained from config property { #PAR_PROT}. */
     private final int pid;
     private final int n_datanodes;
 
