@@ -16,7 +16,7 @@
  *
  */
 
-package example.cops;
+package example.capstone;
 
 import example.common.BasicStateTreeProtocol;
 import example.common.datatypes.DataObject;
@@ -30,12 +30,6 @@ import java.util.Set;
  */
 public interface StateTreeProtocol extends BasicStateTreeProtocol {
 
-    int timestamp();
-
-    //--------------------------------------------------------------------------
-    //Replication groups methods
-    //--------------------------------------------------------------------------
-
     boolean isInterested(int key);
 
     //--------------------------------------------------------------------------
@@ -44,10 +38,29 @@ public interface StateTreeProtocol extends BasicStateTreeProtocol {
 
     void addClients(Set<Client> clientList);
 
+    //--------------------------------------------------------------------------
+    //Statistics
+    //--------------------------------------------------------------------------
+
+    void incrementUpdates();
+
+    void incrementRemoteReads();
+
+    void incrementLocalReads();
+
+    int getNumberUpdates();
+
+    int getNumberRemoteReads();
+
+    int getNumberLocalReads();
 
     //--------------------------------------------------------------------------
     //Delivered remote methods
     //--------------------------------------------------------------------------
+
+    // NEW
+
+    long getNodeId();
 
     void setLevelsToNodes(Map<Integer, Set<StateTreeProtocol>> levelsToNodes);
 
@@ -60,12 +73,4 @@ public interface StateTreeProtocol extends BasicStateTreeProtocol {
     Set<DataObject> getAllDataObjects();
 
     Map<Integer, Set<DataObject>> getAllDataObjectsPerLevel();
-
-    // COPS Methods
-
-    int copsGet(Integer key);
-
-    int copsPut(Integer key);
-
-    void copsPutRemote(Integer key, Map<Integer, Integer> context, Integer version);
 }

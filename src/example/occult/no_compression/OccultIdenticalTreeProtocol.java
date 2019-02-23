@@ -2,11 +2,11 @@ package example.occult.no_compression;
 
 import example.common.MigrationMessage;
 import example.common.PointToPointTransport;
+import example.common.datatypes.EventUID;
 import example.common.datatypes.Operation;
 import example.occult.OccultClientInterface;
 import example.occult.GroupsManager;
 import example.occult.StateTreeProtocol;
-import example.occult.datatypes.EventUID;
 import example.occult.datatypes.OccultMasterWrite;
 import example.occult.datatypes.OccultReadResult;
 import example.occult.datatypes.ReadOperation;
@@ -71,7 +71,7 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
                 //System.out.println("Client " + client.getId() + " is waiting!");
                 continue;
             }
-            EventUID event = new EventUID(operation, CommonState.getTime(), datacenter.getNodeId(), 0);
+            EventUID event = new EventUID(datacenter.getNodeId(), 0, operation);
 
             // DC doesn't have key, migrate the client
             if (!datacenter.isInterested(operation.getKey())) {

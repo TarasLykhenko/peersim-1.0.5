@@ -3,7 +3,6 @@ package example.cops;
 import example.common.MigrationMessage;
 import example.common.PointToPointTransport;
 import example.common.datatypes.Operation;
-import example.cops.datatypes.EventUID;
 import peersim.cdsim.CDProtocol;
 import peersim.config.Configuration;
 import peersim.config.FastConfig;
@@ -59,28 +58,26 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 //System.out.println("Client " + client.getId() + " is waiting!");
                 continue;
             }
-            EventUID event = new EventUID(operation, CommonState.getTime(), this.getNodeId(), 0);
 
             // If the datacenter does not have the object, migrate it
             if (!this.isInterested(operation.getKey())) {
                 MigrationMessage msg = new MigrationMessage(this.getNodeId(), client.getId());
-                Node migrationDatacenter = getMigrationDatacenter(event, this);
+                Node migrationDatacenter = getMigrationDatacenter(operation.getKey(), this);
 
                 sendMessage(node, migrationDatacenter, msg, pid);
                 sentMigrations++;
                 continue;
             }
 
-
             // If is Local Read
-            if (eventIsRead(event)) {
+            if (eventIsRead(operation)) {
                 ReadMessage readMessage = new ReadMessage(this.getNodeId(), client.getId(), operation.getKey());
                 sendMessage(node, node, readMessage, pid);
                 continue;
             }
 
             // If is local update
-            if (eventIsUpdate(event)) {
+            if (eventIsUpdate(operation)) {
                 LocalUpdate localUpdate = new LocalUpdate(client.getId(), operation.getKey());
                 sendMessage(node, node, localUpdate, pid);
             } else {
@@ -91,18 +88,14 @@ public class TreeProtocol extends StateTreeProtocolInstance
         this.checkIfCanAcceptMigratedClients();
     }
 
-    private Node getMigrationDatacenter(EventUID event,
+    private Node getMigrationDatacenter(int key,
                                         StateTreeProtocol originalDC) {
 
         // Get datacenters that have the key
-        Set<Node> interestedNodes = getInterestedDatacenters(event);
+        Set<Node> interestedNodes = getInterestedDatacenters(key);
 
         // Then select the datacenter that has the lowest latency to the client
         return getLowestLatencyDatacenter(originalDC, interestedNodes);
-    }
-
-    private Set<Node> getInterestedDatacenters(EventUID event) {
-        return getInterestedDatacenters(event.getOperation().getKey());
     }
 
     private Set<Node> getInterestedDatacenters(int key) {
@@ -216,12 +209,12 @@ public class TreeProtocol extends StateTreeProtocolInstance
         return new TreeProtocol(prefix);
     }
 
-    private boolean eventIsRead(EventUID event) {
-        return event.getOperation().getType() == Operation.Type.READ;
+    private boolean eventIsRead(Operation operation) {
+        return operation.getType() == Operation.Type.READ;
     }
 
-    private boolean eventIsUpdate(EventUID event) {
-        return event.getOperation().getType() == Operation.Type.UPDATE;
+    private boolean eventIsUpdate(Operation operation) {
+        return operation.getType() == Operation.Type.UPDATE;
     }
 
     /*

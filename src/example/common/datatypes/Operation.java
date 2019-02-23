@@ -11,7 +11,6 @@ public class Operation {
     private int key;
 
     public Operation(Type type, int key) {
-        super();
         this.type = type;
         this.key = key;
     }

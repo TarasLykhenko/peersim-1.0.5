@@ -1,0 +1,81 @@
+# network size
+SIZE 9
+
+# parameters of periodic execution
+CYCLES 100000
+CYCLE 1
+
+# random.seed 1234567890
+network.size SIZE
+simulation.endtime CYCLES
+simulation.logtime CYCLE
+
+partitions_clients example/partitions/four_nodes_all_connected_partition.top
+partitions_datacenters example/partitions/four_nodes_three_brokers_partition.top
+
+levels 3
+# Define which node is the root. If it's 9, then the last node is the root.
+root 9
+
+
+
+
+
+
+
+broker broker
+database database
+##########################################
+
+################### protocols ===========================
+
+protocol.link peersim.core.IdleProtocol
+
+protocol.type example.capstone.TypeProtocol
+
+protocol.broker example.capstone.BrokerProtocol
+protocol.datacenter example.capstone.DatabaseProtocol
+protocol.datacenter.step CYCLE
+protocol.datacenter.transport tr
+protocol.datacenter.linkable link
+
+
+protocol.urt example.common.PointToPointTransport
+protocol.urt.mindelay 0
+protocol.urt.maxdelay 100
+protocol.urt.type_protocol type
+
+protocol.tr UnreliableTransport
+protocol.tr.transport urt
+protocol.tr.drop 0
+
+################### initialization ======================
+### Set node type
+init.0 example.capstone.InitTypeProtocol
+init.0.ndatanodes 4
+init.0.type_protocol type
+
+### Creates graph and sets latencies
+init.1 example.capstone.WireTopology
+init.1.topology_path example/topologies
+init.1.topology_file four_nodes_three_brokers.top
+init.1.protocol link
+init.1.type_protocol type
+
+### Inits queues based on graph
+init.2 example.capstone.InitTreeProtocol
+init.2.tree_protocol tree
+init.2.type_protocol type
+init.2.clients_cycle 1
+
+init.sch CDScheduler
+init.sch.protocol tree
+init.sch.randstart
+
+################ control ==============================
+
+control.0 example.capstone.Controller
+control.0.protocol tree
+control.0.type type
+control.0.step CYCLE
+control.0.output_file output/optimal5

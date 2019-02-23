@@ -1,25 +1,21 @@
-package example.cops.datatypes;
+package example.common.datatypes;
 
-import example.common.datatypes.Operation;
+import peersim.core.CommonState;
 
 public class EventUID {
 
-    private long timestamp;
     private long src;
     private long dst;
-
     private Operation operation;
+    private long timestamp;
 
-    public Operation getOperation() {
-        return operation;
-    }
 
-    public EventUID(Operation operation, long timestamp, long src, long dst) {
+    public EventUID(long src, long dst, Operation operation) {
         if (operation == null) {
             System.out.println("WTF!");
         }
         this.operation = operation;
-        this.timestamp = timestamp;
+        this.timestamp = CommonState.getTime();
         this.src = src;
         this.dst = dst;
     }
@@ -29,6 +25,10 @@ public class EventUID {
         this.timestamp = event.timestamp;
         this.src = event.src;
         this.dst = event.dst;
+    }
+
+    public Operation getOperation() {
+        return operation;
     }
 
     public long getSrc() {

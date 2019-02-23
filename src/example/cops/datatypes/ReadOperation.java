@@ -8,5 +8,4 @@ public class ReadOperation extends Operation {
 		super(Type.READ, key);
 		// TODO Auto-generated constructor stub
 	}
-
 }
