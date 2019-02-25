@@ -5,9 +5,12 @@ import peersim.graph.Graph;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class TreeOverlay {
@@ -16,7 +19,6 @@ public class TreeOverlay {
     private Map<Long, Node> nodeIdToNodes = new HashMap<>();
 
     TreeOverlay(Graph graph, long root) {
-        //TODO provavelmente é root - 1
         this.root = root;
         Collection<Long> children = intToLong(graph.getNeighbours(Math.toIntExact(root)));
         Node parent = addNode(root, null, children);
@@ -32,14 +34,20 @@ public class TreeOverlay {
     private void recursiveGenerateChildren(Graph graph, long nodeId, Node parent) {
         Collection<Long> neighbours = intToLong(graph.getNeighbours(Math.toIntExact(nodeId)));
         neighbours.remove(parent.nodeId);
-        Node node = addNode(nodeId, parent, neighbours);
+        Node newNode = addNode(nodeId, parent, neighbours);
         for (Long child : neighbours) {
-            recursiveGenerateChildren(graph, child, node);
+            if (ProtocolMapperInit.nodeType.get(child) == ProtocolMapperInit.Type.BROKER) {
+                recursiveGenerateChildren(graph, child, newNode);
+            } else {
+                addNode(child, newNode, Collections.EMPTY_LIST);
+            }
         }
     }
 
     private Node addNode(long nodeId, Node parent, Collection<Long> children) {
-        return nodeIdToNodes.put(nodeId, new Node(nodeId, parent, children));
+        Node newNode = new Node(nodeId, parent, children);
+        nodeIdToNodes.put(nodeId, newNode);
+        return newNode;
     }
 
     private void debug() {
@@ -59,13 +67,23 @@ public class TreeOverlay {
 
     public List<Long> getNodesOnPathToRoot(long nodeId) {
         List<Long> result = new ArrayList<>();
-
+        result.add(nodeId);
         Node node = nodeIdToNodes.get(nodeId);
         while (node.parent != null) {
             node = node.parent;
             result.add(node.nodeId);
         }
 
+        return result;
+    }
+
+    public Set<Long> getLeaves() {
+        Set<Long> result = new HashSet<>();
+        for (Long nodeId : nodeIdToNodes.keySet()) {
+            if (nodeIdToNodes.get(nodeId).children.isEmpty()) {
+                result.add(nodeId);
+            }
+        }
         return result;
     }
 

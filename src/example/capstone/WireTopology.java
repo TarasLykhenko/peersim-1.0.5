@@ -34,7 +34,6 @@ public class WireTopology extends WireGraph {
      *
      * @config
      */
-    private static final String PAR_TYPE_PROT = "type_protocol";
 
     private static final String PAR_PATH = "topology_path";
 
@@ -49,7 +48,6 @@ public class WireTopology extends WireGraph {
     /**
      * Coordinate protocol pid.
      */
-    private final int typePid;
 
     private final String path, topology;
 
@@ -67,7 +65,6 @@ public class WireTopology extends WireGraph {
         super(prefix);
         path = Configuration.getString(prefix + "." + PAR_PATH, "example/topologies");
         topology = Configuration.getString(prefix + "." + PAR_TOPOLOGY, "default.top");
-        typePid = Configuration.getPid(prefix + "." + PAR_TYPE_PROT);
     }
 
     public void wire(Graph graph) {

@@ -32,4 +32,6 @@ public interface BasicStateTreeProtocol {
     void setNodeId(Long nodeId);
 
     long getNodeId();
+
+    int getQueuedClients();
 }

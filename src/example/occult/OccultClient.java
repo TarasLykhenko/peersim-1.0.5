@@ -46,14 +46,16 @@ public abstract class OccultClient extends AbstractBaseClient
 
     @Override
     public boolean doExtraBehaviour() {
+        // System.out.println("Client " + getId() + " action");
         if (hadStaleRead) {
             int lastOperationKey = lastOperation.getKey();
-            //       System.out.println("Had stale read with " + numberStaleReads);
+            // System.out.println("Client + " + getId() + " had stale read with " + numberStaleReads);
             if (numberStaleReads == NUMBER_RETRIES) {
                 int shardId = GroupsManager.getInstance().getShardId(lastOperationKey);
                 long master = GroupsManager.getInstance().getMasterServer(shardId).getNodeId();
+                // System.out.println("I am client " + getId() + ", want to migrate to master " + master);
                 totalNumberMasterMigration++;
-                //         System.out.println("Client migrating to master (" + master + ") for read.");
+                // System.out.println("Client migrating to master (" + master + ") for read.");
                 lastOperation = new ReadOperation(lastOperationKey, true);
             } else {
                 lastOperation = new ReadOperation(lastOperationKey, false);
@@ -68,7 +70,7 @@ public abstract class OccultClient extends AbstractBaseClient
     }
 
     @Override
-     public Operation specificDoRead(int readLevel) {
+    public Operation specificDoRead(int readLevel) {
         DataObject randomDataObject = chooseRandomDataObject(readLevel);
         return new ReadOperation(randomDataObject.getKey(), false);
     }
@@ -146,5 +148,17 @@ public abstract class OccultClient extends AbstractBaseClient
     @Override
     public int getNumberStaleReads() {
         return totalStaleReads;
+    }
+
+    @Override
+    public void migrationOver() {
+        super.migrationOver();
+        Operation op = lastOperation;
+        if (op instanceof ReadOperation) {
+            ReadOperation ro = (ReadOperation) op;
+            if (ro.migrateToMaster()) {
+                ro.setMigration(false);
+            }
+        }
     }
 }

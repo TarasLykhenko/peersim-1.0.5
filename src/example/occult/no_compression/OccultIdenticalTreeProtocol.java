@@ -78,7 +78,7 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
             //    System.out.println("DC not interested, migrating");
                 MigrationMessage msg = new MigrationMessage(datacenter.getNodeId(), client.getId());
                 Node migrationDatacenter = getMigrationDatacenter(event, datacenter);
-
+                client.migrationStart();
                 sendMessage(node, migrationDatacenter, msg, pid);
                 sentMigrations++;
                 continue;
@@ -172,7 +172,7 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
 
         Node targetDC = Network.get(Math.toIntExact(master.getNodeId()));
         MigrationMessage msg = new MigrationMessage(datacenter.getNodeId(), client.getId());
-
+        client.migrationStart();
         sendMessage(node, targetDC, msg, pid);
     //    System.out.println("Migrating " + client.getId() + " from " + datacenter.getNodeId() + " to " + master.getNodeId());
         sentMigrations++;
@@ -280,6 +280,11 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
         }
     }
     */
+
+    @Override
+    public int getQueuedClients() {
+        return 0;
+    }
 
 
 //--------------------------------------------------------------------------

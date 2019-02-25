@@ -16,14 +16,11 @@ import static example.capstone.ProtocolMapperInit.nodeType;
 
 public class GroupsManager {
 
-    private static final String PAR_TYPE = "type";
-    private static final String PAR_TREE = "tree";
     private static final String PAR_LEVELS = "levels";
     private static final String PAR_ROOT_NODE = "root";
 
     private TreeOverlay treeOverlay;
-    private final int tree;
-    private final int type;
+    private final int datacenter;
     private final int levels;
     private final int root;
 
@@ -41,11 +38,11 @@ public class GroupsManager {
     private Map<Long, Set<Integer>> subscriptionRoutingTable = new HashMap<>();
 
     private GroupsManager() {
-        type = Configuration.getPid(PAR_TYPE);
-        tree = Configuration.getPid(PAR_TREE);
+        datacenter = Configuration.getPid("datacenter");
         levels = Configuration.getInt(PAR_LEVELS);
         root = Configuration.getInt(PAR_ROOT_NODE);
     }
+
     private static GroupsManager groupsManager;
 
     public static GroupsManager getInstance() {
@@ -55,8 +52,12 @@ public class GroupsManager {
         return groupsManager;
     }
 
+    // Small cheat, literally CBA. Need to store this to be used later
+    private Graph graph;
+
     // Formula: (Level - 1) * 2
     public void populate(Graph graph) {
+        this.graph = graph;
         // 1) Generate data for each datacenter
         for (int nodeIdx = 0; nodeIdx < Network.size(); nodeIdx++) {
             Node node = (Node) graph.getNode(nodeIdx);
@@ -69,8 +70,9 @@ public class GroupsManager {
 
         // 2) Generate the tree overlay
        treeOverlay = new TreeOverlay(graph, root);
+    }
 
-        // 3) Create the SRTS
+    void fillSRT() {
         generateSRT(graph);
     }
 
@@ -95,8 +97,11 @@ public class GroupsManager {
                 }
                 alteredNodes.add(parentId);
 
-                Set<Integer> keys = subscriptionRoutingTable.get(nodeId);
-                subscriptionRoutingTable.get(parentId).addAll(keys);
+                Set<Integer> keys = subscriptionRoutingTable
+                        .computeIfAbsent(nodeId, k -> new HashSet<>());
+                subscriptionRoutingTable
+                        .computeIfAbsent(parentId, k -> new HashSet<>())
+                        .addAll(keys);
             }
         }
     }
@@ -115,7 +120,7 @@ public class GroupsManager {
 
         for (int level = 0; level < levels; level++) {
             Set<StateTreeProtocol> memberNodes = new HashSet<>();
-            memberNodes.add((StateTreeProtocol) currentNode.getProtocol(tree));
+            memberNodes.add((StateTreeProtocol) currentNode.getProtocol(datacenter));
             Set<Integer> visitedNodes = new HashSet<>();
 
             Set<Integer> neighboursQueue = new HashSet<>(graph.getNeighbours(nodeIdx));
@@ -134,7 +139,7 @@ public class GroupsManager {
 
                     Node node = (Node) graph.getNode(neighbour);
                     if (nodeIsDatacenter(node)) {
-                        memberNodes.add((StateTreeProtocol) node.getProtocol(tree));
+                        memberNodes.add((StateTreeProtocol) node.getProtocol(datacenter));
                         continue;
                     }
 
@@ -163,6 +168,13 @@ public class GroupsManager {
         for (DataObject obj : result) {
             idToObjects.put(obj.getKey(), obj);
         }
+        Set<Integer> keySet = subscriptionRoutingTable
+                .computeIfAbsent(datacenter.getNodeId(), k -> new HashSet<>());
+
+        for (DataObject obj : result) {
+            keySet.add(obj.getKey());
+        }
+
         datacenterToObjects.computeIfAbsent(datacenter, k -> new HashSet<>())
                 .addAll(result);
     }

@@ -13,8 +13,8 @@ public class ProtocolMapper implements CDProtocol, EDProtocol {
     private final int datacenterPid;
 
     public ProtocolMapper(String Prefix) {
-        this.datacenterPid = Configuration.getPid("datacenterPid");
-        this.brokerPid = Configuration.getPid("brokerPid");
+        this.datacenterPid = Configuration.getPid("datacenter");
+        this.brokerPid = Configuration.getPid("broker");
     }
 
     @Override
@@ -43,6 +43,6 @@ public class ProtocolMapper implements CDProtocol, EDProtocol {
 
     @Override
     public Object clone() {
-        return null;
+        return new ProtocolMapper(null);
     }
 }

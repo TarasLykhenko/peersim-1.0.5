@@ -20,7 +20,6 @@ package example.occult;
 
 import example.common.BasicStateTreeProtocol;
 import example.common.datatypes.DataObject;
-import example.occult.datatypes.EventUID;
 import example.occult.datatypes.OccultMasterWrite;
 import example.occult.datatypes.OccultReadResult;
 
@@ -56,11 +55,6 @@ public interface StateTreeProtocol extends BasicStateTreeProtocol {
     //--------------------------------------------------------------------------
     //Delivered remote methods
     //--------------------------------------------------------------------------
-
-    boolean isAlreadyDelivered(EventUID event);
-
-    void addRemoteRead(EventUID event);
-
 
 
     // NEW

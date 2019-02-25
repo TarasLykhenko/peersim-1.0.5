@@ -1,6 +1,8 @@
 package example.capstone;
 
+import example.capstone.datatypes.ReadResult;
 import example.capstone.datatypes.UpdateMessage;
+import example.capstone.datatypes.UpdateResult;
 import example.common.PointToPointTransport;
 import example.common.datatypes.Operation;
 import peersim.cdsim.CDProtocol;
@@ -23,7 +25,6 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
         implements CDProtocol, EDProtocol {
 
     private final int datacenter;
-    private static final String PAR_TREE_PROT = "datacenter_protocol";
     private final String prefix;
 
 
@@ -34,7 +35,7 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
     public DatacenterProtocol(String prefix) {
         super(prefix);
         this.prefix = prefix;
-        datacenter = Configuration.getPid(prefix + "." + PAR_TREE_PROT);
+        datacenter = Configuration.getPid("datacenter");
     }
 
 //--------------------------------------------------------------------------
@@ -67,7 +68,8 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
 
             // If is local update
             if (eventIsUpdate(operation)) {
-                LocalUpdate localUpdate = new LocalUpdate(client.getId(), operation.getKey(), client.getClientClock());
+                LocalUpdate localUpdate = new LocalUpdate(client.getId(),
+                        operation.getKey(), client.getClientClock());
                 sendMessage(node, node, localUpdate, pid);
             } else {
                 System.out.println("Unknown scenario!");
@@ -89,6 +91,7 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
         MigrationMessage migrationMessage =
                 new MigrationMessage(originalDC.getID(), client.getId(), client.getClientClock());
 
+        client.migrationStart();
         sendMessage(originalDC, migrationTarget, migrationMessage, pid);
         sentMigrations++;
     }
@@ -105,9 +108,9 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
 
             }
 
-            StateTreeProtocol datacenter = (StateTreeProtocol) node.getProtocol(this.datacenter);
+            StateTreeProtocol dc = (StateTreeProtocol) node.getProtocol(this.datacenter);
 
-            if (datacenter.isInterested(key)) {
+            if (dc.isInterested(key)) {
                 interestedNodes.add(node);
             }
         }
@@ -155,22 +158,23 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
             if (msg.senderDC != nodeId) {
                 throw new RuntimeException("Reads must ALWAYS be local.");
             }
+            ReadResult readResult = this.capstoneRead(msg.key);
 
-            this.idToClient.get(msg.clientId).receiveReadResult(msg.key, null);
+            this.idToClient.get(msg.clientId).receiveReadResult(msg.key, readResult);
         }
 
         // Local update - Must generate remote update
         if (event instanceof LocalUpdate) {
             LocalUpdate localUpdate = (LocalUpdate) event;
 
-            int cloudletCounter =
-                    this.capstoneWrite(localUpdate.key, localUpdate.clientClock);
+            UpdateResult result = this.capstoneWrite(localUpdate.key, localUpdate.clientClock);
             Client client = idToClient.get(localUpdate.clientId);
-            client.receiveUpdateResult(localUpdate.key, cloudletCounter);
+            client.receiveUpdateResult(localUpdate.key, result);
 
-            Map<Integer, Integer> updateclock = this.capstoneRead(localUpdate.key);
+            ReadResult readResult = this.capstoneRead(localUpdate.key);
             UpdateMessage updateMessage =
-                    new UpdateMessage(this.nodeId, localUpdate.key, updateclock, this.nodeId);
+                    new UpdateMessage(this.nodeId, localUpdate.key,
+                            readResult.getLocalDataClock(), this.nodeId);
 
             sendUpdateMessageToBroker(node, updateMessage, pid);
         }
@@ -179,6 +183,19 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
         if (event instanceof UpdateMessage) {
             UpdateMessage updateMessage = (UpdateMessage) event;
             this.processRemoteUpdate(updateMessage);
+        }
+
+        if (event instanceof MigrationMessage) {
+            MigrationMessage msg = (MigrationMessage) event;
+            DatacenterProtocol originalDC = (DatacenterProtocol)
+                    Network.get(Math.toIntExact(msg.originDC)).getProtocol(datacenter);
+
+            Client client = originalDC.idToClient.get(msg.clientId);
+            // Remove client from original DC
+            originalDC.clients.remove(client);
+            originalDC.idToClient.remove(msg.clientId);
+
+            migrateClient(msg.originDC, client, msg.clientClock);
         }
     }
 
@@ -214,10 +231,10 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
 
         final int clientId;
         final int key;
-        final Map<Integer, Integer> clientClock;
+        final Map<Long, Integer> clientClock;
         final long timestamp;
 
-        LocalUpdate(int clientId, int key, Map<Integer, Integer> clientClock) {
+        LocalUpdate(int clientId, int key, Map<Long, Integer> clientClock) {
             this.clientId = clientId;
             this.key = key;
             this.clientClock = clientClock;
@@ -229,10 +246,10 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
 
         final long originDC;
         final int clientId;
-        final Map<Integer, Integer> clientClock;
+        final Map<Long, Integer> clientClock;
         final long timestamp;
 
-        MigrationMessage(long originDC, int clientId, Map<Integer, Integer> clientClock) {
+        MigrationMessage(long originDC, int clientId, Map<Long, Integer> clientClock) {
             this.originDC = originDC;
             this.clientId = clientId;
             this.clientClock = new HashMap<>(clientClock);

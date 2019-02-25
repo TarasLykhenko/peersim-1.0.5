@@ -5,13 +5,13 @@ import java.util.Map;
 
 public class ReadResult {
 
-    private Map<Integer, Integer> localDataClock;
+    private Map<Long, Integer> localDataClock;
 
-    public ReadResult(Map<Integer, Integer> localDataClock) {
+    public ReadResult(Map<Long, Integer> localDataClock) {
         this.localDataClock = new HashMap<>(localDataClock);
     }
 
-    public Map<Integer, Integer> getLocalDataClock() {
+    public Map<Long, Integer> getLocalDataClock() {
         return localDataClock;
     }
 }

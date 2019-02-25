@@ -19,7 +19,6 @@
 package example.cops;
 
 import example.common.datatypes.DataObject;
-import example.cops.datatypes.EventUID;
 import javafx.util.Pair;
 import peersim.core.Protocol;
 
@@ -56,7 +55,6 @@ abstract class StateTreeProtocolInstance
     protected int counter = 0;
 
     protected double averageProcessing;
-    protected List<EventUID> processed = new ArrayList<>();
 
     protected Set<String> deliveredRemoteReads = new HashSet<>();
 
@@ -352,6 +350,11 @@ abstract class StateTreeProtocolInstance
     @Override
     public Set<DataObject> getDataObjectsFromLevel(int level) {
         return levelToDataObjects.get(level);
+    }
+
+    @Override
+    public int getQueuedClients() {
+        return clientToDepsQueue.size();
     }
 
     //--------------------------------------------------------------------------

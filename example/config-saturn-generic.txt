@@ -1,5 +1,5 @@
 # network size
-SIZE 9
+SIZE 7
 
 # parameters of periodic execution
 CYCLES 100000
@@ -76,4 +76,4 @@ control.0 example.genericsaturn.Controller
 control.0.protocol tree
 control.0.type type
 control.0.step CYCLE
-control.0.output_file output/optimal5
+control.0.output_file output/

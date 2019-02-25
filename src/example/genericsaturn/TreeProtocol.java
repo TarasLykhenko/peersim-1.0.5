@@ -74,10 +74,12 @@ public class TreeProtocol extends StateTreeProtocolInstance
             if (operation == null) {
                 continue;
             }
+            // System.out.println("Client " + client.getId() + " wants " + operation.getKey());
             EventUID event = new EventUID(operation, client.timestamp(), getEpoch(), node.getID(), 0);
 
             // If the datacenter does not have the object, migrate it
             if (!this.isInterested(operation.getKey())) {
+            //    System.out.println("Starting migration");
                 migrateClientStart(client, event, node, linkable, pid);
                 continue;
             }
@@ -154,6 +156,46 @@ public class TreeProtocol extends StateTreeProtocolInstance
                                     Linkable linkable,
                                     int pid) {
 
+        Set<Node> interestedNodes = getInterestedNodes(event);
+        Node bestNode = getLowestLatencyNode(interestedNodes);
+
+        // Generate Migration Label;
+        EventUID migrationLabel = event.clone();
+        migrationLabel.setMigration(true, bestNode.getID());
+
+        ClientMigrationRequest req = new ClientMigrationRequest(
+                migrationLabel, client.getId(), originalDC.getID(), bestNode.getID(), epoch);
+        client.migrationStart();
+        sendMessage(originalDC, originalDC, req, pid);
+
+        /*
+        // Send client to target
+        TreeProtocol targetDCProtocol = (TreeProtocol) bestNode.getProtocol(tree);
+        targetDCProtocol.migrateClientQueue(client, migrationLabel);
+        client.migrationStart();
+        sentMigrations++;
+        // System.out.println("Client " + client.getId() + " is migrating to " + targetDCProtocol.getNodeId());
+
+
+        // Send label to broker network
+        sendToBrokerNetwork(originalDC, migrationLabel, linkable, pid);
+        */
+    }
+
+    private Node getLowestLatencyNode(Set<Node> interestedNodes) {
+        // Then select the datacenter that has the lowest latency to the client
+        int lowestLatency = Integer.MAX_VALUE;
+        Node bestNode = null;
+        for (Node interestedNode : interestedNodes) {
+            int nodeLatency = PointToPointTransport.staticGetLatency(this.nodeId, interestedNode.getID());
+            if (nodeLatency < lowestLatency) {
+                bestNode = interestedNode;
+            }
+        }
+        return bestNode;
+    }
+
+    private Set<Node> getInterestedNodes(EventUID event) {
         Set<Node> interestedNodes = new HashSet<>();
         // First get which datacenters replicate the data
         for (int i = 0; i < Network.size(); i++) {
@@ -171,32 +213,11 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 interestedNodes.add(node);
             }
         }
-
-        // Then select the datacenter that has the lowest latency to the client
-        int lowestLatency = Integer.MAX_VALUE;
-        Node bestNode = null;
-        for (Node interestedNode : interestedNodes) {
-            int nodeLatency = PointToPointTransport.staticGetLatency(this.nodeId, interestedNode.getID());
-            if (nodeLatency < lowestLatency) {
-                bestNode = interestedNode;
-            }
-        }
-
-        // Generate Migration Label;
-        EventUID migrationLabel = event.clone();
-        migrationLabel.setMigration(true, bestNode.getID());
-
-        // Send client to target
-        TreeProtocol targetDCProtocol = (TreeProtocol) bestNode.getProtocol(tree);
-        targetDCProtocol.migrateClientQueue(client, migrationLabel);
-
-        sentMigrations++;
-
-        // Send label to broker network
-        sendToBrokerNetwork(originalDC, migrationLabel, linkable, pid);
+        return interestedNodes;
     }
 
-    private void sendToBrokerNetwork(Node originalDC, EventUID migrationLabel, Linkable linkable, int pid) {
+    private void sendToBrokerNetwork(Node originalDC, EventUID migrationLabel, int pid) {
+        Linkable linkable = (Linkable) originalDC.getProtocol(FastConfig.getLinkable(pid));
         for (int i = 0; i < linkable.degree(); i++) {
             Node peer = linkable.getNeighbor(i);
             TypeProtocol ntype = (TypeProtocol) peer.getProtocol(typePid);
@@ -261,6 +282,26 @@ public class TreeProtocol extends StateTreeProtocolInstance
             } else {
                 this.addToPendingQueue(msg.event, msg.epoch, msg.senderId);
             }
+        }
+
+        if (event instanceof ClientMigrationRequest) {
+            ClientMigrationRequest req = (ClientMigrationRequest) event;
+
+            Client client = idToClient.get(req.clientId);
+            clients.remove(client);
+            idToClient.remove(client.getId());
+
+            TreeProtocol targetDCProtocol = (TreeProtocol) Network
+                    .get(Math.toIntExact(req.targetDC)).getProtocol(tree);
+
+            targetDCProtocol.migrateClientQueue(client, req.event);
+            client.migrationStart();
+            sentMigrations++;
+            // System.out.println("Client " + client.getId() + " is migrating to " + targetDCProtocol.getNodeId());
+
+
+            // Send label to broker network
+            sendToBrokerNetwork(node, req.event, pid);
         }
 
         /* ************** BROKERS ****************** */
@@ -353,7 +394,22 @@ public class TreeProtocol extends StateTreeProtocolInstance
             this.epoch = epoch;
             this.senderId = senderId;
         }
+    }
 
+    class ClientMigrationRequest {
+        final EventUID event;
+        final int clientId;
+        final long senderId;
+        final long targetDC;
+        final int epoch;
+
+        ClientMigrationRequest(EventUID event, int clientId, long senderId, long targetDC, int epoch) {
+            this.event = event;
+            this.clientId = clientId;
+            this.senderId = senderId;
+            this.targetDC = targetDC;
+            this.epoch = epoch;
+        }
     }
 
     class MigrationMessage {

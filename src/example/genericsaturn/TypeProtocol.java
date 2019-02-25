@@ -14,7 +14,7 @@ import java.util.Map;
  * Type 1: Broker
  *
  */
-class TypeProtocol implements Protocol {
+public class TypeProtocol implements Protocol {
 
     // ------------------------------------------------------------------------
     // Fields

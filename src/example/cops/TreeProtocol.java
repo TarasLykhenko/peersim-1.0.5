@@ -63,7 +63,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
             if (!this.isInterested(operation.getKey())) {
                 MigrationMessage msg = new MigrationMessage(this.getNodeId(), client.getId());
                 Node migrationDatacenter = getMigrationDatacenter(operation.getKey(), this);
-
+                client.migrationStart();
                 sendMessage(node, migrationDatacenter, msg, pid);
                 sentMigrations++;
                 continue;

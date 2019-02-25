@@ -71,6 +71,9 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
     protected long waitingSince;
     protected long lastResultReceivedTimestamp = 0;
 
+    private  long lastMigrationStart = 0;
+    private long totalMigrationTime = 0;
+
 
 
     public AbstractBaseClient(int id, boolean isEager,
@@ -123,6 +126,11 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
     @Override
     public final float getAverageUpdateLatency() {
         return (float) updatesTotalLatency / numberUpdates;
+    }
+
+    @Override
+    public final float getAverageMigrationTime() {
+        return (float) totalMigrationTime / numberMigrations;
     }
 
     @Override
@@ -259,10 +267,16 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
     public abstract void handleUpdateResult(int key, Object updateResult);
 
     @Override
+    public void migrationStart() {
+        lastMigrationStart = CommonState.getTime();
+    }
+
+    @Override
     public void migrationOver() {
         justMigrated = true;
         isWaitingForResult = false;
         numberMigrations++;
+        totalMigrationTime += (CommonState.getTime() - lastMigrationStart);
     }
 
     private int getRandomLevel(int[] levelPercentages) {

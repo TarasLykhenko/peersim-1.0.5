@@ -14,7 +14,15 @@ import java.util.Set;
 public class BrokerProtocol implements EDProtocol {
 
     private int counter;
-    private int nodeId;
+    private long nodeId;
+
+    public BrokerProtocol(String prefix) {
+        // No need to do anything
+    }
+
+    void setNodeId(long nodeId) {
+        this.nodeId = nodeId;
+    }
 
     /**
      * There are two scenarios for a broker
@@ -52,6 +60,10 @@ public class BrokerProtocol implements EDProtocol {
         }
 
         Long parent = GroupsManager.getInstance().getTreeOverlay().getParent(src.getID());
+
+        if (parent == null) {
+            return;
+        }
 
         if (nodeIsInterested(parent, updateMessage.getKey())) {
             UpdateMessage clonedUpdateMessage = new UpdateMessage(updateMessage, this.nodeId);
@@ -95,6 +107,6 @@ public class BrokerProtocol implements EDProtocol {
 
     @Override
     public Object clone() {
-        return new BrokerProtocol();
+        return new BrokerProtocol(null);
     }
 }

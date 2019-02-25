@@ -24,11 +24,15 @@ public interface BasicClientInterface {
 
     float getAverageUpdateLatency();
 
+    float getAverageMigrationTime();
+
     //------------------------------------------
     // ------------ CLIENT STATUS --------------
     //------------------------------------------
 
     boolean isWaiting();
+
+    void migrationStart();
 
     void migrationOver();
 }

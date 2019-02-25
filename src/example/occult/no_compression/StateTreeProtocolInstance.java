@@ -22,7 +22,6 @@ import example.common.datatypes.DataObject;
 import example.occult.OccultClientInterface;
 import example.occult.GroupsManager;
 import example.occult.StateTreeProtocol;
-import example.occult.datatypes.EventUID;
 import example.occult.datatypes.OccultMasterWrite;
 import example.occult.datatypes.OccultReadResult;
 import javafx.util.Pair;
@@ -60,7 +59,6 @@ abstract class StateTreeProtocolInstance
     protected int counter = 0;
 
     protected double averageProcessing;
-    protected List<EventUID> processed = new ArrayList<>();
 
     protected Set<String> deliveredRemoteReads = new HashSet<>();
 
@@ -189,14 +187,6 @@ abstract class StateTreeProtocolInstance
     //--------------------------------------------------------------------------
     // Delivered remote methods
     //--------------------------------------------------------------------------
-
-    public boolean isAlreadyDelivered(EventUID event) {
-        return deliveredRemoteReads.contains(event.getOperation().getKey() + "," + event.getTimestamp());
-    }
-
-    public void addRemoteRead(EventUID event) {
-        deliveredRemoteReads.add(event.getOperation().getKey() + "," + event.getTimestamp());
-    }
 
     @Override
     public long getNodeId() {

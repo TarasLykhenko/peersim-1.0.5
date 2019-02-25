@@ -22,7 +22,7 @@ occult_type temporal_compression
 client_ts_size 10
 objects_per_shard 2
 
-client_read_retries 5
+client_read_retries 2
 client_read_retry_interval 1000
 ########################################
 
@@ -75,4 +75,4 @@ init.sch.randstart
 control.0 example.occult.Controller
 control.0.protocol tree
 control.0.step CYCLE
-control.0.output_file output/optimal5
+control.0.output_file output/

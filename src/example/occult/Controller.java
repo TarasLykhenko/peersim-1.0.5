@@ -46,7 +46,7 @@ public class Controller extends AbstractController {
 //--------------------------------------------------------------------------
 
     public Controller(String name) throws IOException {
-        super(name);
+        super(name, "occult");
     }
 
 
@@ -85,12 +85,16 @@ public class Controller extends AbstractController {
     public void doEndExecution(Set<BasicClientInterface> clients) {
         int totalReads = 0;
         int totalUpdates = 0;
+        int totalMigrations = 0;
+        int totalMigrationTime = 0;
 
         for (BasicClientInterface basicClient : clients) {
             OccultClientInterface client = (OccultClientInterface) basicClient;
 
             totalReads += client.getNumberReads();
             totalUpdates += client.getNumberUpdates();
+            totalMigrations += client.getNumberMigrations();
+            totalMigrationTime += client.getAverageMigrationTime();
 
             String extraString = "";
             if (client.isWaiting()) {
@@ -100,7 +104,7 @@ public class Controller extends AbstractController {
                     + " locality: " + client.getLocality()
                     + " | reads: " + client.getNumberReads()
                     + " | avgReadLat: " + client.getAverageReadLatency()
-                    + " | updates: " + client.getNumberReads()
+                    + " | updates: " + client.getNumberUpdates()
                     + " | avgUpdateLat: " + client.getAverageUpdateLatency()
                     + " | migrations: " + client.getNumberMigrations()
                     + " | staleReads: " + client.getNumberStaleReads()
@@ -110,5 +114,8 @@ public class Controller extends AbstractController {
 
         System.out.println("Average reads: " + ((float) totalReads / clients.size()));
         System.out.println("Average updates: " + ((float) totalUpdates / clients.size()));
+        System.out.println("Average migrations: " + ((float) totalMigrations / clients.size()));
+        System.out.println("Average migration time: " + ((float) totalMigrationTime / clients.size()));
+        System.out.println("Total time migrating: " + totalMigrationTime);
     }
 }

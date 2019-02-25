@@ -25,6 +25,7 @@ import example.genericsaturn.datatypes.PendingEventUID;
 import example.genericsaturn.datatypes.VersionVector;
 import peersim.config.Configuration;
 import peersim.core.Linkable;
+import peersim.core.Network;
 import peersim.core.Node;
 import peersim.core.Protocol;
 
@@ -77,12 +78,13 @@ public abstract class StateTreeProtocolInstance
     protected int clientsCycle = 1;
     protected int countProcessed = 0;
     protected long averageLatency = 0;
+
     protected Set<Client> clients = new HashSet<>();
     protected Map<Integer, Client> idToClient = new HashMap<>();
+    protected Map<UUID, Client> pendingClientsQueue = new HashMap<>();
 
     protected long nodeId;
 
-    protected Map<UUID, Client> pendingClientsQueue = new HashMap<>();
     protected long sentMigrations = 0;
     protected long receivedMigrations = 0;
 
@@ -269,6 +271,8 @@ public abstract class StateTreeProtocolInstance
     //--------------------------------------------------------------------------
 
     public boolean isInterested(int key) {
+        // System.out.println(keyToDataObject.keySet().stream().map(Object::toString).collect(Collectors.joining("-")));
+        // System.out.println("Contains key " + key + ": " + keyToDataObject.containsKey(key));
         return keyToDataObject.containsKey(key);
     }
 
@@ -311,7 +315,7 @@ public abstract class StateTreeProtocolInstance
     public void processQueue(List<EventUID> queue, long id) {
         for (EventUID event : queue) {
             if (event.isMigration() && id == event.getMigrationTarget()) {
-                acceptClient(event.getIdentifier());
+                acceptClient(event);
             } else if (isInterested(event.getOperation().getKey())) {
                 // System.out.println("Adding metadata!");
                 addMetadata(event);
@@ -319,11 +323,15 @@ public abstract class StateTreeProtocolInstance
         }
     }
 
-    public void acceptClient(UUID identifier) {
-        Client client = pendingClientsQueue.get(identifier);
+    public void acceptClient(EventUID event) {
+        Client client = pendingClientsQueue.get(event.getIdentifier());
+
         clients.add(client);
+        idToClient.put(client.getId(), client);
         receivedMigrations++;
-        pendingClientsQueue.remove(identifier);
+        client.migrationOver();
+        pendingClientsQueue.remove(event.getIdentifier());
+        // System.out.println("Accepted Client " + client.getId() + " at " + nodeId);
         //System.out.println("Migration sucessful! " + key);
     }
 
@@ -391,6 +399,11 @@ public abstract class StateTreeProtocolInstance
                 }
             }
         }
+    }
+
+    @Override
+    public int getQueuedClients() {
+        return pendingClientsQueue.size();
     }
 
     //--------------------------------------------------------------------------

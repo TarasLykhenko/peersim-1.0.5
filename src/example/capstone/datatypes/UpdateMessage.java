@@ -5,30 +5,30 @@ import java.util.Map;
 
 public class UpdateMessage {
 
-    private final int originalDC;
+    private final long originalDC;
     private final int key;
-    private Map<Integer, Integer> vectorClock;
-    private int lastSender;
+    private Map<Long, Integer> vectorClock;
+    private long lastSender;
 
-    public Map<Integer, Integer> getVectorClock() {
+    public Map<Long, Integer> getVectorClock() {
         return vectorClock;
     }
 
-    public UpdateMessage(int originalDC, int key, Map<Integer, Integer> localDataClock, int sender) {
+    public UpdateMessage(long originalDC, int key, Map<Long, Integer> localDataClock, long sender) {
         this.originalDC = originalDC;
         this.key = key;
         this.vectorClock = new HashMap<>(localDataClock);
         this.lastSender = sender;
     }
 
-    public UpdateMessage(UpdateMessage updateMessage, int lastSender) {
+    public UpdateMessage(UpdateMessage updateMessage, long lastSender) {
         this.originalDC = updateMessage.originalDC;
         this.key = updateMessage.key;
         this.vectorClock = new HashMap<>(updateMessage.vectorClock);
         this.lastSender = lastSender;
     }
 
-    public void updateVectorClockEntry(int nodeId, int value) {
+    public void updateVectorClockEntry(long nodeId, int value) {
         lastSender = nodeId;
         int beforeSize = vectorClock.size();
         vectorClock.put(nodeId, value);
@@ -38,7 +38,7 @@ public class UpdateMessage {
         }
     }
 
-    public int getOriginalDC() {
+    public long getOriginalDC() {
         return this.originalDC;
 
     }
@@ -47,7 +47,7 @@ public class UpdateMessage {
         return this.key;
     }
 
-    public int getLastSender() {
+    public long getLastSender() {
         return lastSender;
     }
 }

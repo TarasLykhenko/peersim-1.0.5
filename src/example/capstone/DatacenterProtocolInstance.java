@@ -18,15 +18,19 @@
 
 package example.capstone;
 
+import example.capstone.datatypes.ReadResult;
 import example.capstone.datatypes.UpdateMessage;
+import example.capstone.datatypes.UpdateResult;
 import example.common.BasicClientInterface;
 import example.common.datatypes.DataObject;
 import peersim.core.Protocol;
 
+import java.security.acl.Group;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -45,17 +49,15 @@ public abstract class DatacenterProtocolInstance
     protected int updates = 0;
 
 
-    protected int counter = 0;
-
     protected Set<Client> clients = new HashSet<>();
     protected Map<Integer, Client> idToClient = new HashMap<>();
 
-    protected int nodeId;
+    protected long nodeId;
 
     /**
      * Cloudlet clock
      */
-    private Map<Integer, Integer> cloudletClock = new HashMap<>();
+    private Map<Long, Integer> cloudletClock = new HashMap<>();
 
     /**
      * Migration Table:
@@ -64,28 +66,28 @@ public abstract class DatacenterProtocolInstance
      * Clients that cannot be immediatly accepted are put on this table,
      * in the correct datacenter entry.
      */
-    private Map<Integer, Map<Client, Map<Integer, Integer>>> migrationTable = new HashMap<>();
+    private Map<Long, Map<Client, Map<Long, Integer>>> migrationTable = new HashMap<>();
 
     /**
      * Stores the last update from each datacenter.
      *
      * Map is datacenterId to CloudletClock.
      */
-    private Map<Integer, Map<Integer, Integer>> remoteUpdatesTable = new HashMap<>();
+    private Map<Long, Map<Long, Integer>> remoteUpdatesTable = new HashMap<>();
 
     /**
      * Stores each key alongside a localDataClock.
      *
      * Map is dataObjectKey to LocalDataClock
      */
-    private Map<Integer, Map<Integer, Integer>> storageTable = new HashMap<>();
+    private Map<Integer, Map<Long, Integer>> storageTable = new HashMap<>();
+    private Map<Integer, DataObject> keyToDataObject = new HashMap<>();
 
     protected long sentMigrations = 0;
     private long receivedMigrations = 0;
 
     private Map<Integer, Set<StateTreeProtocol>> levelsToNodes = new HashMap<>();
     private Map<Integer, Set<DataObject>> levelToDataObjects = new HashMap<>();
-    private Map<Integer, DataObject> keyToDataObject = new HashMap<>();
     private Set<DataObject> allDataObjects = new HashSet<>();
 
 
@@ -99,14 +101,62 @@ public abstract class DatacenterProtocolInstance
     DatacenterProtocolInstance(String prefix) {
     }
 
+    public void init(Long nodeId) {
+        TreeOverlay treeOverlay = GroupsManager.getInstance().getTreeOverlay();
+        setNodeId(nodeId);
+        initCloudletClock(treeOverlay);
+        initRUT(treeOverlay);
+        initMT(treeOverlay);
+    }
+
+    @Override
+    public void setNodeId(Long nodeId) {
+        this.nodeId = Math.toIntExact(nodeId);
+    }
+
+    private void initCloudletClock(TreeOverlay treeOverlay) {
+        List<Long> nodesToRoot =
+                treeOverlay.getNodesOnPathToRoot(Math.toIntExact(nodeId));
+        for (Long entry : nodesToRoot) {
+            cloudletClock.put(entry, 0);
+        }
+    }
+
+    private void initRUT(TreeOverlay treeOverlay) {
+        Set<Long> datacenters = treeOverlay.getLeaves();
+
+        for (Long datacenterId : datacenters) {
+            Map<Long, Integer> remoteUpdateClock = new HashMap<>();
+
+            List<Long> nodesToRoot =
+                    treeOverlay.getNodesOnPathToRoot(Math.toIntExact(datacenterId));
+
+            for (Long entry : nodesToRoot) {
+                remoteUpdateClock.put(entry, 0);
+            }
+            remoteUpdatesTable.put(datacenterId, remoteUpdateClock);
+        }
+    }
+
+    private void initMT(TreeOverlay treeOverlay) {
+        Set<Long> datacenters = treeOverlay.getLeaves();
+
+        for (Long datacenterId : datacenters) {
+            migrationTable.put(datacenterId, new HashMap<>());
+        }
+    }
+
+
     //--------------------------------------------------------------------------
     // Delivered remote methods
+
     //--------------------------------------------------------------------------
 
     @Override
     public long getNodeId() {
         return nodeId;
     }
+
 
     @Override
     public void setLevelsToNodes(Map<Integer, Set<StateTreeProtocol>> levelsToNodes) {
@@ -123,6 +173,7 @@ public abstract class DatacenterProtocolInstance
         levelToDataObjects.put(level, dataObjects);
         for (DataObject dataObject : dataObjects) {
             keyToDataObject.put(dataObject.getKey(), dataObject);
+            storageTable.put(dataObject.getKey(), new HashMap<>(cloudletClock));
         }
     }
 
@@ -130,9 +181,9 @@ public abstract class DatacenterProtocolInstance
     public Set<DataObject> getDataObjectsFromLevel(int level) {
         return levelToDataObjects.get(level);
     }
-
     //--------------------------------------------------------------------------
     // Statistics methods
+
     //--------------------------------------------------------------------------
 
     public void incrementUpdates() {
@@ -158,16 +209,16 @@ public abstract class DatacenterProtocolInstance
     public int getNumberLocalReads() {
         return localReads;
     }
-
     //--------------------------------------------------------------------------
     // Client methods
+
     //--------------------------------------------------------------------------
 
 
     @Override
     public Set<? extends BasicClientInterface> getClients() {
         Set<Client> result = new HashSet<>(clients);
-        for (Integer datacenter : migrationTable.keySet()) {
+        for (Long datacenter : migrationTable.keySet()) {
             result.addAll(migrationTable.get(datacenter).keySet());
         }
         return result;
@@ -194,11 +245,6 @@ public abstract class DatacenterProtocolInstance
     }
 
     @Override
-    public void setNodeId(Long nodeId) {
-        this.nodeId = Math.toIntExact(nodeId);
-    }
-
-    @Override
     public void addClients(Set<Client> clientList) {
         clients.addAll(clientList);
         for (Client client : clientList) {
@@ -222,12 +268,12 @@ public abstract class DatacenterProtocolInstance
     /**
      * Returns the localDataClock of key.
      */
-    public Map<Integer, Integer> capstoneRead(int key) {
-        return storageTable.get(key);
+    ReadResult capstoneRead(int key) {
+        return new ReadResult(storageTable.get(key));
     }
 
-    public int capstoneWrite(int key, Map<Integer, Integer> clientClock) {
-        Map<Integer, Integer> localDataClock = storageTable.get(key);
+    UpdateResult capstoneWrite(int key, Map<Long, Integer> clientClock) {
+        Map<Long, Integer> localDataClock = storageTable.get(key);
 
         Integer cloudletCounter = cloudletClock.get(nodeId);
         cloudletCounter++;
@@ -235,11 +281,11 @@ public abstract class DatacenterProtocolInstance
 
         clientClock.put(nodeId, cloudletCounter);
 
-        Map<Integer, Integer> maxedClock = getEntryWiseMaxClock(clientClock, localDataClock);
+        Map<Long, Integer> maxedClock = getEntryWiseMaxClock(clientClock, localDataClock);
 
         storageTable.put(key, maxedClock);
 
-        return cloudletCounter;
+        return new UpdateResult(nodeId, cloudletCounter);
     }
 
     /**
@@ -250,10 +296,10 @@ public abstract class DatacenterProtocolInstance
      * 3) Update ST with updated CloudletClock
      * 4) Check MT for any clients that can be accepted
      */
-    public void processRemoteUpdate(UpdateMessage updateMessage) {
-        int datacenterUpdateOrigin = updateMessage.getOriginalDC();
+    void processRemoteUpdate(UpdateMessage updateMessage) {
+        long datacenterUpdateOrigin = updateMessage.getOriginalDC();
         int key = updateMessage.getKey();
-        Map<Integer, Integer> updateClock = updateMessage.getVectorClock();
+        Map<Long, Integer> updateClock = updateMessage.getVectorClock();
 
         updateRemoteUpdateTable(datacenterUpdateOrigin, updateClock);
         updateOwnCloudletClock(updateClock);
@@ -261,10 +307,10 @@ public abstract class DatacenterProtocolInstance
         checkMigrationTable(datacenterUpdateOrigin);
     }
 
-    void migrateClient(int originDatacenter,
+    void migrateClient(long originDatacenter,
                        Client client,
-                       Map<Integer, Integer> migrationClock) {
-        Map<Integer, Integer> latestDCClock = this.remoteUpdatesTable.get(originDatacenter);
+                       Map<Long, Integer> migrationClock) {
+        Map<Long, Integer> latestDCClock = this.remoteUpdatesTable.get(originDatacenter);
         if (canAcceptClient(migrationClock, latestDCClock)) {
             acceptClient(client);
         } else {
@@ -272,12 +318,12 @@ public abstract class DatacenterProtocolInstance
         }
     }
 
-    private void updateRemoteUpdateTable(int datacenter, Map<Integer, Integer> updateClock) {
+    private void updateRemoteUpdateTable(long datacenter, Map<Long, Integer> updateClock) {
         this.remoteUpdatesTable.put(datacenter, updateClock);
     }
 
-    private void updateOwnCloudletClock(Map<Integer, Integer> updateClock) {
-        for (Integer pathNodeId : updateClock.keySet()) {
+    private void updateOwnCloudletClock(Map<Long, Integer> updateClock) {
+        for (Long pathNodeId : updateClock.keySet()) {
             if (cloudletClock.containsKey(pathNodeId)) {
                 int cloudletNodeVersion = cloudletClock.get(pathNodeId);
                 int updateClockNodeVersion = updateClock.get(pathNodeId);
@@ -293,13 +339,13 @@ public abstract class DatacenterProtocolInstance
         this.storageTable.put(key, cloudletClock);
     }
 
-    private void checkMigrationTable(int datacenter) {
-        Map<Client, Map<Integer, Integer>> clientMapMap = this.migrationTable.get(datacenter);
+    private void checkMigrationTable(long datacenter) {
+        Map<Client, Map<Long, Integer>> clientMapMap = this.migrationTable.get(datacenter);
         Iterator<Client> iterator = clientMapMap.keySet().iterator();
         while (iterator.hasNext()) {
             Client client = iterator.next();
-            Map<Integer, Integer> migrationClock = clientMapMap.get(client);
-            Map<Integer, Integer> latestDCClock = this.remoteUpdatesTable.get(datacenter);
+            Map<Long, Integer> migrationClock = clientMapMap.get(client);
+            Map<Long, Integer> latestDCClock = this.remoteUpdatesTable.get(datacenter);
 
             if (canAcceptClient(migrationClock, latestDCClock)) {
                 acceptClient(client);
@@ -308,13 +354,13 @@ public abstract class DatacenterProtocolInstance
         }
     }
 
-    private boolean canAcceptClient(Map<Integer, Integer> migrationClock,
-                                    Map<Integer, Integer> latestDCClock) {
+    private boolean canAcceptClient(Map<Long, Integer> migrationClock,
+                                    Map<Long, Integer> latestDCClock) {
         if (migrationClock.size() != latestDCClock.size()) {
             throw new RuntimeException("Invalid size of clocks!");
         }
 
-        for (Integer entryId : migrationClock.keySet()) {
+        for (Long entryId : migrationClock.keySet()) {
             if (!latestDCClock.containsKey(entryId)) {
                 throw new RuntimeException("Both clocks need to have the same entries.");
             }
@@ -331,11 +377,22 @@ public abstract class DatacenterProtocolInstance
     }
 
 
+    // TODO Nota importante: Não está especificado o que acontece ao clientClock
     private void acceptClient(Client client) {
         clients.add(client);
         idToClient.put(client.getId(), client);
+        client.migrationOver(cloudletClock);
         receivedMigrations++;
         //System.out.println("Migration sucessful! " + key);
+    }
+
+    @Override
+    public int getQueuedClients() {
+        int totalWaitingClients = 0;
+        for (Long dc : migrationTable.keySet()) {
+            totalWaitingClients += migrationTable.get(dc).size();
+        }
+        return totalWaitingClients;
     }
 
     //--------------------------------------------------------------------------
@@ -363,15 +420,15 @@ public abstract class DatacenterProtocolInstance
         return null;
     }
 
-    static Map<Integer, Integer> getEntryWiseMaxClock(Map<Integer, Integer> clockOne,
-                                                      Map<Integer, Integer> clockTwo) {
-        Map<Integer, Integer> result = new HashMap<>();
+    static Map<Long, Integer> getEntryWiseMaxClock(Map<Long, Integer> clockOne,
+                                                      Map<Long, Integer> clockTwo) {
+        Map<Long, Integer> result = new HashMap<>();
 
         if (clockOne.size() != clockTwo.size()) {
             throw new RuntimeException("The clocks size must be equal!");
         }
 
-        for (Integer entry : clockOne.keySet()) {
+        for (Long entry : clockOne.keySet()) {
             if (!clockTwo.containsKey(entry)) {
                 throw new RuntimeException("Both clocks must contain the same entries.");
             }

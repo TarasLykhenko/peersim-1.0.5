@@ -3,10 +3,9 @@ package example.occult.temporal_compression;
 import example.common.MigrationMessage;
 import example.common.PointToPointTransport;
 import example.common.datatypes.Operation;
-import example.occult.OccultClientInterface;
 import example.occult.GroupsManager;
+import example.occult.OccultClientInterface;
 import example.occult.StateTreeProtocol;
-import example.occult.datatypes.EventUID;
 import example.occult.datatypes.OccultMasterWrite;
 import example.occult.datatypes.OccultReadResult;
 import example.occult.datatypes.ReadOperation;
@@ -60,7 +59,7 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
      */
     private void doDatabaseMethod(Node node, int pid) {
         StateTreeProtocolInstance datacenter = (StateTreeProtocolInstance) node.getProtocol(tree);
-
+        // System.out.println("Checking node " + node.getID() + " clients");
         for (OccultClientInterface client : clients) {
          //   System.out.println("Checking client " + client.getId());
             Operation operation = client.nextOperation();
@@ -69,14 +68,13 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
                 //System.out.println("Client " + client.getId() + " is waiting!");
                 continue;
             }
-            EventUID event = new EventUID(operation, CommonState.getTime(), datacenter.getNodeId(), 0);
 
             // DC doesn't have key, migrate the client
             if (!datacenter.isInterested(operation.getKey())) {
-            //    System.out.println("DC not interested, migrating");
+                // System.out.println("DC not interested, migrating client " + client.getId());
                 MigrationMessage msg = new MigrationMessage(datacenter.getNodeId(), client.getId());
-                Node migrationDatacenter = getMigrationDatacenter(event, datacenter);
-
+                Node migrationDatacenter = getMigrationDatacenter(operation.getKey(), datacenter);
+                client.migrationStart();
                 sendMessage(node, migrationDatacenter, msg, pid);
                 sentMigrations++;
                 continue;
@@ -84,11 +82,11 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
 
 
             // If is Local Read
-            if (eventIsRead(event)) {
+            if (eventIsRead(operation)) {
                 ReadOperation readOperation = (ReadOperation) operation;
                 if (readOperation.migrateToMaster()) {
                 //    System.out.println("Client (" + client.getId() + " wants to migrate. ");
-                    migrateToMaster(node, pid, datacenter, client, event);
+                    migrateToMaster(node, pid, client, operation.getKey());
                 } else {
                     ReadMessage readMessage = new ReadMessage(this.getNodeId(), client.getId(), operation.getKey());
                     sendMessage(node, node, readMessage, pid);
@@ -97,17 +95,17 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
             }
 
             // If is local update
-            if (eventIsUpdate(event)) {
+            if (eventIsUpdate(operation)) {
                 // Check if local DC is the shardmaster, otherwise migrate the client to it.
-                int shardId = GroupsManager.getInstance().getShardId(event.getOperation().getKey());
+                int shardId = GroupsManager.getInstance().getShardId(operation.getKey());
                 StateTreeProtocol masterServer = GroupsManager.getInstance().getMasterServer(shardId);
                 if (this.getNodeId() != masterServer.getNodeId()) {
                  //   System.out.println("Am not master, migrating");
-                    migrateToMaster(node, pid, datacenter, client, event);
+                    migrateToMaster(node, pid, client, operation.getKey());
                     continue;
                 }
 
-                UpdateOperation updateOperation = (UpdateOperation) event.getOperation();
+                UpdateOperation updateOperation = (UpdateOperation) operation;
 
                 LocalUpdate localUpdate = new LocalUpdate(client.getId(),
                         datacenter.getNodeId(),
@@ -122,9 +120,9 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
         }
     }
 
-    private Node getMigrationDatacenter(EventUID event, StateTreeProtocol originalDC) {
+    private Node getMigrationDatacenter(int key, StateTreeProtocol originalDC) {
 
-        Set<Node> interestedNodes = getInterestedDatacenters(event);
+        Set<Node> interestedNodes = getInterestedDatacenters(key);
 
         // Then select the datacenter that has the lowest latency to the client
         return getLowestLatencyDatacenter(originalDC, interestedNodes);
@@ -144,10 +142,6 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
         return interestedNodes;
     }
 
-    private Set<Node> getInterestedDatacenters(EventUID event) {
-        return getInterestedDatacenters(event.getOperation().getKey());
-    }
-
     private Node getLowestLatencyDatacenter(StateTreeProtocol originalDC, Set<Node> interestedNodes) {
         int lowestLatency = Integer.MAX_VALUE;
         Node bestNode = null;
@@ -162,15 +156,17 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
     }
 
     private void migrateToMaster(Node node, int pid,
-                                 StateTreeProtocolInstance datacenter,
-                                 OccultClientInterface client, EventUID event) {
-        int key = event.getOperation().getKey();
+                                 OccultClientInterface client, int key) {
         int shardId = GroupsManager.getInstance().getShardId(key);
         StateTreeProtocol master = GroupsManager.getInstance().getMasterServer(shardId);
+        // System.out.println("Client " + client.getId() + " is master Migrating from " + node.getID() + " to " + master.getNodeId());
 
         Node targetDC = Network.get(Math.toIntExact(master.getNodeId()));
-        MigrationMessage msg = new MigrationMessage(datacenter.getNodeId(), client.getId());
-
+        MigrationMessage msg = new MigrationMessage(node.getID(), client.getId());
+        client.migrationStart();
+        if (targetDC.getID() == node.getID()) {
+            throw new RuntimeException("Migrating from node A to node A?");
+        }
         sendMessage(node, targetDC, msg, pid);
     //    System.out.println("Migrating " + client.getId() + " from " + datacenter.getNodeId() + " to " + master.getNodeId());
         sentMigrations++;
@@ -260,12 +256,12 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
         return new OccultIdenticalTreeProtocol(prefix);
     }
 
-    private boolean eventIsRead(EventUID event) {
-        return event.getOperation().getType() == Operation.Type.READ;
+    private boolean eventIsRead(Operation operation) {
+        return operation.getType() == Operation.Type.READ;
     }
 
-    private boolean eventIsUpdate(EventUID event) {
-        return event.getOperation().getType() == Operation.Type.UPDATE;
+    private boolean eventIsUpdate(Operation operation) {
+        return operation.getType() == Operation.Type.UPDATE;
     }
 
     /*
@@ -278,6 +274,11 @@ public class OccultIdenticalTreeProtocol extends StateTreeProtocolInstance
         }
     }
     */
+
+    @Override
+    public int getQueuedClients() {
+        return 0;
+    }
 
 
 //--------------------------------------------------------------------------

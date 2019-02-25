@@ -45,41 +45,13 @@ public class Controller extends AbstractController {
      * @param name the configuration prefix for this class
      */
     public Controller(String name) throws IOException {
-        super(name);
+        super(name, "capstone");
     }
 
 
     @Override
     public void doAdditionalExecution(Set<BasicClientInterface> clients) {
         // Nothing to do
-    }
-
-    @Override
-    public void doEndExecution(Set<BasicClientInterface> clients) {
-        int totalReads = 0;
-        int totalUpdates = 0;
-
-        for (BasicClientInterface client : clients) {
-
-            totalReads += client.getNumberReads();
-            totalUpdates += client.getNumberUpdates();
-
-            String extraString = "";
-            if (client.isWaiting()) {
-                extraString = " | waitingSince: " + client.getWaitingSince();
-            }
-            System.out.println("Client " + client.getId()
-                    + " locality: " + client.getLocality()
-                    + " | reads: " + client.getNumberReads()
-                    + " | avgReadLat: " + client.getAverageReadLatency()
-                    + " | updates: " + client.getNumberReads()
-                    + " | avgUpdateLat: " + client.getAverageUpdateLatency()
-                    + " | migrations: " + client.getNumberMigrations()
-                    + extraString);
-        }
-
-        System.out.println("Average reads: " + ((float) totalReads / clients.size()));
-        System.out.println("Average updates: " + ((float) totalUpdates / clients.size()));
     }
 }
 

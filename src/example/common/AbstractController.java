@@ -117,7 +117,7 @@ public abstract class AbstractController implements Control {
      *
      * @param name the configuration prefix for this class
      */
-    public AbstractController(String name) throws IOException {
+    public AbstractController(String name, String system) throws IOException {
         this.name = name;
 
         pid = Configuration.getPid(name + "." + PAR_PROT);
@@ -133,14 +133,14 @@ public abstract class AbstractController implements Control {
 
         if (PRINT_VERBOSE) {
             String pathfile = outputFile + dateFormat.format(cal.getTime()) + ".txt";
-            FileWriter fr = new FileWriter(pathfile, true);
+            FileWriter fr = new FileWriter(pathfile, false);
             BufferedWriter br = new BufferedWriter(fr);
             writer = new PrintWriter(br);
         }
 
         if (PRINT_IMPORTANT) {
-            String importantPathfile = outputFile + dateFormat.format(cal.getTime()) + "-2.txt";
-            FileWriter fr2 = new FileWriter(importantPathfile, true);
+            String importantPathfile = outputFile + system + ".txt";
+            FileWriter fr2 = new FileWriter(importantPathfile, false);
             BufferedWriter br2 = new BufferedWriter(fr2);
             importantWriter = new PrintWriter(br2);
         }
@@ -180,6 +180,7 @@ public abstract class AbstractController implements Control {
         int aggregateReads = 0;
         int aggregateMigrations = 0;
         int aggregateWaitingClients = 0;
+        int aggregateQueuedClients = 0;
 
         long totalClients = 0;
 
@@ -196,6 +197,8 @@ public abstract class AbstractController implements Control {
                 }
                 clients.add(client);
             }
+
+            aggregateQueuedClients += v.getQueuedClients();
         }
         int totalOps = aggregateUpdates + aggregateReads;
 
@@ -203,6 +206,7 @@ public abstract class AbstractController implements Control {
         printImportant(">> Total ops (%: " + currentPoint + ") - " + (totalOps - totalOpsPrevious));
         printImportant("Total Migrations: " + (aggregateMigrations - totalMigrationsPrevious));
         printImportant("Waiting clients: " + aggregateWaitingClients);
+        printImportant("Queued clients from migrations: " + aggregateQueuedClients);
         print("% of reads: " + ((double) ((aggregateReads) * 100) / (double) totalOps));
         print("% of updates: " + ((double) (aggregateUpdates * 100) / (double) totalOps));
         print("Total clients: " + totalClients);
@@ -231,7 +235,40 @@ public abstract class AbstractController implements Control {
 
     public abstract void doAdditionalExecution(Set<BasicClientInterface> clients);
 
-    public abstract void doEndExecution(Set<BasicClientInterface> clients);
+    public void doEndExecution(Set<BasicClientInterface> clients) {
+        int totalReads = 0;
+        int totalUpdates = 0;
+        int totalMigrations = 0;
+        int totalMigrationTime = 0;
+
+        System.out.println("There are " + clients.size());
+        for (BasicClientInterface client : clients) {
+
+            totalReads += client.getNumberReads();
+            totalUpdates += client.getNumberUpdates();
+            totalMigrations += client.getNumberMigrations();
+            totalMigrationTime += client.getAverageMigrationTime();
+
+            String extraString = "";
+            if (client.isWaiting()) {
+                extraString = " | waitingSince: " + client.getWaitingSince();
+            }
+            System.out.println("Client " + client.getId()
+                    + " locality: " + client.getLocality()
+                    + " | reads: " + client.getNumberReads()
+                    + " | avgReadLat: " + client.getAverageReadLatency()
+                    + " | updates: " + client.getNumberUpdates()
+                    + " | avgUpdateLat: " + client.getAverageUpdateLatency()
+                    + " | migrations: " + client.getNumberMigrations()
+                    + extraString);
+        }
+
+        System.out.println("Average reads: " + ((float) totalReads / clients.size()));
+        System.out.println("Average updates: " + ((float) totalUpdates / clients.size()));
+        System.out.println("Average migrations: " + ((float) totalMigrations / clients.size()));
+        System.out.println("Average migration time: " + ((float) totalMigrationTime / clients.size()));
+        System.out.println("Total time migrating: " + totalMigrationTime);
+    }
 
     protected void print(String string) {
         if (PRINT_VERBOSE) {
