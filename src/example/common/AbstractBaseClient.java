@@ -45,7 +45,7 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
     private final int id;
     private final boolean isEager;
     private final int locality;
-    private final BasicStateTreeProtocol datacenter; // Used for debugging
+    private final BasicStateTreeProtocol originalDC; // Used for debugging
 
     // "Static" content
     private static final ExtendedRandom randomGenerator = CommonState.r;
@@ -84,7 +84,7 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
         this.possibleDataObjects = dataObjectsPerLevel
                 .values().stream().flatMap(Collection::stream).collect(Collectors.toSet());
         this.isEager = isEager;
-        this.datacenter = datacenter;
+        this.originalDC = datacenter;
         this.locality = locality;
     }
 

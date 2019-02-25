@@ -1,6 +1,5 @@
 package example.capstone;
 
-import com.sun.istack.internal.Nullable;
 import peersim.graph.Graph;
 
 import java.util.ArrayList;
@@ -13,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class TreeOverlay {
+class TreeOverlay {
 
     private long root;
     private Map<Long, Node> nodeIdToNodes = new HashMap<>();
@@ -39,7 +38,7 @@ public class TreeOverlay {
             if (ProtocolMapperInit.nodeType.get(child) == ProtocolMapperInit.Type.BROKER) {
                 recursiveGenerateChildren(graph, child, newNode);
             } else {
-                addNode(child, newNode, Collections.EMPTY_LIST);
+                addNode(child, newNode, Collections.emptyList());
             }
         }
     }
@@ -65,7 +64,7 @@ public class TreeOverlay {
         }
     }
 
-    public List<Long> getNodesOnPathToRoot(long nodeId) {
+    List<Long> getNodesOnPathToRoot(long nodeId) {
         List<Long> result = new ArrayList<>();
         result.add(nodeId);
         Node node = nodeIdToNodes.get(nodeId);
@@ -77,7 +76,7 @@ public class TreeOverlay {
         return result;
     }
 
-    public Set<Long> getLeaves() {
+    Set<Long> getLeaves() {
         Set<Long> result = new HashSet<>();
         for (Long nodeId : nodeIdToNodes.keySet()) {
             if (nodeIdToNodes.get(nodeId).children.isEmpty()) {
@@ -87,7 +86,7 @@ public class TreeOverlay {
         return result;
     }
 
-    public @Nullable Long getParent(long srcNode) {
+    Long getParent(long srcNode) {
         Node parent = nodeIdToNodes.get(srcNode).parent;
         if (parent == null) {
             return null;
@@ -96,11 +95,11 @@ public class TreeOverlay {
         }
     }
 
-    public Collection<Long> getChildren(long srcNode) {
+    Collection<Long> getChildren(long srcNode) {
         return nodeIdToNodes.get(srcNode).children;
     }
 
-    public boolean nodeIsParent(long srcId, long targetId) {
+    boolean nodeIsParent(long srcId, long targetId) {
         Node srcNode = nodeIdToNodes.get(srcId);
         if (srcNode.parent != null) {
             return srcNode.parent.nodeId == targetId;

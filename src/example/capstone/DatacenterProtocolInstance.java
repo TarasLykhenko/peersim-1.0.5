@@ -100,6 +100,7 @@ public abstract class DatacenterProtocolInstance
      * Does nothing.
      */
     DatacenterProtocolInstance(String prefix) {
+
     }
 
     public void init(Long nodeId) {

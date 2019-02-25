@@ -13,8 +13,8 @@ simulation.logtime CYCLE
 
 groups {[0],[0,1],[0,1,2,3]}{[1],[0,1],[0,1,2,3]}{[2],[2,3],[0,1,2,3]}{[3],[2,3],[0,1,2,3]}
 
-partitions_datacenters example/partitions/four_nodes_all_connected_partition.top
-partitions_clients example/client-partitions/four_nodes_all_connected_partition.top
+partitions_datacenters example/partitions/four_nodes_all_connected_partition_between_contries.top
+partitions_clients example/client-partitions/four_nodes_all_connected_partition_between_countries.top
 
 
 ########### OCCULT CONFIGS #############
@@ -31,7 +31,7 @@ client_read_retry_interval 1000
 
 
 
-
+outputname occult
 tree tree
 ##########################################
 

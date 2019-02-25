@@ -20,6 +20,7 @@ package example.occult;
 
 import example.common.AbstractController;
 import example.common.BasicClientInterface;
+import peersim.config.Configuration;
 
 import java.io.IOException;
 import java.util.Set;
@@ -46,7 +47,7 @@ public class Controller extends AbstractController {
 //--------------------------------------------------------------------------
 
     public Controller(String name) throws IOException {
-        super(name, "occult");
+        super(name, Configuration.getString("outputname"));
     }
 
 

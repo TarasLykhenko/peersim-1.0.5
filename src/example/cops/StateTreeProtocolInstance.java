@@ -185,7 +185,7 @@ abstract class StateTreeProtocolInstance
             if (version != currentVersion + 1) {
                 Map<Integer, Integer> dependencyContext = new HashMap<>();
                 dependencyContext.put(key, version - 1);
-                debug("ISTO PROVAVELMENTE ESTÁ SUPER MAL PÁ! key:" + key + " | ownVer:" + currentVersion + "|otherVer:"+version);
+                debug("ISTO PROVAVELMENTE ESTA SUPER MAL PA! key:" + key + " | ownVer:" + currentVersion + "|otherVer:"+version);
                 debug("writeContext: " + context);
                 debug("myContext: " + keyToDOVersion);
                 RemoteUpdateQueueEntry entry = new RemoteUpdateQueueEntry(key, version);
