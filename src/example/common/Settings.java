@@ -15,8 +15,8 @@ public class Settings {
     public static final int CLIENT_READ_PERCENTAGE = 95;
     public static final int CLIENT_UPDATE_PERCENTAGE = 5;
 
-    public static final String CLIENT_READ_LEVEL_PERCENTAGE = "[30,30,40]";
-    public static final String CLIENT_UPDATE_LEVEL_PERCENTAGE = "[30,30,40]";
+    public static final String CLIENT_READ_LEVEL_PERCENTAGE = "[100,0,0]";
+    public static final String CLIENT_UPDATE_LEVEL_PERCENTAGE = "[100,0,0]";
 
     /**
      *  percentage clients that use objects up to a given distance
@@ -25,13 +25,13 @@ public class Settings {
      */
     public static final String CLIENT_LOCALITY_PERCENTAGE = "[0,0,100]";
 
-    public static final int CLIENT_EAGER_PERCENTAGE = 100;
+    public static final int CLIENT_EAGER_PERCENTAGE = 0;
     public static final int TOTAL_OBJECTS_PER_DATACENTER = 300;
     public static final String LEVELS_PERCENTAGE = "[33,33,34]";
 
     public static final float STATISTICS_WINDOW = 1;
 
-    public static final boolean SHOULD_PARTITION_DC = false;
+    public static final boolean SHOULD_PARTITION_DC = true;
     public static final boolean SHOULD_PARTITION_CLIENTS = false;
     public static final double PARTITION_START_PERCENTAGE = 20;
     public static final double PARTITION_STOP_PERCENTAGE = 80;

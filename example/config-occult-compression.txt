@@ -22,7 +22,7 @@ occult_type temporal_compression
 client_ts_size 10
 objects_per_shard 2
 
-client_read_retries 2
+client_read_retries 5
 client_read_retry_interval 1000
 ########################################
 

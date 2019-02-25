@@ -26,6 +26,7 @@ import example.common.datatypes.DataObject;
 import peersim.core.Protocol;
 
 import java.security.acl.Group;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -311,7 +312,7 @@ public abstract class DatacenterProtocolInstance
                        Client client,
                        Map<Long, Integer> migrationClock) {
         Map<Long, Integer> latestDCClock = this.remoteUpdatesTable.get(originDatacenter);
-        if (canAcceptClient(migrationClock, latestDCClock)) {
+        if (canAcceptClient(originDatacenter, migrationClock, nodeId, latestDCClock)) {
             acceptClient(client);
         } else {
             migrationTable.get(originDatacenter).put(client, migrationClock);
@@ -347,20 +348,38 @@ public abstract class DatacenterProtocolInstance
             Map<Long, Integer> migrationClock = clientMapMap.get(client);
             Map<Long, Integer> latestDCClock = this.remoteUpdatesTable.get(datacenter);
 
-            if (canAcceptClient(migrationClock, latestDCClock)) {
+            if (canAcceptClient(datacenter, migrationClock, nodeId, latestDCClock)) {
                 acceptClient(client);
                 iterator.remove();
             }
         }
     }
 
-    private boolean canAcceptClient(Map<Long, Integer> migrationClock,
+    private boolean canAcceptClient(long originDC,
+                                    Map<Long, Integer> migrationClock,
+                                    long thisDcId,
                                     Map<Long, Integer> latestDCClock) {
         if (migrationClock.size() != latestDCClock.size()) {
             throw new RuntimeException("Invalid size of clocks!");
         }
 
-        for (Long entryId : migrationClock.keySet()) {
+        TreeOverlay treeOverlay = GroupsManager.getInstance().getTreeOverlay();
+
+        List<Long> dcToRoot = treeOverlay.getNodesOnPathToRoot(originDC);
+        List<Long> thisToRoot = treeOverlay.getNodesOnPathToRoot(thisDcId);
+        List<Long> interestingEntries = new ArrayList<>();
+
+        for (int i = 0; i < dcToRoot.size(); i++) {
+            Long entryOriginDC = dcToRoot.get(i);
+            Long entryThisDC = thisToRoot.get(i);
+
+            if (!entryOriginDC.equals(entryThisDC)) {
+                interestingEntries.add(entryOriginDC);
+            }
+        }
+
+
+        for (Long entryId : interestingEntries) {
             if (!latestDCClock.containsKey(entryId)) {
                 throw new RuntimeException("Both clocks need to have the same entries.");
             }
