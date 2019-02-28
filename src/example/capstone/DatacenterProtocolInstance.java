@@ -298,14 +298,17 @@ public abstract class DatacenterProtocolInstance
      * 3) Update ST with updated CloudletClock
      * 4) Check MT for any clients that can be accepted
      */
-    void processRemoteUpdate(UpdateMessage updateMessage) {
+    void
+    processRemoteUpdate(UpdateMessage updateMessage) {
         long datacenterUpdateOrigin = updateMessage.getOriginalDC();
         int key = updateMessage.getKey();
         Map<Long, Integer> updateClock = updateMessage.getVectorClock();
 
         updateRemoteUpdateTable(datacenterUpdateOrigin, updateClock);
         updateOwnCloudletClock(updateClock);
-        updateStorageTable(key);
+        if (isInterested(key)) {
+            updateStorageTable(key);
+        }
         checkMigrationTable(datacenterUpdateOrigin);
     }
 

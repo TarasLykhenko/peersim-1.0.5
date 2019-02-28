@@ -13,7 +13,7 @@ simulation.logtime CYCLE
 
 groups {[0],[0,1],[0,1,2,3]}{[1],[0,1],[0,1,2,3]}{[2],[2,3],[0,1,2,3]}{[3],[2,3],[0,1,2,3]}
 
-partitions_datacenters example/partitions/four_nodes_all_connected_partition_between_contries.top
+partitions_datacenters example/partitions/four_nodes_all_connected_partition_between_countries.top
 partitions_clients example/client-partitions/four_nodes_all_connected_partition_between_countries.top
 
 
@@ -57,7 +57,7 @@ protocol.tr.drop 0
 ### Creates graph and sets latencies
 init.1 example.common.WireTopology
 init.1.topology_path example/topologies
-init.1.topology_file four_nodes_all_connected.top
+init.1.topology_file four_nodes_all_connected_simple.top
 init.1.protocol link
 
 ### Inits queues based on graph

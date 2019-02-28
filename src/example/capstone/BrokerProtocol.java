@@ -95,8 +95,11 @@ public class BrokerProtocol implements EDProtocol {
         return interestedChildren;
     }
 
+    // We currently want all updates to go everywhere.
+    // Otherwise we need an heartbeat mechanism.
     private boolean nodeIsInterested(long nodeId, int key) {
-        return GroupsManager.getInstance().isInterested(nodeId, key);
+        return true;
+        //return GroupsManager.getInstance().isInterested(nodeId, key);
     }
 
 

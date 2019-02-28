@@ -56,7 +56,7 @@ init.0.type_protocol type
 ### Creates graph and sets latencies
 init.1 example.genericsaturn.WireTopology
 init.1.topology_path example/topologies
-init.1.topology_file four_nodes_three_brokers2.top
+init.1.topology_file four_nodes_three_brokers_simple.top
 init.1.protocol link
 init.1.type_protocol type
 

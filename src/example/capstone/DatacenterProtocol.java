@@ -182,6 +182,7 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
         // Remote update
         if (event instanceof UpdateMessage) {
             UpdateMessage updateMessage = (UpdateMessage) event;
+            // if (!isInterested(updateMessage.getKey())) throw new RuntimeException("wow");
             this.processRemoteUpdate(updateMessage);
         }
 

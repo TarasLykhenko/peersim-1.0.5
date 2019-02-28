@@ -1,0 +1,56 @@
+# network size
+SIZE 15
+
+# parameters of periodic execution
+CYCLES 100000
+CYCLE 1
+
+# random.seed 1234567890
+network.size SIZE
+simulation.endtime CYCLES
+simulation.logtime CYCLE
+
+distinct_groups 1
+number_groups_per_node 1
+
+rest_time 200
+rest_time_interval 50
+delta 1
+debug false
+backend causalneighbour
+
+##########################################
+
+################### protocols ===========================
+
+protocol.link peersim.core.IdleProtocol
+
+protocol.causalneighbour example.myproject.CausalNeighbourFrontend
+protocol.causalneighbour.step CYCLE
+protocol.causalneighbour.transport tr
+protocol.causalneighbour.tree_protocol tree
+protocol.causalneighbour.linkable link
+
+protocol.urt example.myproject.PointToPointTransport
+
+protocol.tr UnreliableTransport
+protocol.tr.transport urt
+protocol.tr.drop 0
+
+################### initialization ======================
+
+### Creates graph and sets latencies
+init.1 example.myproject.topology.TreeWireTopology
+init.1.protocol link
+init.1.breadth 2
+
+### Inits queues based on graph
+init.2 example.myproject.Initialization
+init.2.backend  causalneighbour
+init.2.linkable link
+
+init.sch CDScheduler
+init.sch.protocol causalneighbour
+init.sch.randstart
+
+################ control ==============================
