@@ -1,5 +1,6 @@
 package example.myproject;
 
+import example.myproject.server.BackendInterface;
 import peersim.config.Configuration;
 import peersim.core.CommonState;
 import peersim.core.Control;
@@ -71,7 +72,7 @@ public class Initialization implements Control {
         for (int nodeIdx = 0; nodeIdx < Network.size(); nodeIdx++) {
             Node node = Network.get(nodeIdx);
             BackendInterface server = nodeToBackend(node);
-            server.setId(node.getID());
+            server.init(node.getID());
         }
     }
 

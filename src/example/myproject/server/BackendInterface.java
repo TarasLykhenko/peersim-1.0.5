@@ -1,4 +1,4 @@
-package example.myproject;
+package example.myproject.server;
 
 import peersim.core.Node;
 
@@ -11,7 +11,7 @@ public interface BackendInterface {
      * Sets the id of the protocol to be the same as the node's Id the protocol belongs to
      * @param id The node Id
      */
-    void setId(Long id);
+    void init(Long id);
 
     /**
      * Returns the nodeId

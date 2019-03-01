@@ -1,4 +1,4 @@
-package example.myproject;
+package example.myproject.server;
 
 import example.myproject.datatypes.Message;
 import peersim.cdsim.CDProtocol;
@@ -17,14 +17,29 @@ import java.util.stream.Collectors;
 public class CausalNeighbourFrontend extends CausalNeighbourBackend
         implements CDProtocol, EDProtocol {
 
+    private int pid;
+
+    // TODO METER PID
     public CausalNeighbourFrontend(String prefix) {
         super(prefix);
     }
 
+
     @Override
-    Message forwardMessage(Message message) {
-        return null;
+    void forwardMessages(List<Message> messages) {
+        for (Message message : messages) {
+            frontendForwardMessage(message);
+        }
     }
+
+    // TODO VERIFICAR QUE ISTO ESTA BEM
+    private void frontendForwardMessage(Message message) {
+        Node srcNode = Network.get(Math.toIntExact(getId()));
+        Node targetNode = Network.get(Math.toIntExact(message.getNextDestination()))
+        sendMessage(srcNode, targetNode, message, pid);
+    }
+
+
 
     /**
      * Algorithm:

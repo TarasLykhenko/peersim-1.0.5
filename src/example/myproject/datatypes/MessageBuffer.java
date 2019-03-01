@@ -34,4 +34,8 @@ public class MessageBuffer {
         messageBuffer.get(forwarder).clear();
         return result;
     }
+
+    public List<Message> processMessages(Message message) {
+        return null;
+    }
 }
