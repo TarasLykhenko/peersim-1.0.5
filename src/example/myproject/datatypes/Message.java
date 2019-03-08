@@ -2,10 +2,17 @@ package example.myproject.datatypes;
 
 import peersim.config.Configuration;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
+// TODO - Remaining optimizations:
+//      - De momento cada nó tem de ver entrada a entrada da metadata
+//      - (Mas isto até faz sentido, pois ele tem de ver entrada a entrada se faz sentido)
+//      - Acho que afinal nem sequer faz sentido optimizar nada disto. Quando ele está a ver
+//      - uma entrada que ele deve cortar, ele analisa e depois corta
 public class Message {
 
     private static final int delta;
@@ -18,7 +25,7 @@ public class Message {
     private Long sender;
     private Long forwarder;
     private Map<Long, Integer> data;
-    private Map<Long, Integer> metadata = new MessageMap<>();
+    private List<Map<Long, Integer>> metadata = new ArrayList<>();
 
     private Long nextDestination;
 
@@ -37,6 +44,11 @@ public class Message {
         this.data = data;
     }
 
+    /**
+     * Having a list of different
+     * @param pathId
+     * @param counter
+     */
     public void addMetadata(Long pathId, Integer counter) {
         if (this.metadata != null) {
             throw new RuntimeException("Message already contains metadata.");
@@ -61,7 +73,7 @@ public class Message {
         return this.forwarder;
     }
 
-    public Map<Long, Integer> getMetadata() {
+    public List<Map<Long, Integer>> getMetadata() {
         return this.metadata;
     }
 

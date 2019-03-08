@@ -2,6 +2,7 @@ package example.myproject.server;
 
 import example.myproject.datatypes.Message;
 import peersim.cdsim.CDProtocol;
+import peersim.config.Configuration;
 import peersim.config.FastConfig;
 import peersim.core.Network;
 import peersim.core.Node;
@@ -17,11 +18,14 @@ import java.util.stream.Collectors;
 public class CausalNeighbourFrontend extends CausalNeighbourBackend
         implements CDProtocol, EDProtocol {
 
-    private int pid;
+    private final int pid;
+    private final String prefix;
 
-    // TODO METER PID
+    // TODO TESTAR SE PID ESTA CORRECTO
     public CausalNeighbourFrontend(String prefix) {
         super(prefix);
+        this.prefix = prefix;
+        this.pid = Configuration.getPid(prefix + ".transport");
     }
 
 
@@ -32,10 +36,9 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
         }
     }
 
-    // TODO VERIFICAR QUE ISTO ESTA BEM
     private void frontendForwardMessage(Message message) {
         Node srcNode = Network.get(Math.toIntExact(getId()));
-        Node targetNode = Network.get(Math.toIntExact(message.getNextDestination()))
+        Node targetNode = Network.get(Math.toIntExact(message.getNextDestination()));
         sendMessage(srcNode, targetNode, message, pid);
     }
 
@@ -63,76 +66,19 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
         }
         System.out.println("PUBLISHER: " + node.getID());
 
-        Message newMessage = this.publishMessage();
+        List<Message> newMessage = this.publishMessage();
 
         if (newMessage == null) {
             return;
         }
 
-        Set<Long> interestedNodes = getInterestedNodes(newMessage);
-        Set<Long> liveInterestedNodes = getLiveInterestedNodes(interestedNodes);
-        Set<List<Node>> differentPathsOfInterestNodes = getDistinctPaths(liveInterestedNodes);
-
-        for (List<Node> path : differentPathsOfInterestNodes) {
-            Message messageToSend = new Message(newMessage);
-            appendMetadataToMessage(messageToSend, path);
-            sendMessage(node, path.get(0), messageToSend, protocolID);
+        for (Message destinationMsg : newMessage) {
+            Long nextDestinationId = destinationMsg.getNextDestination();
+            Node nextDestinationNode = Network.get(Math.toIntExact(nextDestinationId));
+            sendMessage(node, nextDestinationNode, destinationMsg, protocolID);
         }
     }
 
-    /**
-     * Given a set of nodes, returns the different paths that englobe all nodes.
-     * Meaning if there are only two nodes and both are on the same path, only one
-     * path is returned.
-     *
-     * @return
-     */
-    private Set<List<Node>> getDistinctPaths(Set<Long> liveInterestedNodes) {
-        Set<List<Node>> distinctPaths = new HashSet<>();
-
-        String collect =
-                liveInterestedNodes.stream().map(Objects::toString).collect(Collectors.joining(" "));
-        System.out.println("Set of nodes: " + collect);
-
-        for (Long nodeId : liveInterestedNodes) {
-            Node node = Network.get(Math.toIntExact(nodeId));
-            List<Node> fullPathOfNode = getFullPathOfNode(node);
-            distinctPaths.add(fullPathOfNode);
-        }
-
-        for (List<Node> path : distinctPaths) {
-            String pathCollect =
-                    path.stream()
-                            .map(Node::getID)
-                            .map(Objects::toString)
-                            .collect(Collectors.joining(" "));
-            System.out.println("Distinct path: " + pathCollect);
-        }
-        return distinctPaths;
-    }
-
-    // TODO Isto parece-me batota? Ver directamente se o nó está vivo, não sei
-    // se posso fazer isto
-
-    /**
-     * Given a set of nodes, this method returns a new set containing
-     * only the nodes that are currently alive.
-     * @param interestedNodes
-     * @return
-     */
-    private Set<Long> getLiveInterestedNodes(Set<Long> interestedNodes) {
-        Set<Long> result = new HashSet<>();
-
-        for (Long nodeId : interestedNodes) {
-            Node node = Network.get(Math.toIntExact(nodeId));
-
-            if (node.isUp()) {
-                result.add(nodeId);
-            }
-        }
-
-        return result;
-    }
 
     private void sendMessage(Node src, Node dst, Object msg, int pid) {
         ((Transport) src.getProtocol(FastConfig.getTransport(pid)))
@@ -159,7 +105,7 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
 
     @Override
     public Object clone() {
-        return new CausalNeighbourFrontend("");
+        return new CausalNeighbourFrontend(prefix);
     }
 
 }

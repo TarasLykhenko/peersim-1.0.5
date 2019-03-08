@@ -4,6 +4,7 @@ import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
 import peersim.core.Node;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +21,7 @@ public class PathHandler {
     private Map<Node, List<Node>> nodesToCorrespondingPath = new HashMap<>();
 
     /**
-     *  Each node tracks the number of messages it has sent to each path
+     * Each node tracks the number of messages it has sent to each path
      */
     private Map<Long, Integer> pathMessagesSent = new HashMap<>();
 
@@ -36,12 +37,15 @@ public class PathHandler {
 
     /**
      * This method simply updates the vector's
+     *
      * @param messages
      * @return
      */
     public List<Message> processMessages(List<Message> messages) {
-        for (Message message : )
-        return null;
+        for (Message message : messages) {
+
+        }
+        return messages;
     }
 
     void handleDuplicateMessage(Message message) {
@@ -53,7 +57,7 @@ public class PathHandler {
 
             if (metadataValue == currentNodeEntry + 1) {
                 pathsMessagesReceived.put(nodeId, metadataValue);
-            } else if (metadataValue > currentNodeEntry +1) {
+            } else if (metadataValue > currentNodeEntry + 1) {
                 throw new AssertException("Interesting scenario 🤔");
             }
         }
@@ -77,42 +81,51 @@ public class PathHandler {
 
     // TODO
     void appendMetadataToMessage(Message messageToSend, List<Node> path) {
+
     }
 
     /**
-     * A message can have three different states:
-     *  1) If all metadata entries are higher by one entry when compared to
-     *  the receiving node's Data Structure, then the message is ordered;
+     * A message can have a list of vectors.
      *
-     *  2) If at least one metadata entry is higher by 2 or more when compared,
-     *  then at least one message is missing;
+     * All vectors' entries should be either have a value higher than the stored path's value
+     * or can have lower (duplicate). If any msg entry is higher by 2, then the synch
+     * step had a problem that should have not happened.
      *
-     *  3) If at least one metadata entry has a lower value when compared,
-     *  then the message is a duplicate.
+     * List of scenarios:
+     * 1) If all metadata entries are higher by one entry when compared to
+     * the receiving node's Data Structure, then the message is ordered;
      *
-     * @param message
+     * 2) If at least one metadata entry is higher by 2 or more when compared,
+     * then at least one message is missing;
+     *      NOTE: There is now a synchronization step when starting a communication
+     *      channel with a node, so this scenario should never happen.
+     *
+     * 3) If at least one metadata entry has a lower value when compared,
+     * then the message is a duplicate.
      */
     Scenario evaluationScenario(Message message) {
-        for (Map.Entry<Long, Integer> entry : message.getMetadata().entrySet()) {
-            Long nodeId = entry.getKey();
-            Integer metadataEntry = entry.getValue();
-            // TODO vai dar NPE soon
-            Integer currentNodeEntry = pathsMessagesReceived.get(nodeId);
+        for (Map<Long, Integer> listsOfMetadata : message.getMetadata()) {
+            for (Map.Entry<Long, Integer> entry : listsOfMetadata.entrySet()) {
+                Long nodeId = entry.getKey();
+                Integer metadataEntry = entry.getValue();
+                // TODO vai dar NPE soon
+                Integer currentNodeEntry = pathsMessagesReceived.get(nodeId);
 
-            if (metadataEntry == currentNodeEntry + 1) {
-                // Scenario 1
-                continue;
-            } else if (metadataEntry > currentNodeEntry + 1) {
-                // Scenario 2
-                // bufferMessage(message);
-                return Scenario.TWO;
-            } else if (metadataEntry <= currentNodeEntry) {
-                // Scenario 3
-                // handleDuplicateMessage(message);
-                return Scenario.THREE;
+                if (metadataEntry == currentNodeEntry + 1) {
+                    // Scenario 1
+                    continue;
+                } else if (metadataEntry > currentNodeEntry + 1) {
+                    // Scenario 2
+                    // bufferMessage(message);
+                    throw new AssertException("Because of the new connection synch, this should never happen.");
+                    // return Scenario.TWO;
+                } else if (metadataEntry <= currentNodeEntry) {
+                    // Scenario 3
+                    // handleDuplicateMessage(message);
+                    return Scenario.THREE;
+                }
             }
         }
-
         // Scenario 1
         return Scenario.ONE;
         // deliverMessage(message);
@@ -120,15 +133,15 @@ public class PathHandler {
         // forwardMessage(message);
     }
 
-    // ------------------
-    // INTERFACE METHODS
-    // ------------------
+        // ------------------
+        // INTERFACE METHODS
+        // ------------------
 
-    Set<List<Node>> getNeighbourhood() {
-        return paths;
-    }
+        Set<List<Node>> getNeighbourhood () {
+            return paths;
+        }
 
-    List<Node> getFullPathOfNode(Node node) {
-        return nodesToCorrespondingPath.get(node);
+        List<Node> getFullPathOfNode (Node node){
+            return nodesToCorrespondingPath.get(node);
+        }
     }
-}
