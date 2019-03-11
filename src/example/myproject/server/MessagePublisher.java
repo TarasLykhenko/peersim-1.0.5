@@ -53,7 +53,15 @@ public class MessagePublisher {
     }
 
 
-    List<Message> forwardMessages(List<Message> messages) {
+    /**
+     * Given a message, forward it to the next nodes.
+     * @param message
+     * @return
+     */
+    List<Message> forwardMessage(Message message) {
+        Long forwarder = message.getForwarder();
+        int group = message.getGroup();
+
         return null;
     }
 

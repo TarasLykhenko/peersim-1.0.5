@@ -40,7 +40,7 @@ protocol.tr.drop 0
 ################### initialization ======================
 
 ### Creates graph and sets latencies
-init.1 example.myproject.topology.LinearWireTopology
+init.1 example.myproject.topology.TreeWireTopology
 init.1.protocol link
 init.1.breadth 2
 

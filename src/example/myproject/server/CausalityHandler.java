@@ -23,7 +23,7 @@ public class CausalityHandler {
      */
     private Map<Long, Integer> publisherMessages = new HashMap<>();
 
-    public List<Message> processMessages(List<Message> messages) {
+    public Message processMessage(Message message) {
 
         // Before returning, verify that they are causally correct
         deliverMessages(null); // TODO

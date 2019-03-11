@@ -1,6 +1,8 @@
 package example.myproject.datatypes;
 
+import example.myproject.server.PathHandler;
 import peersim.config.Configuration;
+import peersim.core.Node;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,17 +17,11 @@ import java.util.Map;
 //      - uma entrada que ele deve cortar, ele analisa e depois corta
 public class Message {
 
-    private static final int delta;
-
-    static {
-        delta = Configuration.getInt("delta");
-    }
-
-    private Integer group;
-    private Long sender;
-    private Long forwarder;
+    private final Integer group;
+    private final Long sender;
+    private final List<Map<Long, Integer>> metadata;
     private Map<Long, Integer> data;
-    private List<Map<Long, Integer>> metadata = new ArrayList<>();
+    private Long forwarder;
 
     private Long nextDestination;
 
@@ -34,10 +30,36 @@ public class Message {
         // this.data = new HashMap<>(data);
         this.sender = sender;
         this.forwarder = forwarder;
+        this.metadata = new ArrayList<>();
     }
 
-    public Message(Message message) {
+    /**
+     * Given an existing message that may contain metadata and a given node,
+     * create a new message from it containing the relevant metadata for such path
+     * @param message
+     */
+    public Message(Message message, List<Map<Long, Integer>> metadata, long destination) {
+        this.group = message.group;
         this.data = message.data;
+        this.metadata = metadata;
+        this.sender = message.sender;
+        this.nextDestination = destination;
+
+
+        /*
+        for (Map<Long, Integer> metadataVector : message.metadata) {
+            Map<Long, Integer> result = new MessageMap<>();
+            for (Long pathId : metadataVector.keySet()) {
+                if (pathHandler.pathIsSubpath(pathId, path)) {
+                    result.put(pathId, metadataVector.get(pathId));
+                }
+            }
+            if (!result.isEmpty()) {
+                metadata.add(result);
+            }
+        }
+        setNextDestination(path.get(0).getID());
+        */
     }
 
     public void addPublisherState(Map<Long, Integer> data) {
@@ -49,12 +71,16 @@ public class Message {
      * @param pathId
      * @param counter
      */
-    public void addMetadata(Long pathId, Integer counter) {
+    public void addMetadata(int idx, Long pathId, Integer counter) {
         if (this.metadata != null) {
             throw new RuntimeException("Message already contains metadata.");
         }
 
-        this.metadata.put(pathId, counter);
+        if (metadata.get(idx) == null) {
+            metadata.add(new HashMap<>());
+        }
+
+        this.metadata.get(idx).put(pathId, counter);
     }
 
     public int getGroup() {
@@ -77,11 +103,6 @@ public class Message {
         return this.metadata;
     }
 
-    // TODO talvez juntar isto tudo num metodo dentro do Message
-    public void setNextDestination(Long nextDestination) {
-        this.nextDestination = nextDestination;
-    }
-
     public Long getNextDestination() {
         return this.nextDestination;
     }
@@ -90,11 +111,4 @@ public class Message {
         return this.metadata.size();
     }
 
-    private static class MessageMap<K, V> extends LinkedHashMap<K, V> {
-        // TODO verificar se isto está bem
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<K, V> entry) {
-            return this.size() > (delta * 2);
-        }
-    }
 }

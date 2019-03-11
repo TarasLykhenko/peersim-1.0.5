@@ -1,13 +1,16 @@
 package example.myproject.server;
 
+import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
-import example.myproject.datatypes.MessageBuffer;
 import peersim.core.Network;
 import peersim.core.Node;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -24,11 +27,9 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     private MessagePublisher messagePublisher;
     private PathHandler pathHandler;
     private CausalityHandler causalityHandler;
-    /**
-     * When a message is received out of order, it needs to be buffered.
-     * These messages are buffered here.
-     */
-    private MessageBuffer messageBuffer = new MessageBuffer();
+
+    Set<Node> activeConnections = new HashSet<>();
+    Set<Node> downConnections = new HashSet<>();
 
 
     public CausalNeighbourBackend(String prefix) {
@@ -52,21 +53,24 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
 
         causalityHandler.addPublisherState(freshMessage);
 
-        Set<Long> interestedNodes = getInterestedNodes(freshMessage);
+        return prepareMessageToForward(freshMessage);
+    }
+
+    private List<Message> prepareMessageToForward(Message message) {
+        Set<Long> interestedNodes = getInterestedNodes(message);
         Set<Long> liveInterestedNodes = getLiveInterestedNodes(interestedNodes);
         Set<List<Node>> differentPathsOfInterestNodes = getDistinctPaths(liveInterestedNodes);
+        Collection<List<List<Node>>> groupedDistinctPaths = groupDistinctPaths(differentPathsOfInterestNodes);
 
         List<Message> differentMessagesToSend = new ArrayList<>();
-        for (List<Node> path : differentPathsOfInterestNodes) {
-            Message messageToSend = new Message(freshMessage);
-            messageToSend.setNextDestination(path.get(0).getID());
-            pathHandler.appendMetadataToMessage(messageToSend, path);
+        for (List<List<Node>> pathsGroup : groupedDistinctPaths) {
+            Message messageToSend = pathHandler.generateNewMessageForPath(message, pathsGroup);
+            // pathHandler.appendMetadataToMessage(messageToSend, path);
             differentMessagesToSend.add(messageToSend);
         }
 
         return differentMessagesToSend;
     }
-
 
 
     /**
@@ -79,9 +83,7 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     private Set<List<Node>> getDistinctPaths(Set<Long> liveInterestedNodes) {
         Set<List<Node>> distinctPaths = new HashSet<>();
 
-        String collect =
-                liveInterestedNodes.stream().map(Objects::toString).collect(Collectors.joining(" "));
-        System.out.println("Set of nodes: " + collect);
+        printPathLongs("Set of nodes", liveInterestedNodes);
 
         for (Long nodeId : liveInterestedNodes) {
             Node node = Network.get(Math.toIntExact(nodeId));
@@ -89,16 +91,59 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
             distinctPaths.add(fullPathOfNode);
         }
 
+
         for (List<Node> path : distinctPaths) {
-            String pathCollect =
-                    path.stream()
-                            .map(Node::getID)
-                            .map(Objects::toString)
-                            .collect(Collectors.joining(" "));
-            System.out.println("Distinct path: " + pathCollect);
+            printPath("Distinct path", path);
         }
         return distinctPaths;
     }
+
+
+    /**
+     * Given a list of distinct paths, groups them according to different subpaths
+     * Groups the paths also by seeing which active connection is alive.
+     *
+     * Example (for lvl 1): We split according to similar nodes on the 2nd index
+     *  Subpaths:   2 0 1
+     *              2 5 11
+     *              2 5 12
+     *              2 6 13
+     *              2 6 14
+     *
+     *  The groupings are [2 0 1], [{2 5 11}, {2 5 12}] and [{2 6 13}, {2 6 14}]
+     *  The messages will be sent to nodes 0, 5 and 6.
+     *
+     *  Node 0 will receive metadata for [2 0 1]
+     *  Node 5 will receive metadata for [2 5 11, 2 5 12]
+     *  Node 6 will receive metadata for [2 6 13, 2 6 14]
+     * @param distinctPaths
+     * @return
+     */
+    private Collection<List<List<Node>>> groupDistinctPaths(Set<List<Node>> distinctPaths) {
+        Map<Long, List<List<Node>>> result = new HashMap<>();
+        int counter = 0; // Tracks how many lists were added
+
+        for (List<Node> path : distinctPaths) {
+            int lvl = 1;
+            while (lvl < path.size()) {
+                Node node = path.get(lvl);
+                if (downConnections.contains(node)) {
+                    lvl++;
+                } else {
+                    long entry = node.getID();
+                    result.computeIfAbsent(entry, k -> new ArrayList<>()).add(path);
+                    break;
+                }
+            }
+            if (lvl == path.size()) {
+                throw new AssertException("This is an interesting case");
+            }
+        }
+
+        return result.values();
+    }
+
+
 
     // TODO Isto parece-me batota? Ver directamente se o nó está vivo, não sei
     // se posso fazer isto
@@ -124,29 +169,14 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     /**
      * The frontend receives a list of messages ready to be forwarded and directly
      * forwards the messages, without doing any processing
      *
-     * @param message The list of messages that are to be sent.
+     * @param messages The list of messages that are to be sent.
      *                IMPORTANT: They should already be processed
      */
-    abstract void forwardMessages(List<Message> message);
+    abstract void forwardMessages(List<Message> messages);
 
 
     // --------------------------------------------------------
@@ -157,18 +187,19 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
         PathHandler.Scenario scenario = pathHandler.evaluationScenario(message);
         switch (scenario) {
             case ONE:
-                List<Message> messages = messageBuffer.processMessages(message);
-                List<Message> causallyApprovedMessages = causalityHandler.processMessages(messages);
-                List<Message> processedMessages = pathHandler.processMessages(causallyApprovedMessages);
-                List<Message> messagesToForward = messagePublisher.forwardMessages(processedMessages);
+                Message causallyApprovedMessage = causalityHandler.processMessage(message);
+                Message processedMessage = pathHandler.processMessage(causallyApprovedMessage);
+                List<Message> messagesToForward = prepareMessageToForward(processedMessage);
                 forwardMessages(messagesToForward);
                 break;
 
             case TWO:
-                messageBuffer.bufferMessage(message);
+                System.exit(1);
+                // messageBuffer.bufferMessage(message);
                 break;
 
             case THREE:
+                // TODO provavelmente tem de propagar as metadatas para o resto
                 pathHandler.handleDuplicateMessage(message);
                 break;
         }
@@ -177,6 +208,21 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     // --------------
     // HELPER METHODS
     // --------------
+
+    public static void printPath(String msg, Collection<Node> path) {
+        String result = path.stream()
+                .map(Node::getID)
+                .map(Object::toString)
+                .collect(Collectors.joining(":"));
+        System.out.println(msg + " - " + result);
+    }
+
+    public static void printPathLongs(String msg, Collection<Long> path) {
+        String result = path.stream()
+                .map(Object::toString)
+                .collect(Collectors.joining(":"));
+        System.out.println(msg + " - " + result);
+    }
 
     List<Node> getFullPathOfNode(Node node) {
         return pathHandler.getFullPathOfNode(node);

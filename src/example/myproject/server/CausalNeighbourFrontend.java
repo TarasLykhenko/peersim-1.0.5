@@ -9,11 +9,7 @@ import peersim.core.Node;
 import peersim.edsim.EDProtocol;
 import peersim.transport.Transport;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 public class CausalNeighbourFrontend extends CausalNeighbourBackend
         implements CDProtocol, EDProtocol {
