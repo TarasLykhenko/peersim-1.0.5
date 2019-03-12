@@ -1,12 +1,9 @@
 package example.myproject.datatypes;
 
-import example.myproject.server.PathHandler;
+import example.myproject.Initialization;
 import peersim.config.Configuration;
-import peersim.core.Node;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -17,17 +14,24 @@ import java.util.Map;
 //      - uma entrada que ele deve cortar, ele analisa e depois corta
 public class Message {
 
+    private static final int delta;
+
+    static {
+        String PAR_DELTA = "delta";
+        delta = Configuration.getInt(PAR_DELTA);
+    }
+
     private final Integer group;
     private final Long sender;
-    private final List<Map<Long, Integer>> metadata;
-    private Map<Long, Integer> data;
-    private Long forwarder;
+    private final List<List<MetadataEntry>> metadata;
+    private final Map<Long, Integer> data;
+    private final Long forwarder;
 
     private Long nextDestination;
 
-    public Message(Integer group, Long sender, Long forwarder) {
+    public Message(Integer group, Map<Long, Integer> data, Long sender, Long forwarder) {
         this.group = group;
-        // this.data = new HashMap<>(data);
+        this.data = data;
         this.sender = sender;
         this.forwarder = forwarder;
         this.metadata = new ArrayList<>();
@@ -38,32 +42,23 @@ public class Message {
      * create a new message from it containing the relevant metadata for such path
      * @param message
      */
-    public Message(Message message, List<Map<Long, Integer>> metadata, long destination) {
+    public Message(Message message, List<List<MetadataEntry>> metadata, long forwarder, long destination) {
         this.group = message.group;
         this.data = message.data;
         this.metadata = metadata;
         this.sender = message.sender;
+        this.forwarder = forwarder;
         this.nextDestination = destination;
 
-
-        /*
-        for (Map<Long, Integer> metadataVector : message.metadata) {
-            Map<Long, Integer> result = new MessageMap<>();
-            for (Long pathId : metadataVector.keySet()) {
-                if (pathHandler.pathIsSubpath(pathId, path)) {
-                    result.put(pathId, metadataVector.get(pathId));
-                }
-            }
-            if (!result.isEmpty()) {
-                metadata.add(result);
+        for (List<MetadataEntry> vector : metadata) {
+            if (vector.size() > delta * 2) {
+                vector.remove(0);
             }
         }
-        setNextDestination(path.get(0).getID());
-        */
     }
 
     public void addPublisherState(Map<Long, Integer> data) {
-        this.data = data;
+        this.data.putAll(data);
     }
 
     /**
@@ -77,10 +72,10 @@ public class Message {
         }
 
         if (metadata.get(idx) == null) {
-            metadata.add(new HashMap<>());
+            metadata.add(new ArrayList<>());
         }
 
-        this.metadata.get(idx).put(pathId, counter);
+        this.metadata.get(idx).add(new MetadataEntry(pathId, counter));
     }
 
     public int getGroup() {
@@ -99,7 +94,7 @@ public class Message {
         return this.forwarder;
     }
 
-    public List<Map<Long, Integer>> getMetadata() {
+    public List<List<MetadataEntry>> getMetadata() {
         return this.metadata;
     }
 
@@ -111,4 +106,19 @@ public class Message {
         return this.metadata.size();
     }
 
+    public void printMessage() {
+        System.out.println("Message " + sender + ": " + data.get(sender) + " | from: " + forwarder + " to: " + nextDestination);
+        System.out.println("Group: " + group);
+        System.out.println("Vectors: ");
+        for (List<MetadataEntry> vector : metadata) {
+            StringBuilder stringBuilder = new StringBuilder();
+            for (MetadataEntry entry : vector) {
+                NodePath nodePath = Initialization.pathsToPathLongs.get(entry.getPathId());
+                nodePath.getPathString();
+                stringBuilder.append(nodePath.getPathString() + " - " + entry.getValue() + ", ");
+            }
+            System.out.println("  " + stringBuilder.toString());
+        }
+        System.out.println();
+    }
 }

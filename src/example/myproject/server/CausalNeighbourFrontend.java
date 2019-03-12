@@ -25,14 +25,7 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
     }
 
 
-    @Override
-    void forwardMessages(List<Message> messages) {
-        for (Message message : messages) {
-            frontendForwardMessage(message);
-        }
-    }
-
-    private void frontendForwardMessage(Message message) {
+    private void frontendForwardMessage(Message message, int pid) {
         Node srcNode = Network.get(Math.toIntExact(getId()));
         Node targetNode = Network.get(Math.toIntExact(message.getNextDestination()));
         sendMessage(srcNode, targetNode, message, pid);
@@ -57,10 +50,10 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
     public void nextCycle(Node node, int protocolID) {
 
         //TODO TIRAR ISTO NÉ
-        if (node.getID() != 2) {
+        if (node.getID() != 0) {
             return;
         }
-        System.out.println("PUBLISHER: " + node.getID());
+        // System.out.println("PUBLISHER: " + node.getID());
 
         List<Message> newMessage = this.publishMessage();
 
@@ -68,9 +61,11 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
             return;
         }
 
+        System.out.println("Published a new message:");
         for (Message destinationMsg : newMessage) {
             Long nextDestinationId = destinationMsg.getNextDestination();
             Node nextDestinationNode = Network.get(Math.toIntExact(nextDestinationId));
+            destinationMsg.printMessage();
             sendMessage(node, nextDestinationNode, destinationMsg, protocolID);
         }
     }
@@ -81,19 +76,19 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
                 .send(src, dst, msg, pid);
     }
 
-    private void sendMessage(Long srcLong, Long dstLong, Object msg, int pid) {
-        Node src = Network.get(Math.toIntExact(srcLong));
-        Node dst = Network.get(Math.toIntExact(dstLong));
-
-        ((Transport) src.getProtocol(FastConfig.getTransport(pid)))
-                .send(src, dst, msg, pid);
-    }
-
     @Override
     public void processEvent(Node node, int pid, Object event) {
         if (event instanceof Message) {
             Message message = (Message) event;
-            receiveMessage(message);
+            System.out.println("---------------------");
+            System.out.println("Received message: (Node " + node.getID() + ")");
+            message.printMessage();
+            List<Message> messagesToForward = receiveMessage(message);
+            System.out.println("Forwarding messages: ");
+            for (Message messageToForward : messagesToForward) {
+                messageToForward.printMessage();
+                frontendForwardMessage(messageToForward, pid);
+            }
         } else {
             throw new RuntimeException("Unknown message type.");
         }

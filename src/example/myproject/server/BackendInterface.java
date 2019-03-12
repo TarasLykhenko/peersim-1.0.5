@@ -1,8 +1,7 @@
 package example.myproject.server;
 
-import peersim.core.Node;
+import example.myproject.datatypes.NodePath;
 
-import java.util.List;
 import java.util.Set;
 
 public interface BackendInterface {
@@ -59,12 +58,23 @@ public interface BackendInterface {
      * (There are no intermediary paths in these lists, meaning each path always ends
      * at the most distant possible node it can reach)
      */
-    Set<List<Node>> getNeighbourhood();
+    Set<NodePath> getNeighbourhood();
 
     /**
      * Sets the server's neighbourhood
      * @param differentPaths A set of lists of all
      *                       different possible paths up to a given distance
      */
-    void setNeighbourHood(Set<List<Node>> differentPaths);
+    void setNeighbourHood(Set<NodePath> differentPaths);
+
+    /**
+     * Sets the server's neighbourhood and pathId
+     */
+    void setNeighbourhoodAndPathId(NodePath path, long pathId);
+
+    void addPathIdMapping(NodePath path, long pathId);
+
+    void startActiveConnection(Long connectionStarterId);
+
+    String printStatus();
 }

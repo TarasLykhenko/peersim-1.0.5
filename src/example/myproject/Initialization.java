@@ -1,5 +1,6 @@
 package example.myproject;
 
+import example.myproject.datatypes.NodePath;
 import example.myproject.server.BackendInterface;
 import peersim.config.Configuration;
 import peersim.core.CommonState;
@@ -13,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -32,6 +34,12 @@ public class Initialization implements Control {
     private final int backendPid;
     private final int distinctGroups;
     private final int numberGroupsPerNode;
+
+    public static Map<Long, Set<Integer>> nodeToGroups = new LinkedHashMap<>();
+    public static Map<Integer, Set<Long>> groupsToMembers = new HashMap<>();
+    public static Map<Long, NodePath> pathsToPathLongs = new HashMap<>();
+    public static Set<BackendInterface> servers = new HashSet<>();
+
 
     public Initialization(String prefix) {
         this.delta = Configuration.getInt(PAR_DELTA);
@@ -60,6 +68,7 @@ public class Initialization implements Control {
         generateGlobalPaths();
         discoverPathsForEachNode();
         generateSRTsForEachNode();
+        startActiveConnections();
 
         discoverSRTsOfNeighbours();
 
@@ -68,14 +77,27 @@ public class Initialization implements Control {
         return false;
     }
 
+    private void startActiveConnections() {
+        for (int i = 0; i < Network.size(); i++) {
+            Node node = Network.get(i);
+
+            Linkable linkable = (Linkable) node.getProtocol(linkablePid);
+            for (int j = 0; j < linkable.degree(); j++) {
+                Node neighbour = linkable.getNeighbor(j);
+                BackendInterface neighbourServer = nodeToBackend(neighbour);
+                neighbourServer.startActiveConnection(node.getID());
+            }
+
+        }
+    }
     private void setBackendIds() {
         for (int nodeIdx = 0; nodeIdx < Network.size(); nodeIdx++) {
             Node node = Network.get(nodeIdx);
             BackendInterface server = nodeToBackend(node);
             server.init(node.getID());
+            servers.add(server);
         }
     }
-
     /**
      * Maps the path of a src to a dst.
      *
@@ -85,7 +107,7 @@ public class Initialization implements Control {
      */
     private Map<Long, Map<Long, List<Node>>> globalPaths = new HashMap<>();
 
-    private Map<Integer, Set<Long>> groupsToMembers = new HashMap<>();
+
 
     private void generateGlobalPaths() {
         for (int nodeIdx = 0; nodeIdx < Network.size(); nodeIdx++) {
@@ -105,6 +127,7 @@ public class Initialization implements Control {
             }
         }
 
+        /*
         System.out.println("DEBUG GLOBAL PATHS");
         for (Long src : globalPaths.keySet()) {
             System.out.println("SRC: " + src);
@@ -115,9 +138,10 @@ public class Initialization implements Control {
                 System.out.println("    DST: " + dst + " | path: " + pathString);
             }
         }
+        */
     }
-
     private void discoverPathsForEachNode() {
+        long pathId = 100_000;
         for (int nodeIdx = 0; nodeIdx < Network.size(); nodeIdx++) {
             Node node = Network.get(nodeIdx);
 
@@ -126,18 +150,22 @@ public class Initialization implements Control {
             Set<List<Node>> result = new HashSet<>();
             List<Node> currentPath = new ArrayList<>();
             currentPath.add(node);
-            getPaths(currentPath, result, 0, delta + 1, false);
+            getPaths(currentPath, result, 0, delta + 1, true);
 
             System.out.println("Printing paths for " + node.getID());
-            for (List<Node> nodePath : result) {
-                String pathsName = nodePath.stream()
-                        .map(Node::getID)
-                        .map(Objects::toString)
-                        .collect(Collectors.joining("-"));
-                System.out.println(">> " + pathsName);
+            for (List<Node> path : result) {
+                NodePath nodePath = new NodePath(path);
+                pathId++;
+                nodePath.printLn(">> ");
+                server.setNeighbourhoodAndPathId(nodePath, pathId);
+                pathsToPathLongs.put(pathId, nodePath);
+                for (Node neighbourNode : nodePath.path) {
+                    BackendInterface neighbourServer = nodeToBackend(neighbourNode);
+                    neighbourServer.addPathIdMapping(nodePath, pathId);
+                }
             }
 
-            server.setNeighbourHood(result);
+            // server.setNeighbourHood(result);
         }
     }
 
@@ -152,6 +180,8 @@ public class Initialization implements Control {
 
                 groupsToMembers.computeIfAbsent(group, k -> new HashSet<>())
                         .add(server.getId());
+                nodeToGroups.computeIfAbsent(server.getId(), k -> new HashSet<>())
+                        .add(group);
             }
         }
 
@@ -176,6 +206,7 @@ public class Initialization implements Control {
                 BackendInterface server = nodeToBackend(node);
                 if (!server.belongsToGroup(group)) {
                     server.setForwarderOfGroup(group);
+                    nodeToGroups.get(server.getId()).add(group);
                 }
             }
         }
@@ -187,8 +218,11 @@ public class Initialization implements Control {
 
             BackendInterface server = nodeToBackend(node);
 
-            Set<List<Node>> paths = server.getNeighbourhood();
-            Set<Node> distinctNeighbours = paths.stream().flatMap(Collection::stream).collect(Collectors.toSet());
+            Set<NodePath> paths = server.getNeighbourhood();
+            Set<Node> distinctNeighbours = paths.stream()
+                    .map(path -> path.path)
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toSet());
 
             for (Node neighbour : distinctNeighbours) {
                 BackendInterface neighbourServer = nodeToBackend(neighbour);
@@ -198,10 +232,12 @@ public class Initialization implements Control {
                         neighbourServer.getCopyOfSRT());
             }
 
+            /*
             System.out.println("I am " + nodeIdx);
             for (Node n : distinctNeighbours) {
                 System.out.println(">> " + n.getID());
             }
+            */
         }
     }
 

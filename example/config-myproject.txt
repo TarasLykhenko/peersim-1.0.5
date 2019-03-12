@@ -1,8 +1,8 @@
 # network size
-SIZE 15
+SIZE 5
 
 # parameters of periodic execution
-CYCLES 100000
+CYCLES 10000
 CYCLE 1
 
 # random.seed 1234567890
@@ -13,7 +13,7 @@ simulation.logtime CYCLE
 distinct_groups 1
 number_groups_per_node 1
 
-rest_time 200
+rest_time 100
 rest_time_interval 50
 delta 1
 debug false
@@ -40,7 +40,7 @@ protocol.tr.drop 0
 ################### initialization ======================
 
 ### Creates graph and sets latencies
-init.1 example.myproject.topology.TreeWireTopology
+init.1 example.myproject.topology.LinearWireTopology
 init.1.protocol link
 init.1.breadth 2
 
@@ -54,3 +54,8 @@ init.sch.protocol causalneighbour
 init.sch.randstart
 
 ################ control ==============================
+
+control.0 example.myproject.Controller
+control.0.protocol causalneighbour
+control.0.step CYCLE
+control.0.output_file output/

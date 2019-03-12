@@ -2,6 +2,7 @@ package example.myproject.server;
 
 import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
+import example.myproject.datatypes.NodePath;
 import peersim.core.Network;
 import peersim.core.Node;
 
@@ -11,9 +12,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 //TODO NOTA: Não sei até que ponto usar um mapa é uma boa ideia.
 //TODO provavelmente mudar as datastructures de "Node" para "Long"
@@ -53,23 +52,44 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
 
         causalityHandler.addPublisherState(freshMessage);
 
+        System.out.println("Publishing a message!");
         return prepareMessageToForward(freshMessage);
     }
 
     private List<Message> prepareMessageToForward(Message message) {
         Set<Long> interestedNodes = getInterestedNodes(message);
         Set<Long> liveInterestedNodes = getLiveInterestedNodes(interestedNodes);
-        Set<List<Node>> differentPathsOfInterestNodes = getDistinctPaths(liveInterestedNodes);
-        Collection<List<List<Node>>> groupedDistinctPaths = groupDistinctPaths(differentPathsOfInterestNodes);
+        Set<NodePath> differentPathsOfInterestNodes = getDistinctPaths(liveInterestedNodes);
+        removeForwarderPaths(message, differentPathsOfInterestNodes);
+        Collection<List<NodePath>> groupedDistinctPaths = groupDistinctPaths(differentPathsOfInterestNodes);
 
         List<Message> differentMessagesToSend = new ArrayList<>();
-        for (List<List<Node>> pathsGroup : groupedDistinctPaths) {
-            Message messageToSend = pathHandler.generateNewMessageForPath(message, pathsGroup);
-            // pathHandler.appendMetadataToMessage(messageToSend, path);
+        for (List<NodePath> pathsGroup : groupedDistinctPaths) {
+            long destination = getDestination(pathsGroup);
+            Message messageToSend = pathHandler.generateNewMessageForPath(message, pathsGroup, id, destination);
             differentMessagesToSend.add(messageToSend);
         }
 
         return differentMessagesToSend;
+    }
+
+    private Set<NodePath> removeForwarderPaths(Message message,
+                                               Set<NodePath> differentPathsOfInterestNodes) {
+        return pathHandler.removeForwarderPaths(message, differentPathsOfInterestNodes);
+    }
+
+    private long getDestination(List<NodePath> pathsGroup) {
+        // We can use any nodePath to get destination, as all share
+        // the same first activeConnection node
+        NodePath nodePath = pathsGroup.get(0);
+        for (int i = 1; i < nodePath.path.size(); i++) {
+            Node node = nodePath.path.get(i);
+            if (activeConnections.contains(node)) {
+                return node.getID();
+            }
+        }
+        //TODO deal with this
+        throw new AssertException("Every possible connection is down.");
     }
 
 
@@ -80,21 +100,46 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
      *
      * @return
      */
-    private Set<List<Node>> getDistinctPaths(Set<Long> liveInterestedNodes) {
-        Set<List<Node>> distinctPaths = new HashSet<>();
+    private Set<NodePath> getDistinctPaths(Set<Long> liveInterestedNodes) {
+        Set<NodePath> distinctPaths = new HashSet<>();
 
-        printPathLongs("Set of nodes", liveInterestedNodes);
+        NodePath.printPathLongs("Set of nodes", liveInterestedNodes);
 
         for (Long nodeId : liveInterestedNodes) {
             Node node = Network.get(Math.toIntExact(nodeId));
-            List<Node> fullPathOfNode = getFullPathOfNode(node);
-            distinctPaths.add(fullPathOfNode);
+            NodePath fullPathOfNode = getFullPathOfNode(node);
+            System.out.println("Checking " + nodeId + " - " + fullPathOfNode);
+
+            boolean setContainsSubpath = false;
+
+            for (NodePath distinctPath : distinctPaths) {
+                // First check if an existing path already exists that covers the
+                // current node
+                if (pathHandler.pathIsSubPath(fullPathOfNode, distinctPath)) {
+                    setContainsSubpath = true;
+                }
+
+                // Then check if there is an existing path that is covered
+                // by the current node
+                if (pathHandler.pathIsSubPath(distinctPath, fullPathOfNode)) {
+                    System.out.println("Removing previous existing path (" + distinctPath + ", " + fullPathOfNode + ")");
+                    distinctPaths.remove(distinctPath);
+                    break;
+                }
+            }
+
+            if (!setContainsSubpath) {
+                System.out.println("Adding " + fullPathOfNode.getPathString());
+                distinctPaths.add(fullPathOfNode);
+            }
         }
 
 
-        for (List<Node> path : distinctPaths) {
-            printPath("Distinct path", path);
+        for (NodePath path : distinctPaths) {
+            path.printLn("Distinct path");
         }
+
+
         return distinctPaths;
     }
 
@@ -119,14 +164,14 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
      * @param distinctPaths
      * @return
      */
-    private Collection<List<List<Node>>> groupDistinctPaths(Set<List<Node>> distinctPaths) {
-        Map<Long, List<List<Node>>> result = new HashMap<>();
+    private Collection<List<NodePath>> groupDistinctPaths(Set<NodePath> distinctPaths) {
+        Map<Long, List<NodePath>> result = new HashMap<>();
         int counter = 0; // Tracks how many lists were added
 
-        for (List<Node> path : distinctPaths) {
+        for (NodePath path : distinctPaths) {
             int lvl = 1;
-            while (lvl < path.size()) {
-                Node node = path.get(lvl);
+            while (lvl < path.path.size()) {
+                Node node = path.path.get(lvl);
                 if (downConnections.contains(node)) {
                     lvl++;
                 } else {
@@ -135,7 +180,7 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
                     break;
                 }
             }
-            if (lvl == path.size()) {
+            if (lvl == path.path.size()) {
                 throw new AssertException("This is an interesting case");
             }
         }
@@ -176,22 +221,20 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
      * @param messages The list of messages that are to be sent.
      *                IMPORTANT: They should already be processed
      */
-    abstract void forwardMessages(List<Message> messages);
+    // abstract void forwardMessages(List<Message> messages);
 
 
     // --------------------------------------------------------
     // ---------------- MESSAGE RECEIVE PROCESS ---------------
     // --------------------------------------------------------
 
-    void receiveMessage(Message message) {
+    List<Message> receiveMessage(Message message) {
         PathHandler.Scenario scenario = pathHandler.evaluationScenario(message);
         switch (scenario) {
             case ONE:
                 Message causallyApprovedMessage = causalityHandler.processMessage(message);
                 Message processedMessage = pathHandler.processMessage(causallyApprovedMessage);
-                List<Message> messagesToForward = prepareMessageToForward(processedMessage);
-                forwardMessages(messagesToForward);
-                break;
+                return prepareMessageToForward(processedMessage);
 
             case TWO:
                 System.exit(1);
@@ -203,28 +246,14 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
                 pathHandler.handleDuplicateMessage(message);
                 break;
         }
+        return null;
     }
 
     // --------------
     // HELPER METHODS
     // --------------
 
-    public static void printPath(String msg, Collection<Node> path) {
-        String result = path.stream()
-                .map(Node::getID)
-                .map(Object::toString)
-                .collect(Collectors.joining(":"));
-        System.out.println(msg + " - " + result);
-    }
-
-    public static void printPathLongs(String msg, Collection<Long> path) {
-        String result = path.stream()
-                .map(Object::toString)
-                .collect(Collectors.joining(":"));
-        System.out.println(msg + " - " + result);
-    }
-
-    List<Node> getFullPathOfNode(Node node) {
+    NodePath getFullPathOfNode(Node node) {
         return pathHandler.getFullPathOfNode(node);
     }
 
@@ -250,12 +279,12 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     }
 
     @Override
-    public Set<List<Node>> getNeighbourhood() {
+    public Set<NodePath> getNeighbourhood() {
         return pathHandler.getNeighbourhood();
     }
 
     @Override
-    public void setNeighbourHood(Set<List<Node>> differentPaths) {
+    public void setNeighbourHood(Set<NodePath> differentPaths) {
         pathHandler.setNeighbourhood(differentPaths);
     }
 
@@ -287,5 +316,31 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     @Override
     public void setForwarderOfGroup(Integer group) {
         messagePublisher.setForwarderOfGroup(group);
+    }
+
+    @Override
+    public void setNeighbourhoodAndPathId(NodePath path, long pathId) {
+        pathHandler.setNeighbourhoodAndPathId(path, pathId);
+    }
+
+    @Override
+    public void addPathIdMapping(NodePath path, long pathId) {
+        pathHandler.addPathIdMapping(path, pathId);
+    }
+
+    @Override
+    public void startActiveConnection(Long connectionStarter) {
+        Node node = Network.get(Math.toIntExact(connectionStarter));
+        activeConnections.add(node);
+    }
+
+    @Override
+    public String printStatus() {
+        StringBuilder builder = new StringBuilder();
+        builder.append("Node " + id + " status").append(System.lineSeparator());
+        builder.append(messagePublisher.printStatus()).append(System.lineSeparator());
+        builder.append(causalityHandler.printStatus()).append(System.lineSeparator());
+        builder.append(pathHandler.printStatus()).append(System.lineSeparator());
+        return builder.toString();
     }
 }

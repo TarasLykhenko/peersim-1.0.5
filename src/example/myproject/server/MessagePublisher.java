@@ -52,19 +52,6 @@ public class MessagePublisher {
         restTimeInterval = Configuration.getInt("rest_time_interval");
     }
 
-
-    /**
-     * Given a message, forward it to the next nodes.
-     * @param message
-     * @return
-     */
-    List<Message> forwardMessage(Message message) {
-        Long forwarder = message.getForwarder();
-        int group = message.getGroup();
-
-        return null;
-    }
-
     Message publishMessage() {
         if (shouldPublishMessage()) {
             return generateNewMessage();
@@ -87,8 +74,10 @@ public class MessagePublisher {
         List<Integer> listGroups = new ArrayList<>(groups);
         int listIdx = CommonState.r.nextInt(listGroups.size());
         int groupEntry = listGroups.get(listIdx);
-
-        return new Message(groupEntry, id, id);
+        messagesSent++;
+        Map<Long, Integer> data = new HashMap<>();
+        data.put(id, messagesSent);
+        return new Message(groupEntry, data, id, id);
     }
 
 
@@ -100,6 +89,8 @@ public class MessagePublisher {
         return new HashSet<>(groups);
     }
 
+    /** Returns the nodes that are interested in a message.
+     */
     Set<Long> getInterestedNodes(Message message) {
         int group = message.getGroup();
 
@@ -129,5 +120,9 @@ public class MessagePublisher {
         }
 
         this.forwardingGroups.add(group);
+    }
+
+    String printStatus() {
+        return "Messages sent: " + messagesSent;
     }
 }
