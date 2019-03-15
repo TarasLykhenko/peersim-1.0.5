@@ -1,5 +1,5 @@
 # network size
-SIZE 7
+SIZE 15
 
 # parameters of periodic execution
 CYCLES 100000
@@ -10,12 +10,12 @@ network.size SIZE
 simulation.endtime CYCLES
 simulation.logtime 1
 
-partitions_datacenters example/partitions/four_nodes_three_brokers_partition_country.top
+partitions_datacenters example/partitions/eight_nodes_seven_brokers_partition_top.top
 partitions_clients example/partitions/four_nodes_all_connected_partition.top
 
-levels 3
+levels 4
 # Define which node is the root. Starts at 0.
-root 6
+root 14
 
 
 
@@ -55,12 +55,12 @@ protocol.tr.drop 0
 ################### initialization ======================
 ### Set node type
 init.0 example.capstone.ProtocolMapperInit
-init.0.ndatanodes 4
+init.0.ndatanodes 8
 
 ### Creates graph and sets latencies
 init.1 example.capstone.WireTopology
 init.1.topology_path example/topologies
-init.1.topology_file four_nodes_three_brokers_simple.top
+init.1.topology_file eight_nodes_seven_brokers_simple.top
 init.1.protocol link
 
 ### Inits queues based on graph

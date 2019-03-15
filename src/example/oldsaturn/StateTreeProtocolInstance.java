@@ -133,7 +133,6 @@ public class StateTreeProtocolInstance
             svh.setTotalServers(totalServers);
             svh.clonePendingClients(pendingClientsQueue);
         } catch (CloneNotSupportedException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
         //svh = new DoubleVectorHolder("");
@@ -146,8 +145,6 @@ public class StateTreeProtocolInstance
 
     public void setTotalServers(int totalServers2) {
         totalServers = totalServers2;
-        // TODO Auto-generated method stub
-
     }
 
     public long getAverageLatency() {

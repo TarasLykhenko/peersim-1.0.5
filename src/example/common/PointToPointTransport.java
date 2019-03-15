@@ -162,7 +162,6 @@ public final class PointToPointTransport implements Transport {
      * delay, that is drawn from the configured interval according to the uniform
      * distribution.
      */
-    //TODO meter random latency
     public long getLatency(Node src, Node dest) {
         return latencies.get(src.getID()).get(dest.getID());
         //return (range==1?latency+min:latency+min + CommonState.r.nextLong(range));

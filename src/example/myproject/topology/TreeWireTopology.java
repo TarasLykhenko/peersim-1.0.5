@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-// TODO
 public class TreeWireTopology extends WireGraph {
 
     private static final String PAR_BREADTH = "breadth";

@@ -11,7 +11,6 @@ public class UpdateOperation extends Operation{
 		metadataFull = full;
 		metadataPartial = partial;
 		keyMetadata = metaKey;
-		// TODO Auto-generated constructor stub
 	}
 
 	public int getMetadataFull() {

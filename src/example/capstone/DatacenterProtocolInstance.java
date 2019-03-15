@@ -298,8 +298,7 @@ public abstract class DatacenterProtocolInstance
      * 3) Update ST with updated CloudletClock
      * 4) Check MT for any clients that can be accepted
      */
-    void
-    processRemoteUpdate(UpdateMessage updateMessage) {
+    void processRemoteUpdate(UpdateMessage updateMessage) {
         long datacenterUpdateOrigin = updateMessage.getOriginalDC();
         int key = updateMessage.getKey();
         Map<Long, Integer> updateClock = updateMessage.getVectorClock();
@@ -316,7 +315,7 @@ public abstract class DatacenterProtocolInstance
                        Client client,
                        Map<Long, Integer> migrationClock) {
         Map<Long, Integer> latestDCClock = this.remoteUpdatesTable.get(originDatacenter);
-        if (canAcceptClient(originDatacenter, migrationClock, nodeId, latestDCClock)) {
+        if (canAcceptClient(migrationClock, latestDCClock)) {
             acceptClient(client);
         } else {
             migrationTable.get(originDatacenter).put(client, migrationClock);
@@ -352,13 +351,14 @@ public abstract class DatacenterProtocolInstance
             Map<Long, Integer> migrationClock = clientMapMap.get(client);
             Map<Long, Integer> latestDCClock = this.remoteUpdatesTable.get(datacenter);
 
-            if (canAcceptClient(datacenter, migrationClock, nodeId, latestDCClock)) {
+            if (canAcceptClient(migrationClock, latestDCClock)) {
                 acceptClient(client);
                 iterator.remove();
             }
         }
     }
 
+    /* OLD canAcceptclient - Only saw entries that were unique to the client clock
     private boolean canAcceptClient(long originDC,
                                     Map<Long, Integer> migrationClock,
                                     long thisDcId,
@@ -384,6 +384,29 @@ public abstract class DatacenterProtocolInstance
 
 
         for (Long entryId : interestingEntries) {
+            if (!latestDCClock.containsKey(entryId)) {
+                throw new RuntimeException("Both clocks need to have the same entries.");
+            }
+
+            int migrationClockValue = migrationClock.get(entryId);
+            int latestDCClockValue = latestDCClock.get(entryId);
+
+            if (migrationClockValue > latestDCClockValue) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+    */
+
+    private boolean canAcceptClient(Map<Long, Integer> migrationClock,
+                                    Map<Long, Integer> latestDCClock) {
+        if (migrationClock.size() != latestDCClock.size()) {
+            throw new RuntimeException("Invalid size of clocks!");
+        }
+
+        for (Long entryId : migrationClock.keySet()) {
             if (!latestDCClock.containsKey(entryId)) {
                 throw new RuntimeException("Both clocks need to have the same entries.");
             }
