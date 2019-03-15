@@ -18,11 +18,16 @@
 
 package example.capstonematrix;
 
+import example.capstonematrix.datatypes.HRC;
 import example.common.AbstractController;
 import example.common.BasicClientInterface;
+import peersim.config.Configuration;
+import peersim.core.Network;
+import peersim.core.Node;
 import peersim.util.IncrementalStats;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -51,7 +56,29 @@ public class Controller extends AbstractController {
 
     @Override
     public void doAdditionalExecution(Set<BasicClientInterface> clients) {
-        // Nothing to do
+        for (BasicClientInterface basicClient : clients) {
+          //  Client client = (Client) basicClient;
+          //  System.out.println("Client " + client.getId() + " HRC:");
+          //  client.getClientHRC().print();
+        }
+
+        if (true) {
+            return;
+        }
+
+        for (int i = 0; i < Network.size(); i++) {
+            Node node = Network.get(i);
+            DatacenterProtocol datacenter = (DatacenterProtocol) node.getProtocol(Configuration.getPid("tree"));
+            Map<Long, Map<Client, HRC>> migrationTable = datacenter.getMigrationTable();
+            for (Long dcId : migrationTable.keySet()) {
+                Map<Client, HRC> stuckClients = migrationTable.get(dcId);
+                for (Client c : stuckClients.keySet()) {
+                    System.out.println("Client " + c.getId() + " from " + dcId + " is stuck:");
+                    stuckClients.get(c).print();
+                    System.out.println(datacenter.getLastReceived());
+                }
+            }
+        }
     }
 }
 

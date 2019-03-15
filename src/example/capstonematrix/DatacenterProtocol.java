@@ -1,5 +1,6 @@
 package example.capstonematrix;
 
+import example.capstonematrix.datatypes.HRC;
 import example.capstonematrix.datatypes.ReadResult;
 import example.capstonematrix.datatypes.UpdateMessage;
 import example.capstonematrix.datatypes.UpdateResult;
@@ -14,11 +15,7 @@ import peersim.core.Node;
 import peersim.edsim.EDProtocol;
 import peersim.transport.Transport;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 public class DatacenterProtocol extends DatacenterProtocolInstance
@@ -35,7 +32,7 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
     public DatacenterProtocol(String prefix) {
         super(prefix);
         this.prefix = prefix;
-        datacenter = Configuration.getPid("datacenter");
+        datacenter = Configuration.getPid("tree");
     }
 
 //--------------------------------------------------------------------------
@@ -47,6 +44,8 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
      */
     @Override
     public void nextCycle(Node node, int pid) {
+        heartbeat(node, pid);
+
         for (Client client : clients) {
             Operation operation = client.nextOperation();
             if (operation == null) {
@@ -69,11 +68,33 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
             // If is local update
             if (eventIsUpdate(operation)) {
                 LocalUpdate localUpdate = new LocalUpdate(client.getId(),
-                        operation.getKey(), client.getClientClock());
+                        operation.getKey());
                 sendMessage(node, node, localUpdate, pid);
             } else {
                 System.out.println("Unknown scenario!");
             }
+        }
+    }
+
+    private long timeSinceLastHeartBeat = 0;
+    private long heartbeatPeriod = 150; //TODO TIRAR ESTE HARDCODED
+    private void heartbeat(Node node, int pid) {
+        long currentTime = CommonState.getTime();
+        if (currentTime - timeSinceLastHeartBeat > heartbeatPeriod) {
+            sendHeartbeat(node, pid);
+            timeSinceLastHeartBeat = currentTime;
+        }
+    }
+
+    private void sendHeartbeat(Node node, int pid) {
+        Heartbeat heartbeat = new Heartbeat(nodeId, cloudletLC);
+
+        for (int i = 0; i < Network.size(); i++) {
+            if (i == nodeId) {
+                continue;
+            }
+            Node targetNode = Network.get(i);
+            sendMessage(node, targetNode, heartbeat, pid);
         }
     }
 
@@ -89,7 +110,7 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
         Node migrationTarget = getLowestLatencyDatacenter(interestedNodes);
 
         MigrationMessage migrationMessage =
-                new MigrationMessage(originalDC.getID(), client.getId(), client.getClientClock());
+                new MigrationMessage(originalDC.getID(), client.getId(), client.getClientHRC());
 
         client.migrationStart();
         sendMessage(originalDC, migrationTarget, migrationMessage, pid);
@@ -144,7 +165,12 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
      */
     public void processEvent(Node node, int pid, Object event) {
 
-        /* ************** DATACENTERS ****************** */
+        if (event instanceof Heartbeat) {
+            Heartbeat heartbeat = (Heartbeat) event;
+            updateLastReceived(heartbeat.originDC, heartbeat.cloudletLC);
+            checkRemoteUpdatesTable();
+            checkMigrationTable(heartbeat.originDC);
+        }
 
         // Local read
         if (event instanceof ReadMessage) {
@@ -152,30 +178,69 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
             if (msg.senderDC != nodeId) {
                 throw new RuntimeException("Reads must ALWAYS be local.");
             }
+
             ReadResult readResult = this.capstoneRead(msg.key);
 
             this.idToClient.get(msg.clientId).receiveReadResult(msg.key, readResult);
         }
 
-        // Local update - Must generate remote update
+        // Local update
+        // HRCc : HRC of client | HRCv = HRC of value
+
+        // 1 - Client reads current value HRCc
+        // 2 - Client merges HRCv with its own HRCc (producing HRC')
+        // 3 - Client increments CloudletLC and sets updateLC = CloudletLC
+        // 4 - An update Message is generated with:
+        //      - Source cloudlet ID
+        //      - Data object key
+        //      - updateLC
+        //      - HRC'
+        // 5 - Client generates a new HRC'', that INCORPORATES updateLC
+        // 6 - The update is stored with HRC'' and the client's HRC becomes HRC''
+        // 7 - The update is spread
         if (event instanceof LocalUpdate) {
-            LocalUpdate localUpdate = (LocalUpdate) event;
+            LocalUpdate msg = (LocalUpdate) event;
 
-            UpdateResult result = this.capstoneWrite(localUpdate.key, localUpdate.clientClock);
-            Client client = idToClient.get(localUpdate.clientId);
-            client.receiveUpdateResult(localUpdate.key, result);
+            // Step 1 and 2
+            ReadResult readResult = this.capstoneRead(msg.key);
+            Client client = this.idToClient.get(msg.clientId);
+            client.handleReadResult(msg.key, readResult);
 
-            ReadResult readResult = this.capstoneRead(localUpdate.key);
-            UpdateMessage updateMessage =
-                    new UpdateMessage(this.nodeId, localUpdate.key, readResult.getHRC());
+            // Step 3
+            cloudletLC++;
+            int updateLC = cloudletLC;
 
-            sendUpdateMessageToBroker(node, updateMessage, pid);
+            // Step 5
+            HRC incorporatedHRC = client.getClientHRC().incorporate(msg.key, nodeId, updateLC);
+
+            // Step 6
+            this.capstoneWrite(msg.key, incorporatedHRC);
+            updateLastReceived(nodeId, updateLC);
+
+            // Step 7
+            Set<Node> interestedDatacenters = getInterestedDatacenters(msg.key);
+            // Remove self from remote update list
+            interestedDatacenters.remove(Network.get(Math.toIntExact(this.getNodeId())));
+            for (Node interestedNode : interestedDatacenters) {
+                UpdateMessage update = new UpdateMessage(
+                        nodeId, msg.key, updateLC, client.getClientHRC());
+                //System.out.println("Sending remote past:");
+                //update.getPast().print();
+                sendMessage(node, interestedNode, update, pid);
+            }
+
+            UpdateResult result = new UpdateResult(nodeId, incorporatedHRC);
+            client.receiveUpdateResult(msg.key, result);
         }
 
         // Remote update
         if (event instanceof UpdateMessage) {
             UpdateMessage updateMessage = (UpdateMessage) event;
-            // if (!isInterested(updateMessage.getKey())) throw new RuntimeException("wow");
+
+            if (!isInterested(updateMessage.getKey())) {
+                throw new RuntimeException("wow");
+            }
+
             this.processRemoteUpdate(updateMessage);
         }
 
@@ -191,11 +256,6 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
 
             migrateClient(msg.originDC, client, msg.clientHRC);
         }
-    }
-
-    private void sendUpdateMessageToBroker(Node node, UpdateMessage updateMessage, int pid) {
-        long parentId = GroupsManager.getInstance().getTreeOverlay().getParent(this.nodeId);
-        sendMessage(node, Network.get(Math.toIntExact(parentId)), updateMessage, pid);
     }
 
     @Override
@@ -225,13 +285,11 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
 
         final int clientId;
         final int key;
-        final Map<Long, Integer> clientClock;
         final long timestamp;
 
-        LocalUpdate(int clientId, int key, Map<Long, Integer> clientClock) {
+        LocalUpdate(int clientId, int key) {
             this.clientId = clientId;
             this.key = key;
-            this.clientClock = clientClock;
             timestamp = CommonState.getTime();
         }
     }
@@ -240,14 +298,25 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
 
         final long originDC;
         final int clientId;
-        final List<Map<Long, Integer>> clientHRC;
+        final HRC clientHRC;
         final long timestamp;
 
-        MigrationMessage(long originDC, int clientId, List<Map<Long, Integer>> clientHRC) {
+        MigrationMessage(long originDC, int clientId, HRC clientHRC) {
             this.originDC = originDC;
             this.clientId = clientId;
-            this.clientHRC = new ArrayList<>(clientHRC);
+            this.clientHRC = new HRC(clientHRC);
             this.timestamp = CommonState.getTime();
+        }
+    }
+
+    class Heartbeat {
+
+        final long originDC;
+        final int cloudletLC;
+
+        Heartbeat(long originDC, int cloudletLC) {
+            this.originDC = originDC;
+            this.cloudletLC = cloudletLC;
         }
     }
 

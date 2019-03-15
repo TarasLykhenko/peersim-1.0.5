@@ -1,31 +1,32 @@
 package example.capstonematrix.datatypes;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
 public class UpdateMessage {
 
     private final long originalDC;
     private final int key;
-    private List<Map<Long, Integer>> past;
+    private final int updateLC;
+    private HRC past;
 
-    public UpdateMessage(long originalDC, int key, List<Map<Long, Integer>> past) {
+    public UpdateMessage(long originalDC, int key, int updateLC, HRC past) {
         this.originalDC = originalDC;
         this.key = key;
-        this.past = new ArrayList<>(past);
+        this.updateLC = updateLC;
+        this.past = new HRC(past);
     }
 
     public long getOriginalDC() {
         return this.originalDC;
-
     }
 
     public int getKey() {
         return this.key;
     }
 
-    public List<Map<Long, Integer>> getPast() {
+    public int getUpdateLC() {
+        return updateLC;
+    }
+
+    public HRC getPast() {
         return past;
     }
 }

@@ -241,8 +241,33 @@ public abstract class AbstractController implements Control {
         int totalMigrations = 0;
         int totalMigrationTime = 0;
 
+        int lowestReads = Integer.MAX_VALUE;
+        int highestReads = Integer.MIN_VALUE;
+        int lowestUpdates = Integer.MAX_VALUE;
+        int highestUpdates = Integer.MIN_VALUE;
+        long highestWaitingSince = Integer.MAX_VALUE;
+
         System.out.println("There are " + clients.size());
         for (BasicClientInterface client : clients) {
+
+            if (client.getNumberReads() < lowestReads) {
+                lowestReads = client.getNumberReads();
+            }
+            if (client.getNumberReads() > highestReads) {
+                highestReads = client.getNumberReads();
+            }
+
+            if (client.getNumberUpdates() < lowestUpdates) {
+                lowestUpdates = client.getNumberUpdates();
+            }
+
+            if (client.getNumberUpdates() > highestUpdates) {
+                highestUpdates = client.getNumberUpdates();
+            }
+
+            if (client.getWaitingSince() < highestWaitingSince) {
+                highestWaitingSince = client.getWaitingSince();
+            }
 
             totalReads += client.getNumberReads();
             totalUpdates += client.getNumberUpdates();
@@ -263,11 +288,18 @@ public abstract class AbstractController implements Control {
                     + extraString);
         }
 
+        System.out.println("Min reads: " + lowestReads);
+        System.out.println("Max reads: " + highestReads);
+        System.out.println("Min updates: " + lowestUpdates);
+        System.out.println("Max updates: " + highestUpdates);
+        System.out.println("Highest waiting since: " + highestWaitingSince);
         System.out.println("Average reads: " + ((float) totalReads / clients.size()));
         System.out.println("Average updates: " + ((float) totalUpdates / clients.size()));
         System.out.println("Average migrations: " + ((float) totalMigrations / clients.size()));
         System.out.println("Average migration time: " + ((float) totalMigrationTime / clients.size()));
         System.out.println("Total time migrating: " + totalMigrationTime);
+
+        doAdditionalExecution(clients);
     }
 
     protected void print(String string) {

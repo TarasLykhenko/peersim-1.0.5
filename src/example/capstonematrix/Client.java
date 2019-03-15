@@ -1,5 +1,6 @@
 package example.capstonematrix;
 
+import example.capstonematrix.datatypes.HRC;
 import example.capstonematrix.datatypes.ReadOperation;
 import example.capstonematrix.datatypes.ReadResult;
 import example.capstonematrix.datatypes.UpdateOperation;
@@ -8,34 +9,21 @@ import example.common.AbstractBaseClient;
 import example.common.datatypes.DataObject;
 import example.common.datatypes.Operation;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static example.capstone.DatacenterProtocolInstance.getEntryWiseMaxClock;
-
 public class Client extends AbstractBaseClient {
 
-    private List<Map<Long, Integer>> clientPast = new ArrayList<>();
+    private HRC clientPast;
 
     public Client(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality) {
         super(id, isEager, dataObjectsPerLevel, datacenter, locality);
-        List<Long> nodesToRoot = GroupsManager.getInstance()
-                .getTreeOverlay()
-                .getNodesOnPathToRoot(Math.toIntExact(datacenter.getNodeId()));
-
-        // TODO
-        /*
-        for (Long entry : nodesToRoot) {
-            clientHRC.put(entry, 0);
-        }
-        */
+        int regionId = GroupsManager.getInstance().getMostSpecificRegion(datacenter.getNodeId());
+        clientPast = new HRC(regionId);
     }
 
-    List<Map<Long, Integer>> getClientClock() {
-        return new ArrayList<>(clientPast);
+    HRC getClientHRC() {
+        return new HRC(clientPast);
     }
 
     @Override
@@ -58,23 +46,22 @@ public class Client extends AbstractBaseClient {
     @Override
     public void handleReadResult(int key, Object readResult) {
         ReadResult read = (ReadResult) readResult;
-        this.clientClock = getEntryWiseMaxClock(clientClock, read.getHRC());
+
+        this.clientPast = read.getHRC().merge(clientPast);
     }
 
     @Override
     public void handleUpdateResult(int key, Object updateResult) {
         UpdateResult result = (UpdateResult) updateResult;
 
-        if (clientClock.get(result.getCloudletId()) > result.getCloudletCounter()) {
-            throw new RuntimeException("Impossible scenario");
-        }
-
-        clientClock.put(result.getCloudletId(), result.getCloudletCounter());
+        //System.out.println("Storing: ");
+        //result.getHRC().print();
+        clientPast = new HRC(result.getHRC());
     }
 
-    public void migrationOver(Map<Long, Integer> cloudletClock) {
+    public void migrationOver(HRC clientTransformedHRC) {
         migrationOver();
-        this.clientClock = new HashMap<>(cloudletClock);
+        this.clientPast = new HRC(clientTransformedHRC);
     }
 
 }

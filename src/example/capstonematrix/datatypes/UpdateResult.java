@@ -3,18 +3,18 @@ package example.capstonematrix.datatypes;
 public class UpdateResult {
 
     private long cloudletId;
-    private int cloudletCounter;
+    private HRC hrc;
 
-    public UpdateResult(long cloudletId, int cloudletCounter) {
+    public UpdateResult(long cloudletId, HRC hrc) {
         this.cloudletId = cloudletId;
-        this.cloudletCounter = cloudletCounter;
+        this.hrc = new HRC(hrc);
     }
 
     public long getCloudletId() {
         return this.cloudletId;
     }
 
-    public int getCloudletCounter() {
-        return this.cloudletCounter;
+    public HRC getHRC() {
+        return this.hrc;
     }
 }

@@ -18,13 +18,17 @@
 
 package example.capstonematrix;
 
+import example.capstonematrix.datatypes.HRC;
 import example.capstonematrix.datatypes.ReadResult;
 import example.capstonematrix.datatypes.UpdateMessage;
 import example.capstonematrix.datatypes.UpdateResult;
 import example.common.BasicClientInterface;
 import example.common.datatypes.DataObject;
+import javafx.util.Pair;
+import peersim.core.Network;
 import peersim.core.Protocol;
 
+import java.io.BufferedReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -53,34 +57,44 @@ public abstract class DatacenterProtocolInstance
     protected Map<Integer, Client> idToClient = new HashMap<>();
 
     protected long nodeId;
+    protected int regionId;
 
     /**
-     * Cloudlet clock
+     * Cloudlet Logical Clock
      */
-    private Map<Long, Integer> cloudletClock = new HashMap<>();
+    protected int cloudletLC;
+
+    /**
+     * Stores the last operationValue from each cloudlet
+     *
+     */
+    private Map<Long, Integer> lastReceived = new HashMap<>();
 
     /**
      * Migration Table:
-     * Maps each datacenter to a map of clients to ClientClocks.
+     * Maps each datacenter to a map of clients to their past (HRC)
      *
-     * Clients that cannot be immediatly accepted are put on this table,
-     * in the correct datacenter entry.
+     * Clients that cannot be immediately accepted are put on this table,
+     * on the correct datacenter entry.
+     *
+     * NOTE: This past is already transformed.
      */
-    private Map<Long, Map<Client, Map<Long, Integer>>> migrationTable = new HashMap<>();
+    private Map<Long, Map<Client, HRC>> migrationTable = new HashMap<>();
 
     /**
-     * Stores the last update from each datacenter.
+     * Buffers the remote updates of each datacenter
      *
-     * Map is datacenterId to CloudletClock.
+     * Map is datacenterId to an orderedList of buffered Updates
      */
-    private Map<Long, Map<Long, Integer>> remoteUpdatesTable = new HashMap<>();
+    private Map<Long, List<BufferedUpdate>> remoteUpdatesTable = new HashMap<>();
 
     /**
-     * Stores each key alongside a localDataClock.
+     * Stores each key alongside a HRC.
      *
-     * Map is dataObjectKey to LocalDataClock
+     * Map is dataObjectKey to HRC
      */
-    private Map<Integer, Map<Long, Integer>> storageTable = new HashMap<>();
+    private Map<Integer, HRC> storageTable = new HashMap<>();
+
     private Map<Integer, DataObject> keyToDataObject = new HashMap<>();
 
     protected long sentMigrations = 0;
@@ -102,12 +116,12 @@ public abstract class DatacenterProtocolInstance
 
     }
 
-    public void init(Long nodeId) {
-        TreeOverlay treeOverlay = GroupsManager.getInstance().getTreeOverlay();
-        setNodeId(nodeId);
-        initCloudletClock(treeOverlay);
-        initRUT(treeOverlay);
-        initMT(treeOverlay);
+    public void init() {
+        this.regionId = GroupsManager.getInstance().getMostSpecificRegion(nodeId);
+        initLastReceived();
+        initRUT();
+        initMT();
+        initStorageTable();
     }
 
     @Override
@@ -115,35 +129,27 @@ public abstract class DatacenterProtocolInstance
         this.nodeId = Math.toIntExact(nodeId);
     }
 
-    private void initCloudletClock(TreeOverlay treeOverlay) {
-        List<Long> nodesToRoot =
-                treeOverlay.getNodesOnPathToRoot(Math.toIntExact(nodeId));
-        for (Long entry : nodesToRoot) {
-            cloudletClock.put(entry, 0);
+    private void initLastReceived() {
+        for (long datacenterId = 0; datacenterId < Network.size(); datacenterId++) {
+            updateLastReceived(datacenterId, 0);
         }
     }
 
-    private void initRUT(TreeOverlay treeOverlay) {
-        Set<Long> datacenters = treeOverlay.getLeaves();
-
-        for (Long datacenterId : datacenters) {
-            Map<Long, Integer> remoteUpdateClock = new HashMap<>();
-
-            List<Long> nodesToRoot =
-                    treeOverlay.getNodesOnPathToRoot(Math.toIntExact(datacenterId));
-
-            for (Long entry : nodesToRoot) {
-                remoteUpdateClock.put(entry, 0);
-            }
-            remoteUpdatesTable.put(datacenterId, remoteUpdateClock);
+    private void initRUT() {
+        for (long datacenterId = 0; datacenterId < Network.size(); datacenterId++) {
+            remoteUpdatesTable.put(datacenterId, new ArrayList<>());
         }
     }
 
-    private void initMT(TreeOverlay treeOverlay) {
-        Set<Long> datacenters = treeOverlay.getLeaves();
-
-        for (Long datacenterId : datacenters) {
+    private void initMT() {
+        for (long datacenterId = 0; datacenterId < Network.size(); datacenterId++) {
             migrationTable.put(datacenterId, new HashMap<>());
+        }
+    }
+
+    private void initStorageTable() {
+        for (int key : storageTable.keySet()) {
+            capstoneWrite(key, new HRC(regionId));
         }
     }
 
@@ -174,7 +180,7 @@ public abstract class DatacenterProtocolInstance
         levelToDataObjects.put(level, dataObjects);
         for (DataObject dataObject : dataObjects) {
             keyToDataObject.put(dataObject.getKey(), dataObject);
-            storageTable.put(dataObject.getKey(), new HashMap<>(cloudletClock));
+            capstoneWrite(dataObject.getKey(), null);
         }
     }
 
@@ -273,20 +279,18 @@ public abstract class DatacenterProtocolInstance
         return new ReadResult(storageTable.get(key));
     }
 
-    UpdateResult capstoneWrite(int key, Map<Long, Integer> clientClock) {
-        Map<Long, Integer> localDataClock = storageTable.get(key);
-
-        Integer cloudletCounter = cloudletClock.get(nodeId);
-        cloudletCounter++;
-        cloudletClock.put(nodeId, cloudletCounter);
-
-        clientClock.put(nodeId, cloudletCounter);
-
-        Map<Long, Integer> maxedClock = getEntryWiseMaxClock(clientClock, localDataClock);
-
-        storageTable.put(key, maxedClock);
-
-        return new UpdateResult(nodeId, cloudletCounter);
+    /**
+     * Here we don't return anything as all logic is done on the frontend
+     * @param key
+     * @param incorporatedHRC
+     * @return
+     */
+    void capstoneWrite(int key, HRC incorporatedHRC) {
+        if (incorporatedHRC != null) {
+            System.out.println("Writing HRC of region " + incorporatedHRC.getRegionId());
+            incorporatedHRC.print();
+        }
+        storageTable.put(key, incorporatedHRC);
     }
 
     /**
@@ -297,113 +301,108 @@ public abstract class DatacenterProtocolInstance
      * 3) Update ST with updated CloudletClock
      * 4) Check MT for any clients that can be accepted
      */
-    void
-    processRemoteUpdate(UpdateMessage updateMessage) {
-        long datacenterUpdateOrigin = updateMessage.getOriginalDC();
+    void processRemoteUpdate(UpdateMessage updateMessage) {
+        long sourceId = updateMessage.getOriginalDC();
         int key = updateMessage.getKey();
-        Map<Long, Integer> updateClock = updateMessage.getPast();
+        int updateLC = updateMessage.getUpdateLC();
+        HRC past = updateMessage.getPast();
 
-        updateRemoteUpdateTable(datacenterUpdateOrigin, updateClock);
-        updateOwnCloudletClock(updateClock);
-        if (isInterested(key)) {
-            updateStorageTable(key);
-        }
-        checkMigrationTable(datacenterUpdateOrigin);
-    }
-
-    void migrateClient(long originDatacenter,
-                       Client client,
-                       List<Map<Long, Integer>> migrationClock) {
-        Map<Long, Integer> latestDCClock = this.remoteUpdatesTable.get(originDatacenter);
-        if (canAcceptClient(originDatacenter, migrationClock, nodeId, latestDCClock)) {
-            acceptClient(client);
+        System.out.println("(MSG " + updateLC + ") Original HRC: (Node " + sourceId + " to " + nodeId + ")");
+        past.print();
+        HRC transformedHRC = past.transform((int) sourceId, (int) nodeId);
+        System.out.println("Transformed HRC:");
+        transformedHRC.print();
+        if (transformedHRC.canAcceptHRC(sourceId, nodeId, lastReceived)) {
+            applyUpdate(key, sourceId, updateLC, transformedHRC);
         } else {
-            migrationTable.get(originDatacenter).put(client, migrationClock);
+            //System.exit(-1);
+            System.out.println("Buffering!");
+            bufferRemoteUpdate(key, sourceId, updateLC, transformedHRC);
         }
     }
 
-    private void updateRemoteUpdateTable(long datacenter, Map<Long, Integer> updateClock) {
-        this.remoteUpdatesTable.put(datacenter, updateClock);
+    private void bufferRemoteUpdate(int key, long sourceId, int updateLC, HRC transformedHRC) {
+        BufferedUpdate bufferedUpdate = new BufferedUpdate(key, updateLC, transformedHRC);
+
+        remoteUpdatesTable.get(sourceId).add(bufferedUpdate);
     }
 
-    private void updateOwnCloudletClock(Map<Long, Integer> updateClock) {
-        for (Long pathNodeId : updateClock.keySet()) {
-            if (cloudletClock.containsKey(pathNodeId)) {
-                int cloudletNodeVersion = cloudletClock.get(pathNodeId);
-                int updateClockNodeVersion = updateClock.get(pathNodeId);
+    private void applyUpdate(int key, long sourceId, int updateLC, HRC hrc) {
+        updateLastReceived(sourceId, updateLC);
+        HRC incorporated = hrc.incorporate(key, sourceId, updateLC);
+        HRC transformedIncorporated = incorporated.transform((int) sourceId, (int) nodeId);
 
-                if (updateClockNodeVersion > cloudletNodeVersion) {
-                    cloudletClock.put(pathNodeId, updateClockNodeVersion);
+        capstoneWrite(key, transformedIncorporated);
+
+        checkMigrationTable(sourceId);
+        checkRemoteUpdatesTable();
+    }
+
+    protected void updateLastReceived(long sourceId, int updateLc) {
+        lastReceived.put(sourceId, updateLc);
+        if (updateLc > cloudletLC) {
+            cloudletLC = updateLc;
+            lastReceived.put(nodeId, cloudletLC);
+        }
+    }
+
+    protected void checkRemoteUpdatesTable() {
+        for (Long datacenterId : remoteUpdatesTable.keySet()) {
+            List<BufferedUpdate> bufferedUpdates = remoteUpdatesTable.get(datacenterId);
+            if (!bufferedUpdates.isEmpty()) {
+                BufferedUpdate update = bufferedUpdates.get(0);
+
+                if (update.past.canAcceptHRC(datacenterId, nodeId, lastReceived)) {
+                    System.out.println("UNBUFFERING!");
+                    bufferedUpdates.remove(0);
+                    applyUpdate(update.key, datacenterId, update.updateLC, update.past);
+                    return;
                 }
             }
         }
     }
 
-    private void updateStorageTable(int key) {
-        this.storageTable.put(key, cloudletClock);
+    void migrateClient(long originDatacenter,
+                       Client client,
+                       HRC migrationClock) {
+
+        HRC transformedHRC = migrationClock.transform((int) originDatacenter, (int) nodeId);
+
+        if (transformedHRC.canAcceptHRC(originDatacenter, nodeId, lastReceived)) {
+            acceptClient(client, transformedHRC);
+        } else {
+          //  System.out.println("Could not accept client " + client.getId() + " from " + originDatacenter + " to " + nodeId);
+          //  System.out.println("Original client HRC:");
+          //  migrationClock.print();
+          //  System.out.println("Transformed HRC:");
+          //  transformedHRC.print();
+            migrationTable.get(originDatacenter).put(client, transformedHRC);
+        }
     }
 
-    private void checkMigrationTable(long datacenter) {
-        Map<Client, Map<Long, Integer>> clientMapMap = this.migrationTable.get(datacenter);
-        Iterator<Client> iterator = clientMapMap.keySet().iterator();
+    protected void checkMigrationTable(long datacenter) {
+        Map<Client, HRC> clientsToHRC = this.migrationTable.get(datacenter);
+        Iterator<Client> iterator = clientsToHRC.keySet().iterator();
         while (iterator.hasNext()) {
             Client client = iterator.next();
-            Map<Long, Integer> migrationClock = clientMapMap.get(client);
-            Map<Long, Integer> latestDCClock = this.remoteUpdatesTable.get(datacenter);
 
-            if (canAcceptClient(datacenter, migrationClock, nodeId, latestDCClock)) {
-                acceptClient(client);
+            HRC transformedPast = clientsToHRC.get(client);
+
+           // System.out.println("Checking if can accept: (Node " + nodeId + ")");
+           // transformedPast.print();
+           // System.out.println("Map: " + lastReceived);
+            if (transformedPast.canAcceptHRC(datacenter, nodeId, lastReceived)) {
+            //    System.out.println("Accepted client " + client.getId());
+                acceptClient(client, transformedPast);
                 iterator.remove();
             }
         }
     }
 
-    private boolean canAcceptClient(long originDC,
-                                    Map<Long, Integer> migrationClock,
-                                    long thisDcId,
-                                    Map<Long, Integer> latestDCClock) {
-        if (migrationClock.size() != latestDCClock.size()) {
-            throw new RuntimeException("Invalid size of clocks!");
-        }
-
-        TreeOverlay treeOverlay = GroupsManager.getInstance().getTreeOverlay();
-
-        List<Long> dcToRoot = treeOverlay.getNodesOnPathToRoot(originDC);
-        List<Long> thisToRoot = treeOverlay.getNodesOnPathToRoot(thisDcId);
-        List<Long> interestingEntries = new ArrayList<>();
-
-        for (int i = 0; i < dcToRoot.size(); i++) {
-            Long entryOriginDC = dcToRoot.get(i);
-            Long entryThisDC = thisToRoot.get(i);
-
-            if (!entryOriginDC.equals(entryThisDC)) {
-                interestingEntries.add(entryOriginDC);
-            }
-        }
-
-
-        for (Long entryId : interestingEntries) {
-            if (!latestDCClock.containsKey(entryId)) {
-                throw new RuntimeException("Both clocks need to have the same entries.");
-            }
-
-            int migrationClockValue = migrationClock.get(entryId);
-            int latestDCClockValue = latestDCClock.get(entryId);
-
-            if (migrationClockValue > latestDCClockValue) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-
-    // TODO Nota importante: Não está especificado o que acontece ao clientHRC
-    private void acceptClient(Client client) {
+    private void acceptClient(Client client, HRC transformedPast) {
         clients.add(client);
         idToClient.put(client.getId(), client);
-        client.migrationOver(cloudletClock);
+        client.migrationOver(transformedPast);
         receivedMigrations++;
         //System.out.println("Migration sucessful! " + key);
     }
@@ -415,6 +414,14 @@ public abstract class DatacenterProtocolInstance
             totalWaitingClients += migrationTable.get(dc).size();
         }
         return totalWaitingClients;
+    }
+
+    public Map<Long, Map<Client, HRC>> getMigrationTable() {
+        return migrationTable;
+    }
+
+    public Map<Long, Integer> getLastReceived() {
+        return lastReceived;
     }
 
     //--------------------------------------------------------------------------
@@ -442,28 +449,22 @@ public abstract class DatacenterProtocolInstance
         return null;
     }
 
-    static Map<Long, Integer> getEntryWiseMaxClock(Map<Long, Integer> clockOne,
-                                                      Map<Long, Integer> clockTwo) {
-        Map<Long, Integer> result = new HashMap<>();
+    @Override
+    public String toString() {
+        return String.valueOf(nodeId);
+    }
 
-        if (clockOne.size() != clockTwo.size()) {
-            throw new RuntimeException("The clocks size must be equal!");
+
+    class BufferedUpdate {
+
+        int key;
+        int updateLC;
+        HRC past;
+
+        public BufferedUpdate(int key, int updateLC, HRC past) {
+            this.key = key;
+            this.updateLC = updateLC;
+            this.past = past;
         }
-
-        for (Long entry : clockOne.keySet()) {
-            if (!clockTwo.containsKey(entry)) {
-                throw new RuntimeException("Both clocks must contain the same entries.");
-            }
-            int entryValueOne = clockOne.get(entry);
-            int entryValueTwo = clockTwo.get(entry);
-
-            if (entryValueOne > entryValueTwo) {
-                result.put(entry, entryValueOne);
-            } else {
-                result.put(entry, entryValueTwo);
-            }
-        }
-
-        return result;
     }
 }

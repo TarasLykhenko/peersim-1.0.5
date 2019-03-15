@@ -21,13 +21,17 @@ import static example.common.Settings.LEVELS_PERCENTAGE;
 import static example.common.Settings.TOTAL_OBJECTS_PER_DATACENTER;
 
 public class InitTreeProtocol implements Control {
+    // ------------------------------------------------------------------------
+    // Parameters
+    // ------------------------------------------------------------------------
+
+    private static final String PAR_TREE_PROT = "tree_protocol";
 
     // ------------------------------------------------------------------------
     // Fields
     // ------------------------------------------------------------------------
 
-    private final int datacenter;
-    private final int broker;
+    private final int tree;
 
     private final int[] levelsPercentage;
     private final int[] clientsLocalityPercentages;
@@ -38,8 +42,7 @@ public class InitTreeProtocol implements Control {
     // ------------------------------------------------------------------------
 
     public InitTreeProtocol(String prefix) {
-        datacenter = Configuration.getPid("datacenter");
-        broker = Configuration.getPid("broker");
+        tree = Configuration.getPid(prefix + "." + PAR_TREE_PROT);
 
         levelsPercentage = Arrays.stream(LEVELS_PERCENTAGE
                 .replace("[", "")
@@ -65,9 +68,9 @@ public class InitTreeProtocol implements Control {
      * Datacenters in a deterministic way
      */
     public boolean execute() {
+        setNodeIds();
         // Generate first 1 level (local) data objects, then 2 levels (regional)
         // then 3 levels (country) ...
-        initStateTreeProtocol();
         Set<StateTreeProtocol> datacenters = getDatacenters();
 
         populateDatacenterLevelsToDatacenters(datacenters);
@@ -75,10 +78,8 @@ public class InitTreeProtocol implements Control {
         generateDataObjects(datacenters);
         generateClients(datacenters);
 
-        GroupsManager.getInstance().fillSRT();
-
         // debugPrintStatus(datacenters);
-
+        initStateTreeProtocol();
         return false;
     }
 
@@ -100,6 +101,22 @@ public class InitTreeProtocol implements Control {
 
                 counter = generateDataObjectsForGroup(datacenterGroup, level, levelsPercentage[level], counter);
             }
+        }
+    }
+
+    private void setNodeIds() {
+        for (int i = 0; i < Network.size(); i++) {
+            Node node = Network.get(i);
+            StateTreeProtocol treeProtocol = (StateTreeProtocol) node.getProtocol(tree);
+            treeProtocol.setNodeId(node.getID());
+        }
+    }
+
+    private void initStateTreeProtocol() {
+        for (int i = 0; i < Network.size(); i++) {
+            Node node = Network.get(i);
+            StateTreeProtocol treeProtocol = (StateTreeProtocol) node.getProtocol(tree);
+            treeProtocol.init();
         }
     }
 
@@ -177,7 +194,7 @@ public class InitTreeProtocol implements Control {
     }
 
     private int generateDataObjectsForGroup(Set<StateTreeProtocol> datacentersGroup,
-                                             int level, double percentage, int counter) {
+                                            int level, double percentage, int counter) {
         int numberObjectsToCreate = Math.round((float) (percentage / 100) * TOTAL_OBJECTS_PER_DATACENTER);
         Set<DataObject> result = new HashSet<>();
         Set<Long> nodesGroupIds = datacentersGroup.stream()
@@ -195,24 +212,14 @@ public class InitTreeProtocol implements Control {
         return counter;
     }
 
-    private void initStateTreeProtocol() {
-        for (int i = 0; i < Network.size(); i++) {
-            Node node = Network.get(i);
-            DatacenterProtocol dc = (DatacenterProtocol) node.getProtocol(this.datacenter);
-            BrokerProtocol bp = (BrokerProtocol) node.getProtocol(this.broker);
-            bp.setNodeId(node.getID());
-            dc.init(node.getID());
-        }
-    }
-
     private Set<StateTreeProtocol> getDatacenters() {
         Set<StateTreeProtocol> result = new HashSet<>();
+
         for (int i = 0; i < Network.size(); i++) {
-            ProtocolMapperInit.Type type = ProtocolMapperInit.nodeType.get((long) i);
-            if (type == ProtocolMapperInit.Type.DATACENTER) {
-                result.add((StateTreeProtocol) Network.get(i).getProtocol(datacenter));
-            }
+            Node node = Network.get(i);
+            result.add((StateTreeProtocol) node.getProtocol(tree));
         }
+
         return result;
     }
 

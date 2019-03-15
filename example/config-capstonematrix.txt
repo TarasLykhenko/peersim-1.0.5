@@ -12,8 +12,8 @@ simulation.logtime 1
 
 groups {[0],[0,1],[0,1,2,3]}{[1],[0,1],[0,1,2,3]}{[2],[2,3],[0,1,2,3]}{[3],[2,3],[0,1,2,3]}
 
-partitions_datacenters example/partitions/four_nodes_three_brokers_partition_country.top
-partitions_clients example/partitions/four_nodes_all_connected_partition.top
+partitions_datacenters example/partitions/four_nodes_all_connected_partition_between_countries.top
+partitions_clients example/client-partitions/four_nodes_all_connected_partition_between_countries.top
 
 levels 3
 
@@ -24,16 +24,15 @@ levels 3
 
 
 
-datacenter datacenter
-broker broker
+tree tree
 ################### protocols ===========================
 
 protocol.link peersim.core.IdleProtocol
 
-protocol.datacenter example.capstonematrix.DatacenterProtocol
-protocol.datacenter.step CYCLE
-protocol.datacenter.transport tr
-protocol.datacenter.linkable link
+protocol.tree example.capstonematrix.DatacenterProtocol
+protocol.tree.step CYCLE
+protocol.tree.transport tr
+protocol.tree.linkable link
 
 protocol.urt example.common.PointToPointTransport
 protocol.urt.mindelay 0
@@ -48,19 +47,20 @@ protocol.tr.drop 0
 ### Creates graph and sets latencies
 init.1 example.common.WireTopology
 init.1.topology_path example/topologies
-init.1.topology_file four_nodes_three_brokers_simple.top
+init.1.topology_file four_nodes_all_connected_simple.top
 init.1.protocol link
 
 init.2 example.capstonematrix.InitTreeProtocol
+init.2.tree_protocol tree
 init.2.clients_cycle 1
 
 init.sch CDScheduler
-init.sch.protocol mapper
+init.sch.protocol tree
 init.sch.randstart
 
 ################ control ==============================
 
-control.0 example.capstone.Controller
-control.0.protocol datacenter
+control.0 example.capstonematrix.Controller
+control.0.protocol tree
 control.0.step CYCLE
 control.0.output_file output/

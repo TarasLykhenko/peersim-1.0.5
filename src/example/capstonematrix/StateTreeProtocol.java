@@ -60,6 +60,8 @@ public interface StateTreeProtocol extends BasicStateTreeProtocol {
 
     // NEW
 
+    void init();
+
     long getNodeId();
 
     void setLevelsToNodes(Map<Integer, Set<StateTreeProtocol>> levelsToNodes);
@@ -73,4 +75,6 @@ public interface StateTreeProtocol extends BasicStateTreeProtocol {
     Set<DataObject> getAllDataObjects();
 
     Map<Integer, Set<DataObject>> getAllDataObjectsPerLevel();
+
+    String toString();
 }

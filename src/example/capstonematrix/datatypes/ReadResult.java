@@ -1,18 +1,14 @@
 package example.capstonematrix.datatypes;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
 public class ReadResult {
 
-    private List<Map<Long, Integer>> hierarchicalRegionalClock;
+    private HRC hierarchicalRegionalClock;
 
-    public ReadResult(List<Map<Long, Integer>> hierarchicalRegionalClock) {
-        this.hierarchicalRegionalClock = new ArrayList<>(hierarchicalRegionalClock);
+    public ReadResult(HRC hierarchicalRegionalClock) {
+        this.hierarchicalRegionalClock = new HRC(hierarchicalRegionalClock);
     }
 
-    public List<Map<Long, Integer>> getHRC() {
+    public HRC getHRC() {
         return hierarchicalRegionalClock;
     }
 }

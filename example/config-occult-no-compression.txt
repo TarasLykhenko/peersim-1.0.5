@@ -21,8 +21,8 @@ partitions_clients example/client-partitions/four_nodes_all_connected_partition_
 occult_type no_compression
 objects_per_shard 2
 
-client_read_retries 5
-client_read_retry_interval 1000
+client_read_retries 1
+client_read_retry_interval 100
 ########################################
 
 
