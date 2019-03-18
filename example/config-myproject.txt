@@ -1,5 +1,5 @@
 # network size
-SIZE 5
+SIZE 9
 
 # parameters of periodic execution
 CYCLES 10000
@@ -10,14 +10,17 @@ network.size SIZE
 simulation.endtime CYCLES
 simulation.logtime CYCLE
 
-distinct_groups 1
-number_groups_per_node 1
+distinct_groups 3
+number_groups_per_node 2
 
 rest_time 100
 rest_time_interval 50
 delta 1
 debug false
 backend causalneighbour
+
+# can be 'file' (reads from other/nodes-to-groups.txt) or 'random' (generates randomly)
+groups-config file
 
 ##########################################
 

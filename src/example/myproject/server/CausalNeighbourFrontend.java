@@ -84,7 +84,7 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
             System.out.println("Received message: (Node " + node.getID() + ")");
             message.printMessage();
             List<Message> messagesToForward = receiveMessage(message);
-            System.out.println("Forwarding messages: ");
+            System.out.println(">>> Forwarding messages: ");
             for (Message messageToForward : messagesToForward) {
                 messageToForward.printMessage();
                 frontendForwardMessage(messageToForward, pid);

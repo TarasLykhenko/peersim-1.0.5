@@ -27,6 +27,11 @@ public class PathHandler {
     private Map<Node, NodePath> nodesToCorrespondingPath = new HashMap<>();
 
     /**
+     * Only includes the nodes that are on the path from source to target
+     */
+    private Map<Node, NodePath> shortestPathToNode = new HashMap<>();
+
+    /**
      * Each node tracks the number of messages it has sent to each path
      */
     private Map<Long, Integer> pathMessagesSent = new HashMap<>();
@@ -97,6 +102,8 @@ public class PathHandler {
 
     void setNeighbourhoodAndPathId(NodePath path, long pathId) {
         this.paths.add(path);
+
+        shortestPathToNode.put(path.getLastNodeOnPath(), path);
 
         for (Node node : path.path) {
             nodesToCorrespondingPath.put(node, path);
@@ -181,6 +188,10 @@ public class PathHandler {
             }
         }
         return differentPathsOfInterestNodes;
+    }
+
+    public NodePath getShortestPathOfNode(Node node) {
+        return shortestPathToNode.get(node);
     }
 
     enum Scenario {

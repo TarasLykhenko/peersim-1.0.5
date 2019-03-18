@@ -33,6 +33,12 @@ public interface BackendInterface {
     boolean belongsToGroup(Integer group);
 
     /**
+     * Returns the groups the server publishes. (Only publishes, not forwards)
+     * @return
+     */
+    Set<Integer> getGroups();
+
+    /**
      * Makes the server start forwarding messages of a given group
      * (The server would "publish" messages of this group
      * @param group The topic-based group
@@ -71,6 +77,10 @@ public interface BackendInterface {
      * Sets the server's neighbourhood and pathId
      */
     void setNeighbourhoodAndPathId(NodePath path, long pathId);
+
+    // void setNeighbourhoodAndPathIdOutwards(NodePath path, long pathId);
+
+    // void setNeighbourhoodAndPathIdInwards(NodePath path, long pathId);
 
     void addPathIdMapping(NodePath path, long pathId);
 

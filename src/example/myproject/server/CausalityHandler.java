@@ -1,6 +1,5 @@
 package example.myproject.server;
 
-import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
 
 import java.util.HashMap;
@@ -38,7 +37,9 @@ public class CausalityHandler {
         int currentNodeEntry = publisherMessages.getOrDefault(sender, 0);
 
         if (value != currentNodeEntry + 1) {
-            throw new AssertException("FIFO has been broken, gentlemen.");
+            //TODO ver melhor fora de verificar fifo
+
+            // throw new AssertException("FIFO has been broken, gentlemen.");
         }
 
         publisherMessages.put(sender, value);

@@ -8,6 +8,7 @@ import peersim.core.Node;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -107,7 +108,7 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
 
         for (Long nodeId : liveInterestedNodes) {
             Node node = Network.get(Math.toIntExact(nodeId));
-            NodePath fullPathOfNode = getFullPathOfNode(node);
+            NodePath fullPathOfNode = getShortestPathOfNode(node);
             System.out.println("Checking " + nodeId + " - " + fullPathOfNode);
 
             boolean setContainsSubpath = false;
@@ -218,7 +219,7 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
      * The frontend receives a list of messages ready to be forwarded and directly
      * forwards the messages, without doing any processing
      *
-     * @param messages The list of messages that are to be sent.
+     * @param message The message to be sent.
      *                IMPORTANT: They should already be processed
      */
     // abstract void forwardMessages(List<Message> messages);
@@ -255,6 +256,10 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
 
     NodePath getFullPathOfNode(Node node) {
         return pathHandler.getFullPathOfNode(node);
+    }
+
+    NodePath getShortestPathOfNode(Node node) {
+        return pathHandler.getShortestPathOfNode(node);
     }
 
     @Override
@@ -311,6 +316,11 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     @Override
     public boolean belongsToGroup(Integer group) {
         return messagePublisher.belongsToGroup(group);
+    }
+
+    @Override
+    public Set<Integer> getGroups() {
+        return messagePublisher.getGroups();
     }
 
     @Override

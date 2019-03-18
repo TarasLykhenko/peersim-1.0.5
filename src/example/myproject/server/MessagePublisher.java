@@ -1,11 +1,13 @@
 package example.myproject.server;
 
+import example.myproject.Initialization;
 import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
 import peersim.config.Configuration;
 import peersim.core.CommonState;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -39,6 +41,8 @@ public class MessagePublisher {
      * of sent messages
      */
     private Integer messagesSent = 0;
+
+    private Map<Long, Integer> messagesSentToEachNode = new HashMap<>();
 
     private final long id;
     private final int restTime;
@@ -74,19 +78,33 @@ public class MessagePublisher {
         List<Integer> listGroups = new ArrayList<>(groups);
         int listIdx = CommonState.r.nextInt(listGroups.size());
         int groupEntry = listGroups.get(listIdx);
-        messagesSent++;
-        Map<Long, Integer> data = new HashMap<>();
-        data.put(id, messagesSent);
+        Map<Long, Integer> data = updateMessagesSentToEachNode(groupEntry);
         return new Message(groupEntry, data, id, id);
     }
 
+    // Used to guarantee FIFO
+    private Map<Long, Integer> updateMessagesSentToEachNode(int groupEntry) {
+        messagesSent++;
+        Map<Long, Integer> result = new HashMap<>();
+        Set<Long> members = Initialization.groupsToMembers.get(groupEntry);
+        for (Long member : members) {
+            Integer sent = messagesSentToEachNode.getOrDefault(member, 0);
+            sent++;
+            result.put(member, sent);
+            messagesSentToEachNode.put(member, sent);
+        }
+
+        return result;
+    }
 
     // ------------------
     // INTERFACE METHODS
     // ------------------
 
     Set<Integer> getCopyOfSRT() {
-        return new HashSet<>(groups);
+        Set<Integer> result = new HashSet<>(groups);
+        result.addAll(forwardingGroups);
+        return result;
     }
 
     /** Returns the nodes that are interested in a message.
@@ -124,5 +142,9 @@ public class MessagePublisher {
 
     String printStatus() {
         return "Messages sent: " + messagesSent;
+    }
+
+    public Set<Integer> getGroups() {
+        return Collections.unmodifiableSet(groups);
     }
 }

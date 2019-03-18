@@ -11,12 +11,14 @@ import java.util.stream.Collectors;
 
 public class NodePath {
 
+    public long id;
     public List<Node> path;
     public Set<Node> fullPathSet;
     public Set<Node> pathSetWithoutStart;
     private String pathString;
 
-    public NodePath(List<Node> path) {
+    public NodePath(List<Node> path, long id) {
+        this.id = id;
         this.path = Collections.unmodifiableList(path);
         this.fullPathSet = Collections.unmodifiableSet(new HashSet<>(path));
         Set<Node> setWithoutStart = new HashSet<>(path);
@@ -26,6 +28,10 @@ public class NodePath {
                 .map(Node::getID)
                 .map(Object::toString)
                 .collect(Collectors.joining(":"));
+    }
+
+    public Node getLastNodeOnPath() {
+        return path.get(path.size() - 1);
     }
 
     public void printLn(String msg) {
