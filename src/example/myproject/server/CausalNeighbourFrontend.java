@@ -15,22 +15,54 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
         implements CDProtocol, EDProtocol {
 
     private final int pid;
+    private final int dcPid;
     private final String prefix;
+    private final int publisher; // TODO isto e uma temp var
 
     // TODO TESTAR SE PID ESTA CORRECTO
     public CausalNeighbourFrontend(String prefix) {
         super(prefix);
         this.prefix = prefix;
         this.pid = Configuration.getPid(prefix + ".transport");
+        this.dcPid = Configuration.getPid("causalneighbour");
+        this.publisher = Configuration.getInt("publisher");
     }
 
+    protected void frontendForwardMessage(List<Message> messages) {
+        frontendForwardMessage(messages, dcPid);
+    }
+
+    private void frontendForwardMessage(List<Message> messages, int pid) {
+        if (messages.isEmpty()) {
+            return;
+        }
+
+        System.out.println("---- Forwarding messages ---");
+        for (Message messageToForward : messages) {
+            messageToForward.printMessage();
+            frontendForwardMessage(messageToForward, pid);
+        }
+        System.out.println("---------------------------");
+        System.out.println();
+    }
 
     private void frontendForwardMessage(Message message, int pid) {
         Node srcNode = Network.get(Math.toIntExact(getId()));
         Node targetNode = Network.get(Math.toIntExact(message.getNextDestination()));
+
+        if (isCrashed(targetNode)) {
+            this.connectionIsDown(targetNode);
+            /*
+            List<Message> adaptedMessages = forwardToNextNeighbour(message, targetNode);
+            for (Message adaptedMessage : adaptedMessages) {
+                frontendForwardMessage(adaptedMessage, pid);
+            }
+            System.out.println("Returning bye!");
+            */
+            return;
+        }
         sendMessage(srcNode, targetNode, message, pid);
     }
-
 
 
     /**
@@ -49,29 +81,30 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
     @Override
     public void nextCycle(Node node, int protocolID) {
 
+        if (isCrashed(node)) {
+            return;
+        }
+
+        checkCrashedConnections();
+
         //TODO TIRAR ISTO NÉ
-        if (node.getID() != 0) {
+        if (node.getID() != publisher) {
             return;
         }
         // System.out.println("PUBLISHER: " + node.getID());
 
-        List<Message> newMessage = this.publishMessage();
+        List<Message> newMessages = this.publishMessage();
 
-        if (newMessage == null) {
-            return;
-        }
+        frontendForwardMessage(newMessages, protocolID);
+    }
 
-        System.out.println("Published a new message:");
-        for (Message destinationMsg : newMessage) {
-            Long nextDestinationId = destinationMsg.getNextDestination();
-            Node nextDestinationNode = Network.get(Math.toIntExact(nextDestinationId));
-            destinationMsg.printMessage();
-            sendMessage(node, nextDestinationNode, destinationMsg, protocolID);
-        }
+    private boolean isCrashed(Node node) {
+        return !node.isUp();
     }
 
 
     private void sendMessage(Node src, Node dst, Object msg, int pid) {
+        System.out.println("Sending from " + src.getID() + " to " + dst.getID());
         ((Transport) src.getProtocol(FastConfig.getTransport(pid)))
                 .send(src, dst, msg, pid);
     }
@@ -84,11 +117,7 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
             System.out.println("Received message: (Node " + node.getID() + ")");
             message.printMessage();
             List<Message> messagesToForward = receiveMessage(message);
-            System.out.println(">>> Forwarding messages: ");
-            for (Message messageToForward : messagesToForward) {
-                messageToForward.printMessage();
-                frontendForwardMessage(messageToForward, pid);
-            }
+            frontendForwardMessage(messagesToForward, pid);
         } else {
             throw new RuntimeException("Unknown message type.");
         }

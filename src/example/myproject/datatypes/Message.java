@@ -1,9 +1,12 @@
 package example.myproject.datatypes;
 
 import example.myproject.Initialization;
+import example.myproject.Utils;
 import peersim.config.Configuration;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -15,6 +18,8 @@ import java.util.Map;
 public class Message {
 
     private static final int delta;
+    private static long globalId;
+
 
     static {
         String PAR_DELTA = "delta";
@@ -26,6 +31,7 @@ public class Message {
     private final List<List<MetadataEntry>> metadata;
     private final Map<Long, Integer> data;
     private final Long forwarder;
+    private final long id;
 
     private Long nextDestination;
 
@@ -35,6 +41,7 @@ public class Message {
         this.sender = sender;
         this.forwarder = forwarder;
         this.metadata = new ArrayList<>();
+        this.id = globalId++;
     }
 
     /**
@@ -49,9 +56,32 @@ public class Message {
         this.sender = message.sender;
         this.forwarder = forwarder;
         this.nextDestination = destination;
+        this.id = message.id;
+
+        //TODO isto vai ter de ser 2 delta + 1 devido a duplicates 99% certeza
+        for (List<MetadataEntry> vector : metadata) {
+            while (vector.size() > delta + 1) {
+                vector.remove(0);
+            }
+        }
+    }
+
+    /**
+     * Full copy of another message
+     *
+     * @param message another message
+     */
+    public Message(Message message) {
+        this.group = message.group;
+        this.data = new HashMap<>(message.data);
+        this.sender = message.sender;
+        this.metadata = Utils.matrixCopy(message.getMetadata());
+        this.forwarder = message.forwarder;
+        this.id = message.id;
+        this.nextDestination = message.nextDestination;
 
         for (List<MetadataEntry> vector : metadata) {
-            if (vector.size() > delta * 2) {
+            while (vector.size() > delta + 1) {
                 vector.remove(0);
             }
         }
@@ -59,23 +89,6 @@ public class Message {
 
     public void addPublisherState(Map<Long, Integer> data) {
         this.data.putAll(data);
-    }
-
-    /**
-     * Having a list of different
-     * @param pathId
-     * @param counter
-     */
-    public void addMetadata(int idx, Long pathId, Integer counter) {
-        if (this.metadata != null) {
-            throw new RuntimeException("Message already contains metadata.");
-        }
-
-        if (metadata.get(idx) == null) {
-            metadata.add(new ArrayList<>());
-        }
-
-        this.metadata.get(idx).add(new MetadataEntry(pathId, counter));
     }
 
     public int getGroup() {
@@ -102,20 +115,25 @@ public class Message {
         return this.nextDestination;
     }
 
+    public long getId() {
+        return this.id;
+    }
+
     public int getMetadataSize() {
         return this.metadata.size();
     }
 
     public void printMessage() {
-        System.out.println("Message " + sender + ": " + data.get(sender) + " | from: " + forwarder + " to: " + nextDestination);
+        System.out.println("Message " + sender + ": " + data.get(sender) + " | from " + forwarder + " to " + nextDestination);
+        System.out.println("Id: " + id);
         System.out.println("Group: " + group);
-        System.out.println("Vectors: ");
+        System.out.println("Destination: " + nextDestination);
+        System.out.println("Targets: " + data);
+        System.out.println("Vectors: (" + metadata.size() + ")");
         for (List<MetadataEntry> vector : metadata) {
             StringBuilder stringBuilder = new StringBuilder();
             for (MetadataEntry entry : vector) {
-                NodePath nodePath = Initialization.pathsToPathLongs.get(entry.getPathId());
-                nodePath.getPathString();
-                stringBuilder.append(nodePath.getPathString() + " - " + entry.getValue() + ", ");
+                stringBuilder.append(entry).append(", ");
             }
             System.out.println("  " + stringBuilder.toString());
         }

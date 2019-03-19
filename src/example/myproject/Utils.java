@@ -1,0 +1,42 @@
+package example.myproject;
+
+import peersim.core.Linkable;
+import peersim.core.Node;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+public class Utils {
+
+    public static Set<Node> getNeighboursExcludingSource(Node currentNode, Node sourceNode,
+                                                         int linkablePid) {
+        Linkable linkable = (Linkable)
+                currentNode.getProtocol(linkablePid);
+        Set<Node> neighbours = new HashSet<>();
+        for (int i = 0; i < linkable.degree(); i++) {
+            neighbours.add(linkable.getNeighbor(i));
+        }
+        neighbours.remove(sourceNode);
+
+        return neighbours;
+    }
+
+    public static Set<Long> nodesToLongs(Set<Node> nodes) {
+        return nodes.stream().map(Node::getID).collect(Collectors.toSet());
+    }
+
+    public static <T> List<List<T>> matrixCopy(List<List<T>> matrix) {
+        List<List<T>> result = new ArrayList<>();
+
+        for (List<T> vector : matrix) {
+            List<T> resultVector = new ArrayList<>(vector);
+            result.add(resultVector);
+        }
+
+        return result;
+    }
+
+}

@@ -1,5 +1,6 @@
 package example.myproject.server;
 
+import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
 
 import java.util.HashMap;
@@ -7,6 +8,7 @@ import java.util.Map;
 
 public class CausalityHandler {
 
+    private final long id;
     /**
      * This map is used to store the number of messages received
      * from each node in the entire system.
@@ -21,6 +23,10 @@ public class CausalityHandler {
      */
     private Map<Long, Integer> publisherMessages = new HashMap<>();
 
+    public CausalityHandler(long id) {
+        this.id = id;
+    }
+
     public Message processMessage(Message message) {
 
         // Before returning, verify that they are causally correct
@@ -32,14 +38,15 @@ public class CausalityHandler {
     public void deliverMessage(Message message) {
 
         Long sender = message.getSender();
-        Integer value = message.getData().get(sender);
+        Integer value = message.getData().get(id);
 
         int currentNodeEntry = publisherMessages.getOrDefault(sender, 0);
 
         if (value != currentNodeEntry + 1) {
             //TODO ver melhor fora de verificar fifo
 
-            // throw new AssertException("FIFO has been broken, gentlemen.");
+            throw new AssertException("FIFO broken. Sender: " + sender +
+                    ", got " + currentNodeEntry + ", this is " + value + ".");
         }
 
         publisherMessages.put(sender, value);

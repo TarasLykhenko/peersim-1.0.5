@@ -14,10 +14,12 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public class PathHandler {
 
+    private final long id;
     private Set<NodePath> paths = new HashSet<>();
 
     /**
@@ -32,6 +34,11 @@ public class PathHandler {
     private Map<Node, NodePath> shortestPathToNode = new HashMap<>();
 
     /**
+     * Returns the distance of a node to the current node
+     */
+    private Map<Node, Integer> nodeToDistance = new HashMap<>();
+
+    /**
      * Each node tracks the number of messages it has sent to each path
      */
     private Map<Long, Integer> pathMessagesSent = new HashMap<>();
@@ -44,6 +51,9 @@ public class PathHandler {
     private Map<Long, NodePath> pathIdsToPathNodes = new HashMap<>();
     private Map<NodePath, Long> pathNodesToPathIds = new HashMap<>();
 
+    public PathHandler(long id) {
+        this.id = id;
+    }
 
     public boolean canDeliver(Message message) {
         return false;
@@ -58,11 +68,15 @@ public class PathHandler {
     public Message processMessage(Message message) {
         for (List<MetadataEntry> vector : message.getMetadata()) {
             for (MetadataEntry entry : vector) {
+                if (entry.getState() == MetadataEntry.State.JUMP) {
+                    continue;
+                }
+
                 long pathId = entry.getPathId();
                 int value = entry.getValue();
                 int currentValue = pathsMessagesReceived.get(pathId);
 
-                if (value != currentValue + 1) {
+                if (value > currentValue + 1) {
                     throw new AssertException("This should never happen.");
                 }
 
@@ -77,6 +91,10 @@ public class PathHandler {
     void handleDuplicateMessage(Message message) {
         for (List<MetadataEntry> metadataList : message.getMetadata()) {
             for (MetadataEntry metadataEntry : metadataList) {
+                if (metadataEntry.getState() == MetadataEntry.State.JUMP) {
+                    continue;
+                }
+
                 long pathId = metadataEntry.getPathId();
                 int metadataPathValue = metadataEntry.getValue();
                 int currentPathValue = pathsMessagesReceived.get(pathId);
@@ -133,37 +151,86 @@ public class PathHandler {
                                       long forwarder, long destination) {
 
         List<List<MetadataEntry>> metadataToAdd = new ArrayList<>();
+
         for (NodePath path : pathsGroup) {
+
             // Get previous metadata from message to use as base
             // Can be several different vectors
-            // Falta ver cena de subpath, só deve poder haver 1 em princpio
-            List<MetadataEntry> subPath = getVectorSubpath(message.getMetadata(), path);
-
+            List<MetadataEntry> subPathCopy = new ArrayList<>(getVectorSubpath(message.getMetadata(), path));
             Long pathId = getPathIdFromPathNodes(path);
             Integer msgsSentToPath = pathMessagesSent.get(pathId);
             pathMessagesSent.put(pathId, msgsSentToPath + 1);
-            subPath.add(new MetadataEntry(pathId, msgsSentToPath + 1));
+            subPathCopy.add(new MetadataEntry(pathId, msgsSentToPath + 1));
 
             // Append new metadata to previous corresponding metadata
             // Need to append correct metadata to correct vector
-            metadataToAdd.add(subPath);
+            metadataToAdd.add(subPathCopy);
         }
 
+        addJumpsIfExist(metadataToAdd, destination);
+
         return new Message(message, metadataToAdd, forwarder, destination);
+    }
+
+    Message syncNewMessageForPath(Message message, List<NodePath> pathsGroup, long forwarder, long destination) {
+        List<List<MetadataEntry>> metadataToAdd = new ArrayList<>();
+
+        for (NodePath path : pathsGroup) {
+            List<MetadataEntry> subPathCopy =
+                    new ArrayList<>(getVectorSubpath(message.getMetadata(), path));
+
+            metadataToAdd.add(subPathCopy);
+        }
+
+        addJumpsIfExist(metadataToAdd, destination);
+
+        return new Message(message, metadataToAdd, forwarder, destination);
+    }
+
+    private void addJumpsIfExist(List<List<MetadataEntry>> metadataToAdd, long destination) {
+        NodePath nodePath = shortestPathToNode.get(Network.get((int) destination));
+        for (int i = 1; i < nodePath.path.size(); i++) {
+            long nodeId = nodePath.path.get(i).getID();
+            if (nodeId != destination) {
+                for (List<MetadataEntry> vector : metadataToAdd) {
+                    vector.add(new MetadataEntry());
+                }
+            } else {
+                break;
+            }
+        }
     }
 
     //TODO ver se isto está bem feito
     private List<MetadataEntry> getVectorSubpath(List<List<MetadataEntry>> metadata,
                                                  NodePath path) {
         for (List<MetadataEntry> vector : metadata) {
-            MetadataEntry lastEntry = vector.get(vector.size() - 1);
+            MetadataEntry lastEntry = getLastNonNullEntry(vector);
             if (pathIsSubPath(lastEntry.getPathId(), path)) {
-                //>>System.out.println("TRUE!");
+                //>> System.out.println("TRUE!");
                 return vector;
+            } else {
+                //>> System.out.println("No");
             }
         }
         //>>System.out.println("FALSE!");
         return new ArrayList<>();
+    }
+
+    private MetadataEntry getLastNonNullEntry(List<MetadataEntry> vector) {
+        //>> vector.get(vector.size() - 1);
+        //>> System.out.println("test!");
+        //>> System.out.println(vector);
+        for (int i = 1; i <= vector.size(); i++) {
+            MetadataEntry entry = vector.get(vector.size() - i);
+            //>> System.out.println(entry);
+            if (entry.getState() != MetadataEntry.State.JUMP) {
+                //>> System.out.println("Returning entry " + entry);
+                return entry;
+            }
+        }
+        System.out.println("Returning null");
+        return null;
     }
 
     boolean pathIsSubPath(long pathId, NodePath path) {
@@ -173,6 +240,11 @@ public class PathHandler {
 
     boolean pathIsSubPath(NodePath subPath, NodePath path) {
         Node lastNodeSubPath = subPath.path.get(subPath.path.size() - 1);
+
+        //>> System.out.println("Checking if is subpath:");
+        //>> subPath.printLn("subPath ");
+        //>> path.printLn("full path ");
+
         return path.fullPathSet.contains(lastNodeSubPath);
     }
 
@@ -183,7 +255,7 @@ public class PathHandler {
             NodePath nodePath = it.next();
             Node forwarderNode = Network.get(Math.toIntExact(forwarder));
             if (nodePath.pathSetWithoutStart.contains(forwarderNode)) {
-                System.out.println("REMOVING! " + nodePath.getPathString());
+                //>> System.out.println("REMOVING! " + nodePath.getPathString());
                 it.remove();
             }
         }
@@ -192,6 +264,26 @@ public class PathHandler {
 
     public NodePath getShortestPathOfNode(Node node) {
         return shortestPathToNode.get(node);
+    }
+
+    public Set<Long> getNodesBeyondTargetNode(Set<Long> interestedNodes, long targetNode) {
+        //>> System.out.println("START GET BEYOND (Am " + id + ", target is " + targetNode);
+        //>> System.out.println("Interested nodes: " + interestedNodes);
+        Set<Node> nodesToTarget = shortestPathToNode.get(Network.get((int) targetNode)).fullPathSet;
+        Set<Long> result = new HashSet<>();
+
+        //>> shortestPathToNode.get(Network.get((int) targetNode)).printLn("Path of target:  ");
+        for (Long nodeId : interestedNodes) {
+            Node node = Network.get(Math.toIntExact(nodeId));
+            //>> shortestPathToNode.get(node).printLn("Full path of possible beyond: ");
+            if (shortestPathToNode.get(node).fullPathSet.containsAll(nodesToTarget)) {
+             //>>   System.out.println(nodeId + " is beyond target " + targetNode + "!");
+                result.add(nodeId);
+            }
+        }
+
+        //>> System.out.println("BEYOND result: " + result);
+        return result;
     }
 
     enum Scenario {
@@ -231,6 +323,10 @@ public class PathHandler {
         //>> System.out.println("Evaluating scenario:");
         for (List<MetadataEntry> listsOfMetadata : message.getMetadata()) {
             for (MetadataEntry entry : listsOfMetadata) {
+                if (entry.getState() == MetadataEntry.State.JUMP) {
+                    continue;
+                }
+
                 long pathId = entry.getPathId();
                 int metadataPathValue = entry.getValue();
                 int currentNodeEntry = pathsMessagesReceived.get(pathId);

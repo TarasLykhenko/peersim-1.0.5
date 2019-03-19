@@ -1,5 +1,3 @@
-# network size
-SIZE 9
 
 # parameters of periodic execution
 CYCLES 10000
@@ -10,18 +8,26 @@ network.size SIZE
 simulation.endtime CYCLES
 simulation.logtime CYCLE
 
-distinct_groups 3
-number_groups_per_node 2
+distinct_groups 1
+number_groups_per_node 1
 
 rest_time 100
-rest_time_interval 50
-delta 1
+rest_time_interval 1
 debug false
 backend causalneighbour
 
 # can be 'file' (reads from other/nodes-to-groups.txt) or 'random' (generates randomly)
-groups-config file
+groups-config random
+# network size
+SIZE 15
 
+delta 2
+publisher 7
+crashed-node 2
+crash-start 5
+crash-end 200
+
+causalneighbour causalneighbour
 ##########################################
 
 ################### protocols ===========================
@@ -31,7 +37,6 @@ protocol.link peersim.core.IdleProtocol
 protocol.causalneighbour example.myproject.server.CausalNeighbourFrontend
 protocol.causalneighbour.step CYCLE
 protocol.causalneighbour.transport tr
-protocol.causalneighbour.tree_protocol tree
 protocol.causalneighbour.linkable link
 
 protocol.urt example.myproject.PointToPointTransport
@@ -43,7 +48,7 @@ protocol.tr.drop 0
 ################### initialization ======================
 
 ### Creates graph and sets latencies
-init.1 example.myproject.topology.LinearWireTopology
+init.1 example.myproject.topology.TreeWireTopology
 init.1.protocol link
 init.1.breadth 2
 

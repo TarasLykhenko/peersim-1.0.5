@@ -3,7 +3,9 @@ package example.myproject;
 import example.myproject.server.BackendInterface;
 import peersim.config.Configuration;
 import peersim.core.Control;
+import peersim.core.Fallible;
 import peersim.core.Network;
+import peersim.core.Node;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -18,7 +20,6 @@ public class Controller implements Control {
 
     private static final String PAR_PROT = "protocol";
     private static final String PAR_OUTPUT = "output_file";
-
 
     private int iteration = 1;
     /**
@@ -88,6 +89,8 @@ public class Controller implements Control {
             print(status);
         }
 
+        handleCrashes(currentPoint);
+
 
         print("Observer end =======================");
         print("");
@@ -102,6 +105,23 @@ public class Controller implements Control {
             return true;
         }
         return false;
+    }
+
+    private void handleCrashes(int currentPoint) {
+        int crashedNode = Configuration.getInt("crashed-node");
+        int crashStart = Configuration.getInt("crash-start");
+        int crashEnd = Configuration.getInt("crash-end");
+
+        if (currentPoint == crashStart) {
+            System.out.println("BOOM!");
+            Node node = Network.get(crashedNode);
+            node.setFailState(Fallible.DOWN);
+        }
+
+        if (currentPoint == crashEnd) {
+            Node node = Network.get(crashedNode);
+            node.setFailState(Fallible.OK);
+        }
     }
 
     protected void print(String string) {

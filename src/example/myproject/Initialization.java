@@ -45,7 +45,7 @@ public class Initialization implements Control {
     public static Map<Integer, Set<Long>> groupsToMembers = new HashMap<>();
     public static Map<Integer, Set<Long>> groupsToMembersAndForwarders = new HashMap<>();
     public static Map<Long, NodePath> pathsToPathLongs = new HashMap<>();
-    public static Set<BackendInterface> servers = new LinkedHashSet<>();
+    public static Map<Long, BackendInterface> servers = new LinkedHashMap<>();
 
 
     public Initialization(String prefix) {
@@ -102,7 +102,7 @@ public class Initialization implements Control {
             Node node = Network.get(nodeIdx);
             BackendInterface server = nodeToBackend(node);
             server.init(node.getID());
-            servers.add(server);
+            servers.put(server.getId(), server);
         }
     }
     /**
@@ -226,7 +226,7 @@ public class Initialization implements Control {
             spreadGroups(groups, path);
         }
 
-        for (BackendInterface server : servers) {
+        for (BackendInterface server : servers.values()) {
             System.out.println("Groups of " + server.getId() + ": " + server.getCopyOfSRT());
         }
     }
@@ -234,7 +234,7 @@ public class Initialization implements Control {
     private void spreadGroups(Set<Integer> groups, List<Node> currentPath) {
         Node beforeLast = currentPath.size() == 1 ? null : currentPath.get(currentPath.size() - 2);
         Node lastNode = currentPath.get(currentPath.size() - 1);
-        Set<Node> neighboursExcludingSource = getNeighboursExcludingSource(lastNode, beforeLast);
+        Set<Node> neighboursExcludingSource = Utils.getNeighboursExcludingSource(lastNode, beforeLast, linkablePid);
         for (Node node : neighboursExcludingSource) {
             BackendInterface server = nodeToBackend(node);
 
@@ -361,7 +361,7 @@ public class Initialization implements Control {
         } else {
             nodeBeforeLastNode = currentPath.get(currentPath.size() - 2);
         }
-        Set<Node> nextNeighbours = getNeighboursExcludingSource(lastNode, nodeBeforeLastNode);
+        Set<Node> nextNeighbours = Utils.getNeighboursExcludingSource(lastNode, nodeBeforeLastNode, linkablePid);
 
         if (allNodes) {
             result.add(currentPath);
@@ -383,18 +383,6 @@ public class Initialization implements Control {
             }
         }
 
-    }
-
-    private Set<Node> getNeighboursExcludingSource(Node currentNode, Node sourceNode) {
-        Linkable linkable = (Linkable)
-                currentNode.getProtocol(linkablePid);
-        Set<Node> neighbours = new HashSet<>();
-        for (int i = 0; i < linkable.degree(); i++) {
-            neighbours.add(linkable.getNeighbor(i));
-        }
-        neighbours.remove(sourceNode);
-
-        return neighbours;
     }
 
     private BackendInterface nodeToBackend(Node node) {
