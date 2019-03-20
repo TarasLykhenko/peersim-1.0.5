@@ -139,4 +139,20 @@ public class Message {
         }
         System.out.println();
     }
+
+    public static MetadataEntry getLastNonNullEntry(List<MetadataEntry> vector) {
+        //>> vector.get(vector.size() - 1);
+        //>> System.out.println("test!");
+        //>> System.out.println(vector);
+        for (int i = 1; i <= vector.size(); i++) {
+            MetadataEntry entry = vector.get(vector.size() - i);
+            //>> System.out.println(entry);
+            if (entry.getState() != MetadataEntry.State.JUMP) {
+                //>> System.out.println("Returning entry " + entry);
+                return entry;
+            }
+        }
+        System.out.println("Returning null");
+        throw new AssertException("There should always be more than 1 non null entry");
+    }
 }

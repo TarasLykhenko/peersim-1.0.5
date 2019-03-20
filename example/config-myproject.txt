@@ -28,7 +28,7 @@ crashed-node 2
 crash-start 20
 crash-end 200
 
-
+linkable link
 causalneighbour causalneighbour
 ##########################################
 

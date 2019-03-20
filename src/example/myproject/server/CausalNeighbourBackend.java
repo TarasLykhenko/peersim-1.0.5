@@ -1,12 +1,8 @@
 package example.myproject.server;
 
-import example.myproject.Initialization;
-import example.myproject.Utils;
 import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
-import example.myproject.datatypes.MetadataEntry;
 import example.myproject.datatypes.NodePath;
-import peersim.config.Configuration;
 import peersim.core.Network;
 import peersim.core.Node;
 
@@ -15,36 +11,28 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 //TODO NOTA: Não sei até que ponto usar um mapa é uma boa ideia.
 //TODO provavelmente mudar as datastructures de "Node" para "Long"
-public abstract class CausalNeighbourBackend implements BackendInterface {
+public class CausalNeighbourBackend implements BackendInterface {
 
-    private static final String PAR_LINKABLE = "linkable";
 
     /**
      * The nodeID of the node this specific protocol instance belongs to.
      */
     protected long id;
-    private final int linkablePid;
 
+    private CausalNeighbourFrontend frontend;
     private MessagePublisher messagePublisher;
     private PathHandler pathHandler;
     private CausalityHandler causalityHandler;
     private ConnectionHandler connectionHandler;
 
-    Set<Node> activeConnections = new HashSet<>();
-    Set<Node> downConnections = new HashSet<>();
-
-    Set<Node> inActivationConnections = new HashSet<>();
-
-    public CausalNeighbourBackend(String prefix) {
-        this.linkablePid = Configuration.getPid(prefix + "." + PAR_LINKABLE);
+    public CausalNeighbourBackend(CausalNeighbourFrontend frontend) {
+        this.frontend = frontend;
     }
 
     // ----------
@@ -52,7 +40,9 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     // ----------
 
     /**
-     * Publishes a new message. This message may be cloned to be sent to different nodes.
+     * Publishes a new message.
+     *
+     * This message may be cloned to be sent to different nodes.
      * @return
      */
     List<Message> publishMessage() {
@@ -67,6 +57,76 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
         System.out.println("Publishing a message!");
         return prepareMessageToForward(freshMessage);
     }
+
+    /**
+     * Receives a message.
+     *
+     * This message may then be forwarder to other nodes.
+     * @param message
+     * @return
+     */
+    List<Message> receiveMessage(Message message) {
+        PathHandler.Scenario scenario = pathHandler.evaluationScenario(message);
+        List<Message> resultList = Collections.emptyList();
+
+        switch (scenario) {
+            case ONE:
+                Message result = message;
+                if (messagePublisher.belongsToGroup(message.getGroup())) {
+                    result = causalityHandler.processMessage(result);
+                }
+                connectionHandler.updateGcReceiveFromInformation(message);
+                result = pathHandler.processMessage(result);
+                resultList = prepareMessageToForward(result);
+                break;
+
+            case TWO:
+                throw new AssertException("This scenario is impossible.");
+                // messageBuffer.bufferMessage(message);
+                // break;
+
+            case THREE:
+                // TODO provavelmente tem de propagar as metadatas para o resto
+                pathHandler.handleDuplicateMessage(message);
+                throw new AssertException("TODO must implement this scenario!");
+                // break;
+        }
+
+        System.out.println("Scenario " + scenario);
+
+        return resultList;
+    }
+
+    /**
+     * Part of the synch protocol. This is the 2nd of the 3rd step.
+     *
+     * 1st step: Server A sends ConnectionStart message to server B.
+     * 2nd step: Server B receives the message, sends the messages it received from A.
+     * 3rd step: Server A sends the missing messages from A to B.
+     *
+     * @param sender The server that started the synch protocol
+     * @return The list of ids of the missing messages
+     */
+    List<Long> handleNewConnection(long sender) {
+        return this.connectionHandler.handleNewConnection(sender);
+    }
+
+    /**
+     * Part of the synch protocol. This is the 3rd of the 3rd step.
+     *
+     * 1st step: Server A sends ConnectionStart message to server B.
+     * 2nd step: Server B receives the message, sends the messages it received from A.
+     * 3rd step: Server A sends the missing messages from A to B.
+     *
+     * @param sender The server that is the target of the synch protocol
+     * @param historyFromSender The history from the target server
+     * @return All messages that are missing in the target server.
+     */
+    List<Message> compareHistory(long sender, List<Long> historyFromSender) {
+        return this.connectionHandler.compareHistory(sender, historyFromSender);
+    }
+
+
 
     private List<Message> prepareMessageToForward(Message message) {
         Set<Long> interestedNodes = getInterestedNodes(message);
@@ -83,39 +143,12 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
         for (List<NodePath> pathsGroup : groupedDistinctPaths) {
             long destination = getDestination(pathsGroup);
             Message messageToSend = pathHandler.generateNewMessageForPath(message, pathsGroup, id, destination);
-            addGcInformation(messageToSend, pathsGroup);
             differentMessagesToSend.add(messageToSend);
         }
 
-        System.out.println("MESSAGES TO SEND:");
-        differentMessagesToSend.forEach(Message::printMessage);
-
-        addMessagesToConnectionQueues(differentMessagesToSend);
+        connectionHandler.handleOutgoingMessages(differentMessagesToSend);
 
         return differentMessagesToSend;
-    }
-
-    /**
-     * This added messages to a connection queue. However, since we know we cannot
-     * send the message directly before the connection is stable (or we can break FIFO),
-     * we simply don't send the message and then send it when the connection is synching
-     * with the compareMessages routine.
-     *
-     * @param differentMessagesToSend
-     */
-    private void addMessagesToConnectionQueues(List<Message> differentMessagesToSend) {
-        Iterator<Message> iterator = differentMessagesToSend.iterator();
-        while (iterator.hasNext()) {
-            Message message = iterator.next();
-            long destination = message.getNextDestination();
-            Node dstNode = Network.get((int) destination);
-            if (inActivationConnections.contains(dstNode)) {
-                //>> System.out.println("Adding!");
-                // nodeMessageQueue.computeIfAbsent(dstNode, k -> new ArrayList<>()).add(message);
-                //>> System.out.println("Removing msg to dst " + destination);
-                iterator.remove();
-            }
-        }
     }
 
 
@@ -152,10 +185,11 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
         NodePath nodePath = pathsGroup.get(0);
         for (int i = 1; i < nodePath.path.size(); i++) {
             Node node = nodePath.path.get(i);
-            if (activeConnections.contains(node) || inActivationConnections.contains(node)) {
+            if (connectionHandler.containsConnection(node)) {
                 return node.getID();
             }
         }
+
         //TODO deal with this
         throw new AssertException("Every possible connection is down.");
     }
@@ -242,7 +276,8 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
             int lvl = 1;
             while (lvl < path.path.size()) {
                 Node node = path.path.get(lvl);
-                if (downConnections.contains(node)) {
+                if (connectionHandler.downConnections.contains(node)) {
+                    System.out.println("SAD!");
                     lvl++;
                 } else {
                     long entry = node.getID();
@@ -259,8 +294,8 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     }
 
 
-
     // TODO Isto parece-me batota? Ver directamente se o nó está vivo, não sei
+
     // se posso fazer isto
 
     /**
@@ -284,55 +319,9 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     }
 
 
-    /**
-     * The frontend receives a list of messages ready to be forwarded and directly
-     * forwards the messages, without doing any processing
-     *
-     * @param message The message to be sent.
-     *                IMPORTANT: They should already be processed
-     */
-    // abstract void forwardMessages(List<Message> messages);
-
-
-    // --------------------------------------------------------
-    // ---------------- MESSAGE RECEIVE PROCESS ---------------
-    // --------------------------------------------------------
-
-    List<Message> receiveMessage(Message message) {
-        PathHandler.Scenario scenario = pathHandler.evaluationScenario(message);
-
-        switch (scenario) {
-            case ONE:
-                Message result = message;
-                if (messagePublisher.belongsToGroup(message.getGroup())) {
-                    result = causalityHandler.processMessage(result);
-                }
-                updateGcReceiveFromInformation(message);
-                result = pathHandler.processMessage(result);
-                return prepareMessageToForward(result);
-
-            case TWO:
-                System.exit(1);
-                // messageBuffer.bufferMessage(message);
-                break;
-
-            case THREE:
-                // TODO provavelmente tem de propagar as metadatas para o resto
-                pathHandler.handleDuplicateMessage(message);
-                break;
-        }
-
-        System.out.println("Scenario " + scenario);
-        return Collections.emptyList();
-    }
-
     // --------------
     // HELPER METHODS
     // --------------
-
-    NodePath getFullPathOfNode(Node node) {
-        return pathHandler.getFullPathOfNode(node);
-    }
 
     NodePath getShortestPathOfNode(Node node) {
         return pathHandler.getShortestPathOfNode(node);
@@ -344,7 +333,7 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
         this.messagePublisher = new MessagePublisher(id);
         this.pathHandler = new PathHandler(id);
         this.causalityHandler = new CausalityHandler(id);
-        this.connectionHandler = new ConnectionHandler(id);
+        this.connectionHandler = new ConnectionHandler(id, pathHandler, frontend);
     }
 
     /**
@@ -426,279 +415,19 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
         //compareMessages(otherNode.getID());
     }
 
-    /**
-     * TODO: ADD REMOTE MESSAGES (syncing messages)
-     * Important note: Currently this is instant. In the future it should
-     * problaby use remote event-based calls.
-     */
-    /*
-    private void compareMessages(Long otherNode) {
-        System.out.println("I'm " + id + ", connecting to " + otherNode);
-        BackendInterface backend = Initialization.servers.get(otherNode);
-        CausalNeighbourBackend server = (CausalNeighbourBackend) backend;
-
-        List<Long> msgsSentFromStarter = gcMessagesSentToEachNode.computeIfAbsent(otherNode, k -> new ArrayList<>());
-        List<Long> msgsReceivedFromStarter = server.gcMessagesReceivedFromEachNode.computeIfAbsent(id, k -> new ArrayList<>());
-
-        System.out.println("Comparing two lists:");
-        System.out.println(msgsSentFromStarter);
-        System.out.println(msgsReceivedFromStarter);
-
-        for (int i = 0; i < msgsReceivedFromStarter.size(); i++) {
-            long serverMsg = msgsSentFromStarter.get(i);
-            long ownMsg = msgsReceivedFromStarter.get(i);
-
-            if (serverMsg != ownMsg) {
-                throw new AssertException("What the fuck?");
-            }
-        }
-
-        if (msgsReceivedFromStarter.size() == msgsSentFromStarter.size()) {
-            System.out.println("COMPARE OVER! GOOD JOB");
-            return;
-        }
-
-        List<Long> missingMsgs = new ArrayList<>(msgsSentFromStarter);
-        missingMsgs.removeAll(msgsReceivedFromStarter);
-        System.out.println("(Am node " + id + ") Missing msgs for node " + otherNode + ": ");
-        System.out.println(missingMsgs);
-
-        for (Long missingMessageId : missingMsgs) {
-            Message rawMessage = gcStorage.get(missingMessageId).get(otherNode);
-            System.out.println("Raw message: ");
-            rawMessage.printMessage();
-
-            Message message = syncPrepareMessageToForward(rawMessage, otherNode);
-
-            System.out.println("ADAPTED MSG:");
-            message.printMessage();
-
-            List<Message> messages = server.receiveMessage(message);
-            server.frontendForwardMessage(messages);
-
-            //TODO mensagem guardada tem tags para vários sitios, mas como
-            // estamos a mandar para um nó que nao lhe interessa essas tags,
-            // temos de adaptar
-            // Message newMessage = new Message(rawMessage);
-
-           // List<Message> messages = server.receiveMessage(message);
-           // server.frontendForwardMessage(messages);
-        }
-
-        //System.out.println("LETS COMPARE AGAIN NOW!");
-        //compareMessages(otherNode);
-        // throw new AssertException("boom");
-
-        //TODO super hardcoded e mal feito. Apenas porque é incall.
-    }
-    */
-
     @Override
     public String printStatus() {
         StringBuilder builder = new StringBuilder();
-        builder.append("Node " + id + " status").append(System.lineSeparator());
+        String backendStatus = "Node " + id + " status";
+        builder.append(backendStatus).append(System.lineSeparator());
         builder.append(messagePublisher.printStatus()).append(System.lineSeparator());
         builder.append(causalityHandler.printStatus()).append(System.lineSeparator());
         builder.append(pathHandler.printStatus()).append(System.lineSeparator());
-        builder.append("Garbage size: ")
-                .append(gcMessagesSentToEachNode.values().stream()
-                        .flatMap(Collection::stream)
-                        .collect(Collectors.toSet())
-                        .size());
+        builder.append(connectionHandler.printStatus()).append(System.lineSeparator());
         return builder.toString();
     }
 
     // ----------------------------------
     // Methods to be used by the frontend
     // ----------------------------------
-
-    /*
-    protected List<Message> forwardToNextNeighbour(Message message, Node crashedNode) {
-        System.out.println("CHANGING MESSAGE");
-        Set<Long> interestedNodes = new HashSet<>();
-        message.printMessage();
-        for (List<MetadataEntry> vector : message.getMetadata()) {
-            Node nextNode = getNextNeighbour(vector.get(vector.size() - 1), crashedNode);
-            interestedNodes.add(nextNode.getID());
-            vector.add(new MetadataEntry());
-        }
-
-        return prepareMessageToForward(message, interestedNodes);
-    }
-    */
-
-    private Node getNextNeighbour(MetadataEntry metadataEntry, Node crashedNode) {
-        long pathId = metadataEntry.getPathId();
-        NodePath nodePath = pathHandler.getPathNodesFromPathId(pathId);
-        for (int i = 0; i < nodePath.path.size(); i++) {
-            if (nodePath.path.get(i).getID() == crashedNode.getID()) {
-                //System.out.println("Returning entry " + (i+1));
-                return nodePath.path.get(i + 1);
-            }
-        }
-        System.out.println("Didn't find anything");
-        return null;
-    }
-
-    protected Set<Node> connectionIsDown(Node targetNode) {
-        System.out.println("(Node " + id + ") detected node " + targetNode.getID() + " down.");
-        activeConnections.remove(targetNode);
-        downConnections.add(targetNode);
-
-        Node thisNode = Network.get(Math.toIntExact(id));
-        Set<Node> newNeighbours = Utils
-                .getNeighboursExcludingSource(targetNode, thisNode, linkablePid);
-        System.out.println("(Node " + id + ") new connections: " + Utils.nodesToLongs(newNeighbours));
-
-        inActivationConnections.addAll(newNeighbours);
-        return newNeighbours;
-        //newNeighbours.forEach(this::startActiveConnection);
-    }
-
-    protected void checkCrashedConnections() {
-        Iterator<Node> iterator = downConnections.iterator();
-
-        while (iterator.hasNext()) {
-            Node node = iterator.next();
-            if (node.isUp()) {
-                connectionIsBackOnline(node);
-            }
-        }
-    }
-
-    protected void connectionIsBackOnline(Node targetNode) {
-        System.out.println("(Node " + id + ") detected node " + targetNode.getID() + " up.");
-        startActiveConnection(targetNode);
-
-        downConnections.remove(targetNode);
-
-        Node thisNode = Network.get(Math.toIntExact(id));
-        Set<Node> newNeighbours = Utils
-                .getNeighboursExcludingSource(targetNode, thisNode, linkablePid);
-        System.out.println("(Node " + id + ") removed connections: " + Utils.nodesToLongs(newNeighbours));
-        activeConnections.removeAll(newNeighbours);
-    }
-
-
-    /// ---------------------------
-    /// GARBAGE COLLECTION
-    /// ---------------------------
-
-
-    private Map<Long, Map<Long, Message>> gcStorage = new HashMap<>();
-    private Map<Long, List<Long>> gcMessagesSentToEachNode = new HashMap<>();
-    private Map<Long, List<Long>> gcMessagesReceivedFromEachNode = new HashMap<>();
-
-
-    private void addGcInformation(Message message, List<NodePath> pathsGroups) {
-        Set<Long> targetIds = pathsGroups.stream()
-                .map(nodePath -> nodePath.fullPathSet)
-                .flatMap(Collection::stream)
-                .map(Node::getID)
-                .collect(Collectors.toSet());
-
-
-        System.out.println("(DEBUG N " + id + ") adding msg for " + targetIds);
-        //>> message.printMessage();
-        for (Long interestedNode : targetIds) {
-            gcStorage.computeIfAbsent(message.getId(), k -> new HashMap<>())
-                    .put(interestedNode, new Message(message));
-            gcMessagesSentToEachNode.computeIfAbsent(interestedNode, k -> new ArrayList<>())
-                    .add(message.getId());
-        }
-    }
-
-    /**
-     * Currently, this retrives the first node of each nodePath entry and updates
-     * the GC map to the number of messages it received from it.
-     * If this works in every scenario is yet to be understood.
-     * // TODO !
-     * @param message
-     */
-    private void updateGcReceiveFromInformation(Message message) {
-        //>> System.out.println("Updating GC!");
-
-        Set<Long> ids = new HashSet<>();
-
-        for (List<MetadataEntry> vector : message.getMetadata()) {
-            for (MetadataEntry entry : vector) {
-                if (entry.getState() == MetadataEntry.State.JUMP) {
-                    continue;
-                }
-                if (!ids.add(message.getId())) {
-                    continue;
-                    // throw new AssertException("What the fuck: " + ids);
-                }
-
-                NodePath nodePath = pathHandler.getPathNodesFromPathId(entry.getPathId());
-                //>> nodePath.printLn("Path: ");
-                Node node = nodePath.path.get(0);
-
-                //>> System .out.println("UPDATING " + node.getID());
-                gcMessagesReceivedFromEachNode
-                        .computeIfAbsent(node.getID(), k -> new ArrayList<>())
-                        .add(message.getId());
-            }
-        }
-    }
-
-    /**
-     * //TODO Isto de momento só devolve as msgs que recebeu. Poderá ser optimizado um dia
-     * @param sender
-     * @return
-     */
-    protected List<Long> handleNewConnection(long sender) {
-        return gcMessagesReceivedFromEachNode.getOrDefault(sender, new ArrayList<>());
-    }
-
-    protected List<Message> compareHistory(long sender, List<Long> historyFromSender) {
-        List<Long> sentMessages = gcMessagesSentToEachNode.get(sender);
-
-        System.out.println("Comparing two lists:");
-        System.out.println(sentMessages);
-        System.out.println(historyFromSender);
-
-        for (int i = 0; i < historyFromSender.size(); i++) {
-            long ownMsg = sentMessages.get(i);
-            long serverMsg = historyFromSender.get(i);
-
-            if (ownMsg != serverMsg) {
-                throw new AssertException("What the fuck?");
-            }
-        }
-
-        if (sentMessages.size() == historyFromSender.size()) {
-            System.out.println("COMPARE OVER! GOOD JOB");
-            return Collections.emptyList();
-        }
-
-        List<Long> missingMsgs = new ArrayList<>(sentMessages);
-        missingMsgs.removeAll(historyFromSender);
-        System.out.println("(Node " + id + ") Missing msgs for node " + sender + ": " + missingMsgs);
-
-        List<Message> missingMessages = new ArrayList<>();
-        for (Long missingMessageId : missingMsgs) {
-            Message rawMessage = gcStorage.get(missingMessageId).get(sender);
-            System.out.println("Raw message: ");
-            rawMessage.printMessage();
-
-            Message message;
-            if (rawMessage.getNextDestination() != sender) {
-                message = syncPrepareMessageToForward(rawMessage, sender);
-            } else {
-                message = rawMessage;
-            }
-
-            System.out.println("ADAPTED MSG:");
-            message.printMessage();
-
-            missingMessages.add(message);
-        }
-
-        Node senderNode = Network.get((int) sender);
-
-        inActivationConnections.remove(senderNode);
-        activeConnections.add(senderNode);
-        return missingMessages;
-    }
 }

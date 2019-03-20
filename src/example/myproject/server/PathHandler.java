@@ -206,7 +206,7 @@ public class PathHandler {
     private List<MetadataEntry> getVectorSubpath(List<List<MetadataEntry>> metadata,
                                                  NodePath path) {
         for (List<MetadataEntry> vector : metadata) {
-            MetadataEntry lastEntry = getLastNonNullEntry(vector);
+            MetadataEntry lastEntry = Message.getLastNonNullEntry(vector);
             if (pathIsSubPath(lastEntry.getPathId(), path)) {
                 //>> System.out.println("TRUE!");
                 return vector;
@@ -216,22 +216,6 @@ public class PathHandler {
         }
         //>>System.out.println("FALSE!");
         return new ArrayList<>();
-    }
-
-    private MetadataEntry getLastNonNullEntry(List<MetadataEntry> vector) {
-        //>> vector.get(vector.size() - 1);
-        //>> System.out.println("test!");
-        //>> System.out.println(vector);
-        for (int i = 1; i <= vector.size(); i++) {
-            MetadataEntry entry = vector.get(vector.size() - i);
-            //>> System.out.println(entry);
-            if (entry.getState() != MetadataEntry.State.JUMP) {
-                //>> System.out.println("Returning entry " + entry);
-                return entry;
-            }
-        }
-        System.out.println("Returning null");
-        return null;
     }
 
     boolean pathIsSubPath(long pathId, NodePath path) {
@@ -263,6 +247,10 @@ public class PathHandler {
             }
         }
         return differentPathsOfInterestNodes;
+    }
+
+    public NodePath getShortestPathOfNode(Long id) {
+        return shortestPathToNode.get(Network.get(Math.toIntExact(id)));
     }
 
     public NodePath getShortestPathOfNode(Node node) {

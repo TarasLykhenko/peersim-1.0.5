@@ -13,18 +13,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-public class CausalNeighbourFrontend extends CausalNeighbourBackend
-        implements CDProtocol, EDProtocol {
+public class CausalNeighbourFrontend implements CDProtocol, EDProtocol {
 
     private final int dcPid;
     private final String prefix;
     private final int publisher; // TODO isto e uma temp var
 
+    private CausalNeighbourBackend server;
+
     public CausalNeighbourFrontend(String prefix) {
-        super(prefix);
         this.prefix = prefix;
         this.dcPid = Configuration.getPid("causalneighbour");
         this.publisher = Configuration.getInt("publisher");
+        this.server = new ConnectionHandler(new Causal);
     }
 
 
@@ -48,7 +49,7 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
             return;
         }
 
-        checkCrashedConnections();
+        server.checkCrashedConnections();
 
         //TODO TIRAR ISTO NÉ
         if (node.getID() != publisher) {
@@ -56,7 +57,7 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
         }
         // System.out.println("PUBLISHER: " + node.getID());
 
-        List<Message> newMessages = this.publishMessage();
+        List<Message> newMessages = server.publishMessage();
 
         frontendForwardMessage(newMessages, protocolID);
     }
@@ -68,21 +69,25 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
             System.out.println("---------------------");
             System.out.println("Received message: (Node " + node.getID() + ")");
             message.printMessage();
-            List<Message> messagesToForward = receiveMessage(message);
+            List<Message> messagesToForward = server.receiveMessage(message);
             frontendForwardMessage(messagesToForward, pid);
         } else if (event instanceof StartConnectionMsg) {
             StartConnectionMsg msg = (StartConnectionMsg) event;
             System.out.println("Received startConnection request");
-            List<Long> messageHistory = this.handleNewConnection(msg.sender);
-            MessageHistoryMsg messageHistoryMsg = new MessageHistoryMsg(id, msg.sender, messageHistory);
+            List<Long> messageHistory = server.handleNewConnection(msg.sender);
+            MessageHistoryMsg messageHistoryMsg = new MessageHistoryMsg(server.getId(), msg.sender, messageHistory);
             sendMessage(id, msg.sender, messageHistoryMsg, pid);
         } else if (event instanceof MessageHistoryMsg) {
             MessageHistoryMsg msg = (MessageHistoryMsg) event;
-            List<Message> missingMessages = this.compareHistory(msg.sender, msg.historyFromSender);
+            List<Message> missingMessages = server.compareHistory(msg.sender, msg.historyFromSender);
             frontendForwardMessage(missingMessages, pid);
         } else {
             throw new RuntimeException("Unknown message type. " + event.getClass().getSimpleName());
         }
+    }
+
+    public void startConnection() {
+
     }
 
     private boolean isCrashed(Node node) {
@@ -104,14 +109,14 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
     }
 
     private void frontendForwardMessage(Message message, int pid) {
-        Node srcNode = Network.get(Math.toIntExact(getId()));
+        Node srcNode = Network.get(Math.toIntExact(server.getId()));
         Node targetNode = Network.get(Math.toIntExact(message.getNextDestination()));
 
         if (isCrashed(targetNode)) {
             //TODO prestar atenção: connectionIsDown faz tudp de uma só vez. É preciso fazer agora manualmente
-            Set<Node> newNeighbours = this.connectionIsDown(targetNode);
+            Set<Node> newNeighbours = server.connectionIsDown(targetNode);
             for (Node newNeighbour : newNeighbours) {
-                StartConnectionMsg msg = new StartConnectionMsg(id, newNeighbour.getID());
+                StartConnectionMsg msg = new StartConnectionMsg(server.getId(), newNeighbour.getID());
                 sendMessage(srcNode, newNeighbour, msg, pid);
             }
 

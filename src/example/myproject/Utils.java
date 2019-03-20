@@ -1,5 +1,6 @@
 package example.myproject;
 
+import peersim.config.Configuration;
 import peersim.core.Linkable;
 import peersim.core.Node;
 
@@ -11,10 +12,13 @@ import java.util.stream.Collectors;
 
 public class Utils {
 
-    public static Set<Node> getNeighboursExcludingSource(Node currentNode, Node sourceNode,
-                                                         int linkablePid) {
+    private Utils() {}
+
+    private static final int LINKABLE_PID = Configuration.getPid("linkable");
+
+    public static Set<Node> getNeighboursExcludingSource(Node currentNode, Node sourceNode) {
         Linkable linkable = (Linkable)
-                currentNode.getProtocol(linkablePid);
+                currentNode.getProtocol(LINKABLE_PID);
         Set<Node> neighbours = new HashSet<>();
         for (int i = 0; i < linkable.degree(); i++) {
             neighbours.add(linkable.getNeighbor(i));
@@ -22,6 +26,10 @@ public class Utils {
         neighbours.remove(sourceNode);
 
         return neighbours;
+    }
+
+    public static boolean isCrashed(Node node) {
+        return !node.isUp();
     }
 
     public static Set<Long> nodesToLongs(Set<Node> nodes) {
