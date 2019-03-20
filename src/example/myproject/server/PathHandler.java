@@ -9,6 +9,7 @@ import peersim.core.Network;
 import peersim.core.Node;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -248,14 +249,16 @@ public class PathHandler {
         return path.fullPathSet.contains(lastNodeSubPath);
     }
 
+
     Set<NodePath> removeForwarderPaths(Message message, Set<NodePath> differentPathsOfInterestNodes) {
         long forwarder = message.getForwarder();
+        NodePath pathToForwarder = getShortestPathOfNode(Network.get((int) forwarder));
+        Set<Node> nodesOnForwarderPath = pathToForwarder.pathSetWithoutStart;
+
         Iterator<NodePath> it = differentPathsOfInterestNodes.iterator();
         while (it.hasNext()) {
-            NodePath nodePath = it.next();
-            Node forwarderNode = Network.get(Math.toIntExact(forwarder));
-            if (nodePath.pathSetWithoutStart.contains(forwarderNode)) {
-                //>> System.out.println("REMOVING! " + nodePath.getPathString());
+            Set<Node> nodesPath = it.next().pathSetWithoutStart;
+            if (!Collections.disjoint(nodesOnForwarderPath, nodesPath)) {
                 it.remove();
             }
         }

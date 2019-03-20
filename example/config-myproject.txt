@@ -19,13 +19,13 @@ backend causalneighbour
 # can be 'file' (reads from other/nodes-to-groups.txt) or 'random' (generates randomly)
 groups-config random
 # network size
-SIZE 3
+SIZE 15
 
 latency 200
 delta 1
-publisher 0
-crashed-node 1
-crash-start 5
+publisher 7
+crashed-node 2
+crash-start 20
 crash-end 200
 
 
@@ -50,7 +50,7 @@ protocol.tr.drop 0
 ################### initialization ======================
 
 ### Creates graph and sets latencies
-init.1 example.myproject.topology.LinearWireTopology
+init.1 example.myproject.topology.TreeWireTopology
 init.1.protocol link
 init.1.breadth 2
 

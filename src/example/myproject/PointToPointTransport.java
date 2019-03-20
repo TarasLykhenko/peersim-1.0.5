@@ -136,7 +136,7 @@ public final class PointToPointTransport implements Transport {
         }
 
         lastWillBeReceived.get(srcId).put(destId, messageWillBeReceived);
-
+        System.out.println("Delay: " + delay);
         EDSimulator.add(delay, msg, dest, pid);
     }
 

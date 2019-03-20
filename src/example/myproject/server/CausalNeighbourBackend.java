@@ -36,18 +36,12 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     private MessagePublisher messagePublisher;
     private PathHandler pathHandler;
     private CausalityHandler causalityHandler;
+    private ConnectionHandler connectionHandler;
 
     Set<Node> activeConnections = new HashSet<>();
     Set<Node> downConnections = new HashSet<>();
 
     Set<Node> inActivationConnections = new HashSet<>();
-
-    /**
-     * Buffer used when starting a connection with a new node.
-     * This is used because between starting the connection and synchronizing,
-     * messages cannot be sent (otherwise FIFO will be broken)
-     */
-    Map<Node, List<Message>> nodeMessageQueue = new HashMap<>();
 
     public CausalNeighbourBackend(String prefix) {
         this.linkablePid = Configuration.getPid(prefix + "." + PAR_LINKABLE);
@@ -93,11 +87,22 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
             differentMessagesToSend.add(messageToSend);
         }
 
+        System.out.println("MESSAGES TO SEND:");
+        differentMessagesToSend.forEach(Message::printMessage);
+
         addMessagesToConnectionQueues(differentMessagesToSend);
 
         return differentMessagesToSend;
     }
 
+    /**
+     * This added messages to a connection queue. However, since we know we cannot
+     * send the message directly before the connection is stable (or we can break FIFO),
+     * we simply don't send the message and then send it when the connection is synching
+     * with the compareMessages routine.
+     *
+     * @param differentMessagesToSend
+     */
     private void addMessagesToConnectionQueues(List<Message> differentMessagesToSend) {
         Iterator<Message> iterator = differentMessagesToSend.iterator();
         while (iterator.hasNext()) {
@@ -105,8 +110,9 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
             long destination = message.getNextDestination();
             Node dstNode = Network.get((int) destination);
             if (inActivationConnections.contains(dstNode)) {
-                nodeMessageQueue.computeIfAbsent(dstNode, k -> new ArrayList<>()).add(message);
-                System.out.println("Removing msg to dst " + destination);
+                //>> System.out.println("Adding!");
+                // nodeMessageQueue.computeIfAbsent(dstNode, k -> new ArrayList<>()).add(message);
+                //>> System.out.println("Removing msg to dst " + destination);
                 iterator.remove();
             }
         }
@@ -338,6 +344,7 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
         this.messagePublisher = new MessagePublisher(id);
         this.pathHandler = new PathHandler(id);
         this.causalityHandler = new CausalityHandler(id);
+        this.connectionHandler = new ConnectionHandler(id);
     }
 
     /**
@@ -591,7 +598,7 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
                 .collect(Collectors.toSet());
 
 
-        //>> System.out.println("adding msg for " + targetIds);
+        System.out.println("(DEBUG N " + id + ") adding msg for " + targetIds);
         //>> message.printMessage();
         for (Long interestedNode : targetIds) {
             gcStorage.computeIfAbsent(message.getId(), k -> new HashMap<>())
@@ -689,12 +696,6 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
         }
 
         Node senderNode = Network.get((int) sender);
-        System.out.println("Adding queued messages: " + nodeMessageQueue.get(senderNode).size());
-        //missingMessages.addAll(nodeMessageQueue.computeIfAbsent(senderNode, k-> new ArrayList<>()));
-        nodeMessageQueue.get(senderNode).clear();
-        if (!nodeMessageQueue.get(senderNode).isEmpty()) {
-            throw new AssertException("List should now be empty.");
-        }
 
         inActivationConnections.remove(senderNode);
         activeConnections.add(senderNode);
