@@ -198,7 +198,7 @@ public final class PointToPointTransport implements Transport {
             long lastWillBeReceivedDest = lastWillBeReceived.get(srcId).get(destId);
             if (messageWillBeReceived <= lastWillBeReceivedDest) {
                 messageWillBeReceived = lastWillBeReceivedDest + 1;
-                delay = delay + 1;
+                delay = messageWillBeReceived - CommonState.getTime();
             }
 
             lastWillBeReceived.get(srcId).put(destId, messageWillBeReceived);

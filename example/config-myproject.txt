@@ -11,7 +11,7 @@ simulation.logtime CYCLE
 distinct_groups 1
 number_groups_per_node 1
 
-rest_time 100
+rest_time 20
 rest_time_interval 1
 debug false
 backend causalneighbour
@@ -19,13 +19,15 @@ backend causalneighbour
 # can be 'file' (reads from other/nodes-to-groups.txt) or 'random' (generates randomly)
 groups-config random
 # network size
-SIZE 15
+SIZE 3
 
-delta 2
-publisher 7
-crashed-node 2
+latency 200
+delta 1
+publisher 0
+crashed-node 1
 crash-start 5
 crash-end 200
+
 
 causalneighbour causalneighbour
 ##########################################
@@ -48,7 +50,7 @@ protocol.tr.drop 0
 ################### initialization ======================
 
 ### Creates graph and sets latencies
-init.1 example.myproject.topology.TreeWireTopology
+init.1 example.myproject.topology.LinearWireTopology
 init.1.protocol link
 init.1.breadth 2
 

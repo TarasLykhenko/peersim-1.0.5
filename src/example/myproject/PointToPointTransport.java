@@ -18,26 +18,18 @@
 
 package example.myproject;
 
+import example.myproject.datatypes.Message;
 import peersim.config.Configuration;
-import peersim.config.IllegalParameterException;
 import peersim.core.CommonState;
-import peersim.core.Network;
 import peersim.core.Node;
 import peersim.edsim.EDSimulator;
 import peersim.transport.Transport;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 import static example.common.Settings.MAX_DELAY;
 import static example.common.Settings.MIN_DELAY;
-import static example.common.Settings.PARTITION_START_PERCENTAGE;
-import static example.common.Settings.PARTITION_STOP_PERCENTAGE;
-import static example.common.Settings.SHOULD_PARTITION_CLIENTS;
-import static example.common.Settings.SHOULD_PARTITION_DC;
 
 
 /**
@@ -53,6 +45,12 @@ public final class PointToPointTransport implements Transport {
 //---------------------------------------------------------------------
 //Fields
 //---------------------------------------------------------------------
+
+    /**
+     * Constant minimum delay for message sending
+     */
+    private final long latency;
+
 
     /**
      * Minimum delay for message sending
@@ -76,6 +74,7 @@ public final class PointToPointTransport implements Transport {
     public PointToPointTransport(String prefix) {
         min = MIN_DELAY;
         max = MAX_DELAY;
+        latency = Configuration.getLong("latency");
     }
 
 //---------------------------------------------------------------------
@@ -104,7 +103,7 @@ public final class PointToPointTransport implements Transport {
      */
     //TODO meter random latency
     public long getLatency(Node src, Node dest) {
-        return 30;
+        return latency;
     }
 
 
@@ -123,7 +122,6 @@ public final class PointToPointTransport implements Transport {
         Long srcId = src.getID();
         Long destId = dest.getID();
 
-
         long delay = addBellDelay(getLatency(src, dest));
 
         long messageWillBeReceived = CommonState.getTime() + delay;
@@ -131,13 +129,13 @@ public final class PointToPointTransport implements Transport {
         long lastWillBeReceivedDest = lastWillBeReceived
                 .computeIfAbsent(srcId, k -> new HashMap<>())
                 .getOrDefault(destId, 0L);
+
         if (messageWillBeReceived <= lastWillBeReceivedDest) {
             messageWillBeReceived = lastWillBeReceivedDest + 1;
-            delay = delay + 1;
+            delay = messageWillBeReceived - CommonState.getTime();
         }
 
         lastWillBeReceived.get(srcId).put(destId, messageWillBeReceived);
-
 
         EDSimulator.add(delay, msg, dest, pid);
     }
