@@ -22,10 +22,7 @@ import java.util.stream.Collectors;
 /**
  * Handles the garbage collection and existing connections
  */
-public class ConnectionHandler {
-
-    private final long id;
-    private final PathHandler pathHandler;
+public abstract class ConnectionHandler extends CausalNeighbourBackend {
 
     private Map<Long, Map<Long, Message>> gcStorage = new HashMap<>();
 
@@ -33,13 +30,26 @@ public class ConnectionHandler {
     private Map<Long, List<Long>> gcMessagesReceivedFromEachNode = new HashMap<>();
 
     private Set<Node> activeConnections = new HashSet<>();
-
-    Set<Node> downConnections = new HashSet<>();
+    private Set<Node> downConnections = new HashSet<>();
     private Set<Node> inActivationConnections = new HashSet<>();
 
-    public ConnectionHandler(long id, PathHandler pathHandler, CausalNeighbourFrontend frontend) {
-        this.id = id;
-        this.pathHandler = pathHandler;
+    ConnectionHandler(String prefix) {
+        super(prefix);
+    }
+
+    @Override
+    List<Message> receiveMessage(Message message) {
+        updateGcReceiveFromInformation(message);
+        List<Message> result = super.receiveMessage(message);
+        handleOutgoingMessages(result);
+        return result;
+    }
+
+    @Override
+    List<Message> publishMessage() {
+        List<Message> result = super.publishMessage();
+        handleOutgoingMessages(result);
+        return result;
     }
 
     private void addGcInformation(Message message) {
@@ -47,9 +57,8 @@ public class ConnectionHandler {
         List<NodePath> nodePaths = new ArrayList<>();
         for (List<MetadataEntry> vector : message.getMetadata()) {
             MetadataEntry lastNonNullEntry = Message.getLastNonNullEntry(vector);
-            nodePaths.add(pathHandler.getShortestPathOfNode(lastNonNullEntry.getPathId()));
+            nodePaths.add(getPathHandler().getPathNodesFromPathId(lastNonNullEntry.getPathId()));
         }
-
 
         Set<Long> targetIds = nodePaths.stream()
                 .map(nodePath -> nodePath.fullPathSet)
@@ -71,10 +80,10 @@ public class ConnectionHandler {
      * Currently, this retrives the first node of each nodePath entry and updates
      * the GC map to the number of messages it received from it.
      * If this works in every scenario is yet to be understood.
-     * // TODO !
+     *
      * @param message
      */
-    void updateGcReceiveFromInformation(Message message) {
+    private void updateGcReceiveFromInformation(Message message) {
         //>> System.out.println("Updating GC!");
 
         Set<Long> ids = new HashSet<>();
@@ -89,7 +98,7 @@ public class ConnectionHandler {
                     // throw new AssertException("What the fuck: " + ids);
                 }
 
-                NodePath nodePath = pathHandler.getPathNodesFromPathId(entry.getPathId());
+                NodePath nodePath = getPathHandler().getPathNodesFromPathId(entry.getPathId());
                 //>> nodePath.printLn("Path: ");
                 Node node = nodePath.path.get(0);
 
@@ -101,15 +110,33 @@ public class ConnectionHandler {
         }
     }
 
+
+    //TODO Isto de momento só devolve as msgs que recebeu. Poderá ser optimizado um dia
     /**
-     * //TODO Isto de momento só devolve as msgs que recebeu. Poderá ser optimizado um dia
-     * @param sender
-     * @return
+     * Part of the synch protocol. This is the 2nd of the 3rd step.
+     *
+     * 1st step: Server A sends ConnectionStart message to server B.
+     * 2nd step: Server B receives the message, sends the messages it received from A.
+     * 3rd step: Server A sends the missing messages from A to B.
+     *
+     * @param sender The server that started the synch protocol
+     * @return The list of ids of the missing messages
      */
     List<Long> handleNewConnection(long sender) {
         return gcMessagesReceivedFromEachNode.getOrDefault(sender, new ArrayList<>());
     }
 
+    /**
+     * Part of the synch protocol. This is the 3rd of the 3rd step.
+     *
+     * 1st step: Server A sends ConnectionStart message to server B.
+     * 2nd step: Server B receives the message, sends the messages it received from A.
+     * 3rd step: Server A sends the missing messages from A to B.
+     *
+     * @param sender The server that is the target of the synch protocol
+     * @param historyFromSender The history from the target server
+     * @return All messages that are missing in the target server.
+     */
     List<Message> compareHistory(long sender, List<Long> historyFromSender) {
         List<Long> sentMessages = gcMessagesSentToEachNode.get(sender);
 
@@ -163,7 +190,7 @@ public class ConnectionHandler {
 
 
 
-    Set<Node> connectionIsDown(Node targetNode) {
+    private Set<Node> connectionIsDown(Node targetNode) {
         System.out.println("(Node " + id + ") detected node " + targetNode.getID() + " down.");
         activeConnections.remove(targetNode);
         downConnections.add(targetNode);
@@ -189,7 +216,7 @@ public class ConnectionHandler {
         }
     }
 
-    void connectionIsBackOnline(Node targetNode) {
+    private void connectionIsBackOnline(Node targetNode) {
         System.out.println("(Node " + id + ") detected node " + targetNode.getID() + " up.");
         startActiveConnection(targetNode);
 
@@ -202,6 +229,9 @@ public class ConnectionHandler {
         activeConnections.removeAll(newNeighbours);
     }
 
+
+
+    @Override
     public void startActiveConnection(Long connectionStarter) {
         Node node = Network.get(Math.toIntExact(connectionStarter));
         startActiveConnection(node);
@@ -244,7 +274,7 @@ public class ConnectionHandler {
      *
      * @param differentMessagesToSend
      */
-    void handleOutgoingMessages(List<Message> differentMessagesToSend) {
+    private void handleOutgoingMessages(List<Message> differentMessagesToSend) {
         differentMessagesToSend.forEach(this::addGcInformation);
         differentMessagesToSend.forEach(this::checkIfDestinationIsCrashed);
         addMessagesToConnectionQueues(differentMessagesToSend);
@@ -253,35 +283,43 @@ public class ConnectionHandler {
     private void checkIfDestinationIsCrashed(Message message) {
         long destination = message.getNextDestination();
         Node dstNode = Network.get((int) destination);
-        if (Utils.isCrashed(dstNode)) {
-            //TODO prestar atenção: connectionIsDown faz tudp de uma só vez. É preciso fazer agora manualmente
-            Set<Node> newNeighbours = this.connectionIsDown(targetNode);
-            for (Node newNeighbour : newNeighbours) {
-                StartConnectionMsg msg = new StartConnectionMsg(id, newNeighbour.getID());
-                sendMessage(srcNode, newNeighbour, msg, pid);
-            }
 
-            return;
-            /*
-            List<Message> adaptedMessages = forwardToNextNeighbour(message, targetNode);
-            for (Message adaptedMessage : adaptedMessages) {
-                frontendForwardMessage(adaptedMessage, pid);
+        if (Utils.isCrashed(dstNode)) {
+            Set<Node> newNeighbours = connectionIsDown(dstNode);
+            for (Node newNeighbour : newNeighbours) {
+                startConnection(newNeighbour.getID());
             }
-            System.out.println("Returning bye!");
-            */
         }
     }
 
+    abstract void startConnection(long target);
+
+    @Override
     boolean containsConnection(Node node) {
         return activeConnections.contains(node) || inActivationConnections.contains(node);
     }
 
-    String printStatus() {
-        StringBuilder builder = new StringBuilder();
-        builder.append("Up connections: ").append(activeConnections).append(System.lineSeparator());
-        builder.append("Down connections: ").append(downConnections).append(System.lineSeparator());
-        builder.append("Syncing connections: ").append(inActivationConnections).append(System.lineSeparator());
-        builder.append("Garbage size: ").append(gcStorage.size()).append(System.lineSeparator());
-        return builder.toString();
+    @Override
+    Set<Node> getActiveConnections() {
+        return activeConnections;
+    }
+
+    @Override
+    Set<Node> getDownConnections() {
+        return downConnections;
+    }
+
+    @Override
+    public String printStatus() {
+        String status = super.printStatus();
+
+        Set<Long> upConnections = activeConnections.stream().map(Node::getID).collect(Collectors.toSet());
+        Set<Long> crashedConnections = downConnections.stream().map(Node::getID).collect(Collectors.toSet());
+
+        String builder = "Up connections: " + upConnections + System.lineSeparator() +
+                "Down connections: " + crashedConnections + System.lineSeparator() +
+                "Syncing connections: " + inActivationConnections + System.lineSeparator() +
+                "Garbage size: " + gcStorage.size() + System.lineSeparator();
+        return status + builder;
     }
 }

@@ -234,7 +234,7 @@ public class Initialization implements Control {
     private void spreadGroups(Set<Integer> groups, List<Node> currentPath) {
         Node beforeLast = currentPath.size() == 1 ? null : currentPath.get(currentPath.size() - 2);
         Node lastNode = currentPath.get(currentPath.size() - 1);
-        Set<Node> neighboursExcludingSource = Utils.getNeighboursExcludingSource(lastNode, beforeLast, linkablePid);
+        Set<Node> neighboursExcludingSource = Utils.getNeighboursExcludingSource(lastNode, beforeLast);
         for (Node node : neighboursExcludingSource) {
             BackendInterface server = nodeToBackend(node);
 
@@ -361,7 +361,7 @@ public class Initialization implements Control {
         } else {
             nodeBeforeLastNode = currentPath.get(currentPath.size() - 2);
         }
-        Set<Node> nextNeighbours = Utils.getNeighboursExcludingSource(lastNode, nodeBeforeLastNode, linkablePid);
+        Set<Node> nextNeighbours = Utils.getNeighboursExcludingSource(lastNode, nodeBeforeLastNode);
 
         if (allNodes) {
             result.add(currentPath);

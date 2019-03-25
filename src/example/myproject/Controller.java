@@ -1,5 +1,6 @@
 package example.myproject;
 
+import example.myproject.datatypes.Message;
 import example.myproject.server.BackendInterface;
 import peersim.config.Configuration;
 import peersim.core.Control;
@@ -79,6 +80,9 @@ public class Controller implements Control {
             }
         }
 
+        System.out.println("CURRENT TOTAL BIGGEST SIZE: " + Message.getBiggestTotalSize());
+        System.out.println("Biggest vector: " + Message.getBiggestVectorSize());
+        if (true) return false;
         currentPoint += STATISTICS_WINDOW;
 
         print("Observer init ======================");

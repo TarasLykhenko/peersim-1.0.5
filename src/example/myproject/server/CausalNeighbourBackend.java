@@ -17,22 +17,18 @@ import java.util.Set;
 
 //TODO NOTA: Não sei até que ponto usar um mapa é uma boa ideia.
 //TODO provavelmente mudar as datastructures de "Node" para "Long"
-public class CausalNeighbourBackend implements BackendInterface {
-
+public abstract class CausalNeighbourBackend implements BackendInterface {
 
     /**
      * The nodeID of the node this specific protocol instance belongs to.
      */
     protected long id;
 
-    private CausalNeighbourFrontend frontend;
     private MessagePublisher messagePublisher;
     private PathHandler pathHandler;
     private CausalityHandler causalityHandler;
-    private ConnectionHandler connectionHandler;
 
-    public CausalNeighbourBackend(CausalNeighbourFrontend frontend) {
-        this.frontend = frontend;
+    public CausalNeighbourBackend(String prefix) {
     }
 
     // ----------
@@ -43,7 +39,8 @@ public class CausalNeighbourBackend implements BackendInterface {
      * Publishes a new message.
      *
      * This message may be cloned to be sent to different nodes.
-     * @return
+     *
+     * @return A list of messages to be forwarded to other servers.
      */
     List<Message> publishMessage() {
         Message freshMessage = messagePublisher.publishMessage();
@@ -62,8 +59,9 @@ public class CausalNeighbourBackend implements BackendInterface {
      * Receives a message.
      *
      * This message may then be forwarder to other nodes.
-     * @param message
-     * @return
+     *
+     * @param message The message that this server received
+     * @return A list of messages to be forwarded to other servers.
      */
     List<Message> receiveMessage(Message message) {
         PathHandler.Scenario scenario = pathHandler.evaluationScenario(message);
@@ -75,7 +73,6 @@ public class CausalNeighbourBackend implements BackendInterface {
                 if (messagePublisher.belongsToGroup(message.getGroup())) {
                     result = causalityHandler.processMessage(result);
                 }
-                connectionHandler.updateGcReceiveFromInformation(message);
                 result = pathHandler.processMessage(result);
                 resultList = prepareMessageToForward(result);
                 break;
@@ -97,45 +94,9 @@ public class CausalNeighbourBackend implements BackendInterface {
         return resultList;
     }
 
-    /**
-     * Part of the synch protocol. This is the 2nd of the 3rd step.
-     *
-     * 1st step: Server A sends ConnectionStart message to server B.
-     * 2nd step: Server B receives the message, sends the messages it received from A.
-     * 3rd step: Server A sends the missing messages from A to B.
-     *
-     * @param sender The server that started the synch protocol
-     * @return The list of ids of the missing messages
-     */
-    List<Long> handleNewConnection(long sender) {
-        return this.connectionHandler.handleNewConnection(sender);
-    }
-
-    /**
-     * Part of the synch protocol. This is the 3rd of the 3rd step.
-     *
-     * 1st step: Server A sends ConnectionStart message to server B.
-     * 2nd step: Server B receives the message, sends the messages it received from A.
-     * 3rd step: Server A sends the missing messages from A to B.
-     *
-     * @param sender The server that is the target of the synch protocol
-     * @param historyFromSender The history from the target server
-     * @return All messages that are missing in the target server.
-     */
-    List<Message> compareHistory(long sender, List<Long> historyFromSender) {
-        return this.connectionHandler.compareHistory(sender, historyFromSender);
-    }
-
-
-
     private List<Message> prepareMessageToForward(Message message) {
         Set<Long> interestedNodes = getInterestedNodes(message);
-        return prepareMessageToForward(message, interestedNodes);
-    }
-
-    private List<Message> prepareMessageToForward(Message message, Set<Long> interestedNodes) {
-        Set<Long> liveInterestedNodes = getLiveInterestedNodes(interestedNodes);
-        Set<NodePath> differentPathsOfInterestNodes = getDistinctPaths(liveInterestedNodes);
+        Set<NodePath> differentPathsOfInterestNodes = getDistinctPaths(interestedNodes);
         removeForwarderPaths(message, differentPathsOfInterestNodes);
         Collection<List<NodePath>> groupedDistinctPaths = groupDistinctPaths(differentPathsOfInterestNodes);
 
@@ -146,13 +107,11 @@ public class CausalNeighbourBackend implements BackendInterface {
             differentMessagesToSend.add(messageToSend);
         }
 
-        connectionHandler.handleOutgoingMessages(differentMessagesToSend);
-
         return differentMessagesToSend;
     }
 
 
-    private Message syncPrepareMessageToForward(Message message, long syncingNode) {
+    Message syncPrepareMessageToForward(Message message, long syncingNode) {
         Set<Long> interestedNodes = getInterestedNodes(message);
         Set<Long> nodesBeyondTarget = getNodesBeyondTargetNode(interestedNodes, syncingNode);
         Set<NodePath> differentPathsOfInterestNodes = getDistinctPaths(nodesBeyondTarget);
@@ -163,20 +122,17 @@ public class CausalNeighbourBackend implements BackendInterface {
             throw new AssertException("This should always be 1");
         }
 
-        for (List<NodePath> pathsGroup : groupedDistinctPaths) {
-            return pathHandler.syncNewMessageForPath(message, pathsGroup, id, syncingNode);
-        }
-
-        throw new AssertException("boom.");
+        List<NodePath> path = groupedDistinctPaths.iterator().next();
+        return pathHandler.syncNewMessageForPath(message, path, id, syncingNode);
     }
 
     private Set<Long> getNodesBeyondTargetNode(Set<Long> interestedNodes, long targetNode) {
         return pathHandler.getNodesBeyondTargetNode(interestedNodes, targetNode);
     }
 
-    private Set<NodePath> removeForwarderPaths(Message message,
-                                               Set<NodePath> differentPathsOfInterestNodes) {
-        return pathHandler.removeForwarderPaths(message, differentPathsOfInterestNodes);
+    private void removeForwarderPaths(Message message,
+                                      Set<NodePath> differentPathsOfInterestNodes) {
+        pathHandler.removeForwarderPaths(message, differentPathsOfInterestNodes);
     }
 
     private long getDestination(List<NodePath> pathsGroup) {
@@ -185,7 +141,7 @@ public class CausalNeighbourBackend implements BackendInterface {
         NodePath nodePath = pathsGroup.get(0);
         for (int i = 1; i < nodePath.path.size(); i++) {
             Node node = nodePath.path.get(i);
-            if (connectionHandler.containsConnection(node)) {
+            if (containsConnection(node)) {
                 return node.getID();
             }
         }
@@ -200,7 +156,7 @@ public class CausalNeighbourBackend implements BackendInterface {
      * Meaning if there are only two nodes and both are on the same path, only one
      * path is returned.
      *
-     * @return
+     * @return The set of different paths that include all interested nodes
      */
     private Set<NodePath> getDistinctPaths(Set<Long> liveInterestedNodes) {
         Set<NodePath> distinctPaths = new HashSet<>();
@@ -253,30 +209,30 @@ public class CausalNeighbourBackend implements BackendInterface {
      * Groups the paths also by seeing which active connection is alive.
      *
      * Example (for lvl 1): We split according to similar nodes on the 2nd index
-     *  Subpaths:   2 0 1
-     *              2 5 11
-     *              2 5 12
-     *              2 6 13
-     *              2 6 14
+     * Subpaths:   2 0 1
+     * 2 5 11
+     * 2 5 12
+     * 2 6 13
+     * 2 6 14
      *
-     *  The groupings are [2 0 1], [{2 5 11}, {2 5 12}] and [{2 6 13}, {2 6 14}]
-     *  The messages will be sent to nodes 0, 5 and 6.
+     * The groupings are [2 0 1], [{2 5 11}, {2 5 12}] and [{2 6 13}, {2 6 14}]
+     * The messages will be sent to nodes 0, 5 and 6.
      *
-     *  Node 0 will receive metadata for [2 0 1]
-     *  Node 5 will receive metadata for [2 5 11, 2 5 12]
-     *  Node 6 will receive metadata for [2 6 13, 2 6 14]
-     * @param distinctPaths
-     * @return
+     * Node 0 will receive metadata for [2 0 1]
+     * Node 5 will receive metadata for [2 5 11, 2 5 12]
+     * Node 6 will receive metadata for [2 6 13, 2 6 14]
+     *
+     * @param distinctPaths A set of distinct paths that may overlap
+     * @return A collection of paths grouped by overlaps
      */
     private Collection<List<NodePath>> groupDistinctPaths(Set<NodePath> distinctPaths) {
         Map<Long, List<NodePath>> result = new HashMap<>();
-        int counter = 0; // Tracks how many lists were added
 
         for (NodePath path : distinctPaths) {
             int lvl = 1;
             while (lvl < path.path.size()) {
                 Node node = path.path.get(lvl);
-                if (connectionHandler.downConnections.contains(node)) {
+                if (getDownConnections().contains(node)) {
                     System.out.println("SAD!");
                     lvl++;
                 } else {
@@ -294,37 +250,44 @@ public class CausalNeighbourBackend implements BackendInterface {
     }
 
 
-    // TODO Isto parece-me batota? Ver directamente se o nó está vivo, não sei
-
-    // se posso fazer isto
-
+    //TODO Por acaso pensando bem, as msgs devem ser sempre feitas para todos os nos,
+    // mesmo se tiverem mortos
     /**
      * Given a set of nodes, this method returns a new set containing
-     * only the nodes that are currently alive.
-     * @param interestedNodes
-     * @return
+     * only the nodes that we currently have connections to
+     *
+     * @param interestedNodes All nodes that are interested in a given message
+     * @return The subset of the nodes that we have an active connection to
      */
+    /*
     private Set<Long> getLiveInterestedNodes(Set<Long> interestedNodes) {
         Set<Long> result = new HashSet<>();
 
         for (Long nodeId : interestedNodes) {
             Node node = Network.get(Math.toIntExact(nodeId));
 
-            if (node.isUp()) {
+            if (getActiveConnections().contains(node)) {
                 result.add(nodeId);
             }
         }
 
         return result;
     }
+    */
 
 
     // --------------
     // HELPER METHODS
     // --------------
 
-    NodePath getShortestPathOfNode(Node node) {
-        return pathHandler.getShortestPathOfNode(node);
+    /**
+     * Returns the path from this node to the target node
+     *
+     * @param otherNode A target node
+     * @return The path to the otherNode
+     */
+    private NodePath getShortestPathOfNode(Node otherNode) {
+        return pathHandler.getShortestPathOfNode(otherNode);
     }
 
     @Override
@@ -333,7 +296,6 @@ public class CausalNeighbourBackend implements BackendInterface {
         this.messagePublisher = new MessagePublisher(id);
         this.pathHandler = new PathHandler(id);
         this.causalityHandler = new CausalityHandler(id);
-        this.connectionHandler = new ConnectionHandler(id, pathHandler, frontend);
     }
 
     /**
@@ -342,8 +304,8 @@ public class CausalNeighbourBackend implements BackendInterface {
      *
      * Note: The result is unordered.
      *
-     * @param message
-     * @return
+     * @param message A message object
+     * @return The nodes in the neighbourhood that are interested in the message
      */
     private Set<Long> getInterestedNodes(Message message) {
         return messagePublisher.getInterestedNodes(message);
@@ -405,29 +367,28 @@ public class CausalNeighbourBackend implements BackendInterface {
     }
 
     @Override
-    public void startActiveConnection(Long connectionStarter) {
-        Node node = Network.get(Math.toIntExact(connectionStarter));
-        startActiveConnection(node);
-    }
-
-    public void startActiveConnection(Node otherNode) {
-        activeConnections.add(otherNode);
-        //compareMessages(otherNode.getID());
-    }
-
-    @Override
     public String printStatus() {
-        StringBuilder builder = new StringBuilder();
         String backendStatus = "Node " + id + " status";
-        builder.append(backendStatus).append(System.lineSeparator());
-        builder.append(messagePublisher.printStatus()).append(System.lineSeparator());
-        builder.append(causalityHandler.printStatus()).append(System.lineSeparator());
-        builder.append(pathHandler.printStatus()).append(System.lineSeparator());
-        builder.append(connectionHandler.printStatus()).append(System.lineSeparator());
-        return builder.toString();
+        return backendStatus + System.lineSeparator() +
+                messagePublisher.printStatus() + System.lineSeparator() +
+                causalityHandler.printStatus() + System.lineSeparator() +
+                pathHandler.printStatus() + System.lineSeparator();
     }
 
-    // ----------------------------------
-    // Methods to be used by the frontend
-    // ----------------------------------
+
+    // -----------------------------------------
+    // --------- COMMUNICATION DOWNSTREAM ------
+    // -----------------------------------------
+
+    PathHandler getPathHandler() {
+        return this.pathHandler;
+    }
+
+    abstract Set<Node> getActiveConnections();
+
+    abstract Set<Node> getDownConnections();
+
+    abstract boolean containsConnection(Node node);
+
+
 }

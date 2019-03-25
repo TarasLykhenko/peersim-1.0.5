@@ -1,6 +1,6 @@
 
 # parameters of periodic execution
-CYCLES 10000
+CYCLES 500
 CYCLE 1
 
 # random.seed 1234567890
@@ -13,19 +13,20 @@ number_groups_per_node 1
 
 rest_time 20
 rest_time_interval 1
-debug false
+debug true
 backend causalneighbour
 
 # can be 'file' (reads from other/nodes-to-groups.txt) or 'random' (generates randomly)
 groups-config random
 # network size
-SIZE 15
 
+SIZE 200
+tree-breadth 2
 latency 200
-delta 1
+delta 5
 publisher 7
 crashed-node 2
-crash-start 20
+crash-start 200
 crash-end 200
 
 linkable link
@@ -52,7 +53,6 @@ protocol.tr.drop 0
 ### Creates graph and sets latencies
 init.1 example.myproject.topology.TreeWireTopology
 init.1.protocol link
-init.1.breadth 2
 
 ### Inits queues based on graph
 init.2 example.myproject.Initialization

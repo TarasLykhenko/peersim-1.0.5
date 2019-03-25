@@ -13,19 +13,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-public class CausalNeighbourFrontend implements CDProtocol, EDProtocol {
+public class CausalNeighbourFrontend extends ConnectionHandler
+        implements CDProtocol, EDProtocol {
 
     private final int dcPid;
     private final String prefix;
     private final int publisher; // TODO isto e uma temp var
 
-    private CausalNeighbourBackend server;
-
     public CausalNeighbourFrontend(String prefix) {
+        super(prefix);
         this.prefix = prefix;
         this.dcPid = Configuration.getPid("causalneighbour");
         this.publisher = Configuration.getInt("publisher");
-        this.server = new ConnectionHandler(new Causal);
     }
 
 
@@ -49,7 +48,7 @@ public class CausalNeighbourFrontend implements CDProtocol, EDProtocol {
             return;
         }
 
-        server.checkCrashedConnections();
+        checkCrashedConnections();
 
         //TODO TIRAR ISTO NÉ
         if (node.getID() != publisher) {
@@ -57,7 +56,7 @@ public class CausalNeighbourFrontend implements CDProtocol, EDProtocol {
         }
         // System.out.println("PUBLISHER: " + node.getID());
 
-        List<Message> newMessages = server.publishMessage();
+        List<Message> newMessages = publishMessage();
 
         frontendForwardMessage(newMessages, protocolID);
     }
@@ -69,26 +68,29 @@ public class CausalNeighbourFrontend implements CDProtocol, EDProtocol {
             System.out.println("---------------------");
             System.out.println("Received message: (Node " + node.getID() + ")");
             message.printMessage();
-            List<Message> messagesToForward = server.receiveMessage(message);
+            List<Message> messagesToForward = this.receiveMessage(message);
             frontendForwardMessage(messagesToForward, pid);
         } else if (event instanceof StartConnectionMsg) {
             StartConnectionMsg msg = (StartConnectionMsg) event;
             System.out.println("Received startConnection request");
-            List<Long> messageHistory = server.handleNewConnection(msg.sender);
-            MessageHistoryMsg messageHistoryMsg = new MessageHistoryMsg(server.getId(), msg.sender, messageHistory);
-            sendMessage(id, msg.sender, messageHistoryMsg, pid);
+            List<Long> messageHistory = this.handleNewConnection(msg.sender);
+            MessageHistoryMsg messageHistoryMsg = new MessageHistoryMsg(this.getId(), msg.sender, messageHistory);
+            sendMessage(this.getId(), msg.sender, messageHistoryMsg, pid);
         } else if (event instanceof MessageHistoryMsg) {
             MessageHistoryMsg msg = (MessageHistoryMsg) event;
-            List<Message> missingMessages = server.compareHistory(msg.sender, msg.historyFromSender);
+            List<Message> missingMessages = this.compareHistory(msg.sender, msg.historyFromSender);
             frontendForwardMessage(missingMessages, pid);
         } else {
             throw new RuntimeException("Unknown message type. " + event.getClass().getSimpleName());
         }
     }
 
-    public void startConnection() {
-
+    @Override
+    void startConnection(long target) {
+        StartConnectionMsg msg = new StartConnectionMsg(getId(), target);
+        sendMessage(getId(), target, msg, dcPid);
     }
+
 
     private boolean isCrashed(Node node) {
         return !node.isUp();
@@ -109,28 +111,13 @@ public class CausalNeighbourFrontend implements CDProtocol, EDProtocol {
     }
 
     private void frontendForwardMessage(Message message, int pid) {
-        Node srcNode = Network.get(Math.toIntExact(server.getId()));
+        Node srcNode = Network.get(Math.toIntExact(this.getId()));
         Node targetNode = Network.get(Math.toIntExact(message.getNextDestination()));
 
         if (isCrashed(targetNode)) {
-            //TODO prestar atenção: connectionIsDown faz tudp de uma só vez. É preciso fazer agora manualmente
-            Set<Node> newNeighbours = server.connectionIsDown(targetNode);
-            for (Node newNeighbour : newNeighbours) {
-                StartConnectionMsg msg = new StartConnectionMsg(server.getId(), newNeighbour.getID());
-                sendMessage(srcNode, newNeighbour, msg, pid);
-            }
-
-            return;
-            /*
-            List<Message> adaptedMessages = forwardToNextNeighbour(message, targetNode);
-            for (Message adaptedMessage : adaptedMessages) {
-                frontendForwardMessage(adaptedMessage, pid);
-            }
-            System.out.println("Returning bye!");
-            */
+            System.out.println("Wasting time..");
         }
-        System.out.println("Sending message " + message.getData().get(message.getNextDestination()) + " to " + message.getNextDestination());
-        System.out.println("Target node is " + targetNode.getID());
+
         sendMessage(srcNode, targetNode, message, pid);
     }
 
@@ -142,7 +129,6 @@ public class CausalNeighbourFrontend implements CDProtocol, EDProtocol {
     }
 
     private void sendMessage(Node src, Node dst, Object msg, int pid) {
-        System.out.println("Sending from " + src.getID() + " to " + dst.getID());
         ((Transport) src.getProtocol(FastConfig.getTransport(pid)))
                 .send(src, dst, msg, pid);
     }

@@ -18,7 +18,6 @@
 
 package example.myproject;
 
-import example.myproject.datatypes.Message;
 import peersim.config.Configuration;
 import peersim.core.CommonState;
 import peersim.core.Node;
@@ -136,7 +135,7 @@ public final class PointToPointTransport implements Transport {
         }
 
         lastWillBeReceived.get(srcId).put(destId, messageWillBeReceived);
-        System.out.println("Delay: " + delay);
+
         EDSimulator.add(delay, msg, dest, pid);
     }
 

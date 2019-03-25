@@ -234,7 +234,7 @@ public class PathHandler {
     }
 
 
-    Set<NodePath> removeForwarderPaths(Message message, Set<NodePath> differentPathsOfInterestNodes) {
+    void removeForwarderPaths(Message message, Set<NodePath> differentPathsOfInterestNodes) {
         long forwarder = message.getForwarder();
         NodePath pathToForwarder = getShortestPathOfNode(Network.get((int) forwarder));
         Set<Node> nodesOnForwarderPath = pathToForwarder.pathSetWithoutStart;
@@ -246,7 +246,6 @@ public class PathHandler {
                 it.remove();
             }
         }
-        return differentPathsOfInterestNodes;
     }
 
     public NodePath getShortestPathOfNode(Long id) {

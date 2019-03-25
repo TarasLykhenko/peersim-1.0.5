@@ -1,12 +1,11 @@
 package example.myproject.datatypes;
 
-import example.myproject.Initialization;
 import example.myproject.Utils;
 import peersim.config.Configuration;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -19,6 +18,8 @@ public class Message {
 
     private static final int delta;
     private static long globalId;
+    private static long biggestTotalSize = 0;
+    private static long biggestVectorSize = 0;
 
 
     static {
@@ -64,6 +65,8 @@ public class Message {
                 vector.remove(0);
             }
         }
+
+        updateMaximumSize();
     }
 
     /**
@@ -129,6 +132,10 @@ public class Message {
         System.out.println("Group: " + group);
         System.out.println("Destination: " + nextDestination);
         System.out.println("Targets: " + data);
+        long size = metadata.stream().mapToLong(Collection::size).sum();
+        System.out.println("Total size: " + size);
+        long vectorSize = metadata.stream().mapToLong(Collection::size).max().orElse(0);
+        System.out.println("Biggest vector size: " + vectorSize);
         System.out.println("Vectors: (" + metadata.size() + ")");
         for (List<MetadataEntry> vector : metadata) {
             StringBuilder stringBuilder = new StringBuilder();
@@ -154,5 +161,24 @@ public class Message {
         }
         System.out.println("Returning null");
         throw new AssertException("There should always be more than 1 non null entry");
+    }
+
+    public static long getBiggestTotalSize() {
+        return biggestTotalSize;
+    }
+
+    public static long getBiggestVectorSize() { return biggestVectorSize; }
+
+    private void updateMaximumSize() {
+        long totalSize = metadata.stream().mapToLong(Collection::size).sum();
+        long msgBiggestVectorSize = metadata.stream().mapToLong(Collection::size).max().orElse(0);
+
+        if (biggestVectorSize < msgBiggestVectorSize) {
+            Message.biggestVectorSize = msgBiggestVectorSize;
+        }
+
+        if (biggestTotalSize < totalSize) {
+            Message.biggestTotalSize = totalSize;
+        }
     }
 }

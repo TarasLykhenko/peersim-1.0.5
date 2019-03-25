@@ -26,7 +26,7 @@ public class TreeWireTopology extends WireGraph {
      */
     public TreeWireTopology(String prefix) {
         super(prefix);
-        this.breadth = Configuration.getInt(prefix + "." + PAR_BREADTH);
+        this.breadth = Configuration.getInt("tree-breadth");
         this.DEBUG = Configuration.getBoolean(PAR_DEBUG);
     }
 
@@ -52,6 +52,7 @@ public class TreeWireTopology extends WireGraph {
         while (!currentLine.isEmpty()) {
             int counter = 0;
             int currentBranch = currentLine.get(0);
+            currentLine.remove(0);
             while (counter < breadth) {
                 if (cursor == Network.size()) {
                     return Collections.emptyList();
@@ -61,7 +62,6 @@ public class TreeWireTopology extends WireGraph {
                 graph.setEdge(cursor, currentBranch);
                 nextLine.add(cursor++);
             }
-            currentLine.remove(0);
         }
         return nextLine;
     }
