@@ -22,8 +22,11 @@ import java.util.stream.Collectors;
 /**
  * Handles the garbage collection and existing connections
  */
-public abstract class ConnectionHandler extends CausalNeighbourBackend {
+public class ConnectionHandler {
 
+    private final PathHandler pathHandler;
+    private final CausalNeighbourBackend backend;
+    private final long id;
     private Map<Long, Map<Long, Message>> gcStorage = new HashMap<>();
 
     private Map<Long, List<Long>> gcMessagesSentToEachNode = new HashMap<>();
@@ -33,23 +36,14 @@ public abstract class ConnectionHandler extends CausalNeighbourBackend {
     private Set<Node> downConnections = new HashSet<>();
     private Set<Node> inActivationConnections = new HashSet<>();
 
-    ConnectionHandler(String prefix) {
-        super(prefix);
-    }
+    public static long NUMBER_REPETITIONS = 0;
+    public static Message MESSAGE;
 
-    @Override
-    List<Message> receiveMessage(Message message) {
-        updateGcReceiveFromInformation(message);
-        List<Message> result = super.receiveMessage(message);
-        handleOutgoingMessages(result);
-        return result;
-    }
 
-    @Override
-    List<Message> publishMessage() {
-        List<Message> result = super.publishMessage();
-        handleOutgoingMessages(result);
-        return result;
+    ConnectionHandler(long id, CausalNeighbourBackend backend) {
+        this.id = id;
+        this.backend = backend;
+        this.pathHandler = backend.getPathHandler();
     }
 
     private void addGcInformation(Message message) {
@@ -57,7 +51,7 @@ public abstract class ConnectionHandler extends CausalNeighbourBackend {
         List<NodePath> nodePaths = new ArrayList<>();
         for (List<MetadataEntry> vector : message.getMetadata()) {
             MetadataEntry lastNonNullEntry = Message.getLastNonNullEntry(vector);
-            nodePaths.add(getPathHandler().getPathNodesFromPathId(lastNonNullEntry.getPathId()));
+            nodePaths.add(pathHandler.getPathNodesFromPathId(lastNonNullEntry.getPathId()));
         }
 
         Set<Long> targetIds = nodePaths.stream()
@@ -69,10 +63,25 @@ public abstract class ConnectionHandler extends CausalNeighbourBackend {
         System.out.println("(DEBUG N " + id + ") adding msg for " + targetIds);
         //>> message.printMessage();
         for (Long interestedNode : targetIds) {
+            addMessageStatistics(message);
             gcStorage.computeIfAbsent(message.getId(), k -> new HashMap<>())
                     .put(interestedNode, new Message(message));
             gcMessagesSentToEachNode.computeIfAbsent(interestedNode, k -> new ArrayList<>())
                     .add(message.getId());
+        }
+    }
+
+    private void addMessageStatistics(Message message) {
+        Set<MetadataEntry> differentEntries = new HashSet<>();
+        long totalSize = message.getMetadataSize();
+        for (List<MetadataEntry> vector : message.getMetadata()) {
+            differentEntries.addAll(vector);
+        }
+
+        long numberRepetitions = totalSize - differentEntries.size();
+        if (numberRepetitions > NUMBER_REPETITIONS) {
+            NUMBER_REPETITIONS = numberRepetitions;
+            MESSAGE = message;
         }
     }
 
@@ -83,7 +92,7 @@ public abstract class ConnectionHandler extends CausalNeighbourBackend {
      *
      * @param message
      */
-    private void updateGcReceiveFromInformation(Message message) {
+    void updateGcReceiveFromInformation(Message message) {
         //>> System.out.println("Updating GC!");
 
         Set<Long> ids = new HashSet<>();
@@ -98,7 +107,7 @@ public abstract class ConnectionHandler extends CausalNeighbourBackend {
                     // throw new AssertException("What the fuck: " + ids);
                 }
 
-                NodePath nodePath = getPathHandler().getPathNodesFromPathId(entry.getPathId());
+                NodePath nodePath = pathHandler.getPathNodesFromPathId(entry.getPathId());
                 //>> nodePath.printLn("Path: ");
                 Node node = nodePath.path.get(0);
 
@@ -170,7 +179,7 @@ public abstract class ConnectionHandler extends CausalNeighbourBackend {
 
             Message message;
             if (rawMessage.getNextDestination() != sender) {
-                message = syncPrepareMessageToForward(rawMessage, sender);
+                message = backend.syncPrepareMessageToForward(rawMessage, sender);
             } else {
                 message = rawMessage;
             }
@@ -229,17 +238,8 @@ public abstract class ConnectionHandler extends CausalNeighbourBackend {
         activeConnections.removeAll(newNeighbours);
     }
 
-
-
-    @Override
-    public void startActiveConnection(Long connectionStarter) {
-        Node node = Network.get(Math.toIntExact(connectionStarter));
-        startActiveConnection(node);
-    }
-
     void startActiveConnection(Node otherNode) {
         activeConnections.add(otherNode);
-        //compareMessages(otherNode.getID());
     }
 
     /**
@@ -274,7 +274,7 @@ public abstract class ConnectionHandler extends CausalNeighbourBackend {
      *
      * @param differentMessagesToSend
      */
-    private void handleOutgoingMessages(List<Message> differentMessagesToSend) {
+    void handleOutgoingMessages(List<Message> differentMessagesToSend) {
         differentMessagesToSend.forEach(this::addGcInformation);
         differentMessagesToSend.forEach(this::checkIfDestinationIsCrashed);
         addMessagesToConnectionQueues(differentMessagesToSend);
@@ -287,39 +287,30 @@ public abstract class ConnectionHandler extends CausalNeighbourBackend {
         if (Utils.isCrashed(dstNode)) {
             Set<Node> newNeighbours = connectionIsDown(dstNode);
             for (Node newNeighbour : newNeighbours) {
-                startConnection(newNeighbour.getID());
+                backend.startConnection(newNeighbour.getID());
             }
         }
     }
 
-    abstract void startConnection(long target);
-
-    @Override
     boolean containsConnection(Node node) {
         return activeConnections.contains(node) || inActivationConnections.contains(node);
     }
 
-    @Override
     Set<Node> getActiveConnections() {
         return activeConnections;
     }
 
-    @Override
     Set<Node> getDownConnections() {
         return downConnections;
     }
 
-    @Override
-    public String printStatus() {
-        String status = super.printStatus();
-
+    String printStatus() {
         Set<Long> upConnections = activeConnections.stream().map(Node::getID).collect(Collectors.toSet());
         Set<Long> crashedConnections = downConnections.stream().map(Node::getID).collect(Collectors.toSet());
 
-        String builder = "Up connections: " + upConnections + System.lineSeparator() +
+        return "Up connections: " + upConnections + System.lineSeparator() +
                 "Down connections: " + crashedConnections + System.lineSeparator() +
                 "Syncing connections: " + inActivationConnections + System.lineSeparator() +
                 "Garbage size: " + gcStorage.size() + System.lineSeparator();
-        return status + builder;
     }
 }

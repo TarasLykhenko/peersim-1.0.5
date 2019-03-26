@@ -34,6 +34,7 @@ public class Initialization implements Control {
     private static final String PAR_DISTINCT_GROUPS = "distinct_groups";
     private static final String PAR_NUMBER_GROUPS_PER_NODE = "number_groups_per_node";
     private static final String PAR_GROUPS_CONFIG = "groups-config";
+    private static final String PAR_GROUPS_CONFIG_FILE = "groups-config-file";
 
     private final int delta;
     private final int linkablePid;
@@ -46,6 +47,7 @@ public class Initialization implements Control {
     public static Map<Integer, Set<Long>> groupsToMembersAndForwarders = new HashMap<>();
     public static Map<Long, NodePath> pathsToPathLongs = new HashMap<>();
     public static Map<Long, BackendInterface> servers = new LinkedHashMap<>();
+    public static Map<String, Integer> stringGroupToInteger = new HashMap<>();
 
 
     public Initialization(String prefix) {
@@ -265,10 +267,10 @@ public class Initialization implements Control {
     }
 
     private void generateGroupsFromFile() {
-        Map<String, Integer> stringGroupToInteger = new HashMap<>();
         int groupCounter = 0;
         try {
-            List<String> file = Files.readAllLines(Paths.get("example/other/nodes-to-groups.txt"));
+            String fileName = Configuration.getString(PAR_GROUPS_CONFIG_FILE);
+            List<String> file = Files.readAllLines(Paths.get("example/other/" + fileName));
 
             if (file.size() != Network.size() + 1) {
                 throw new AssertException("The file and network have different node amounts!" +

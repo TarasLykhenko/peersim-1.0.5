@@ -1,12 +1,5 @@
 
-# parameters of periodic execution
-CYCLES 500
-CYCLE 1
 
-# random.seed 1234567890
-network.size SIZE
-simulation.endtime CYCLES
-simulation.logtime CYCLE
 
 distinct_groups 1
 number_groups_per_node 1
@@ -14,21 +7,42 @@ number_groups_per_node 1
 rest_time 20
 rest_time_interval 1
 debug true
-backend causalneighbour
 
-# can be 'file' (reads from other/nodes-to-groups.txt) or 'random' (generates randomly)
-groups-config random
-# network size
+# can be 'file' (reads from other/) or 'random' (generates randomly)
+groups-config file
+groups-config-file nodes-to-groups-detect-duplicate.txt
+# can be 'file' (reads from other/) or 'random' (generates randomly)
+execution-model file
+execution-model-file actions-detect-duplicate.txt
 
-SIZE 200
+# This is used if the topology class is FileWireTopology
+topology-file-name custom-topology.txt
+
+SIZE 4
+CYCLES 1000
 tree-breadth 2
 latency 200
-delta 5
+delta 4
 publisher 7
 crashed-node 2
 crash-start 200
 crash-end 200
 
+
+
+
+
+
+
+
+
+
+
+network.size SIZE
+simulation.endtime CYCLES
+simulation.logtime CYCLE
+CYCLE 1
+backend causalneighbour
 linkable link
 causalneighbour causalneighbour
 ##########################################
@@ -51,7 +65,7 @@ protocol.tr.drop 0
 ################### initialization ======================
 
 ### Creates graph and sets latencies
-init.1 example.myproject.topology.TreeWireTopology
+init.1 example.myproject.topology.LinearWireTopology
 init.1.protocol link
 
 ### Inits queues based on graph

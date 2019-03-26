@@ -1,30 +1,58 @@
 package example.myproject.server;
 
+import example.myproject.Initialization;
+import example.myproject.Utils;
+import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
 import peersim.cdsim.CDProtocol;
 import peersim.config.Configuration;
 import peersim.config.FastConfig;
+import peersim.core.CommonState;
 import peersim.core.Network;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
 import peersim.transport.Transport;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
-public class CausalNeighbourFrontend extends ConnectionHandler
+public class CausalNeighbourFrontend extends CausalNeighbourBackend
         implements CDProtocol, EDProtocol {
 
     private final int dcPid;
     private final String prefix;
     private final int publisher; // TODO isto e uma temp var
 
+    private final String PAR_EXECUTION_MODEL = "execution-model";
+    private final String PAR_EXECUTION_MODEL_FILENAME = "execution-model-file";
+    private final String executionModel;
+    private final BufferedReader executionFile;
+    private String bufReaderCurrentLine = "";
+
     public CausalNeighbourFrontend(String prefix) {
         super(prefix);
         this.prefix = prefix;
         this.dcPid = Configuration.getPid("causalneighbour");
         this.publisher = Configuration.getInt("publisher");
+        executionModel = Configuration.getString(PAR_EXECUTION_MODEL);
+        String fileName = Configuration.getString(PAR_EXECUTION_MODEL_FILENAME);
+
+        try {
+            executionFile = new BufferedReader(new FileReader("example/other/" + fileName));
+            bufReaderCurrentLine = executionFile.readLine();
+            while (bufReaderCurrentLine.startsWith("#")) {
+                bufReaderCurrentLine = executionFile.readLine();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new AssertException("Could not get execution model file");
+        }
     }
 
 
@@ -43,8 +71,97 @@ public class CausalNeighbourFrontend extends ConnectionHandler
      */
     @Override
     public void nextCycle(Node node, int protocolID) {
+        if (executionModel.equals("file")) {
+            nextCycleFile(node, protocolID);
+        } else if (executionModel.equals("random")) {
+            nextCycleRandom(node, protocolID);
+        } else {
+            throw new AssertException("Unknown execution model");
+        }
+    }
 
-        if (isCrashed(node)) {
+    private void nextCycleFile(Node node, int protocolID) {
+        if (bufReaderCurrentLine == null) {
+            return;
+        }
+        // Isto tem um bocadinho de duplicate code, mas whatever
+        String[] lineContent = bufReaderCurrentLine.split(" ");
+        long currentTime = CommonState.getTime();
+        long obtainedTime = Long.valueOf(lineContent[0]);
+        int nodeId = Integer.valueOf(lineContent[1]);
+        String action = lineContent[2];
+
+        while (currentTime != obtainedTime) {
+            if (node.getID() != nodeId) {
+                updateNextBufReaderLine();
+                System.out.println("Current line: " + bufReaderCurrentLine);
+                if (bufReaderCurrentLine == null) {
+                    return;
+                }
+
+                lineContent = bufReaderCurrentLine.split(" ");
+                obtainedTime = Long.valueOf(lineContent[0]);
+                nodeId = Integer.valueOf(lineContent[1]);
+                action = lineContent[2];
+                continue;
+            }
+
+            if (action.equals("crash")) {
+                crash();
+            } else if (action.equals("uncrash")) {
+                unCrash();
+            } else {
+                int topic = Initialization.stringGroupToInteger.get(action);
+                List<Message> newMessages = publishMessage(topic);
+                frontendForwardMessage(newMessages, protocolID);
+            }
+
+            updateNextBufReaderLine();
+
+            if (bufReaderCurrentLine == null) {
+                return;
+            }
+
+            lineContent = bufReaderCurrentLine.split(" ");
+            obtainedTime = Long.valueOf(lineContent[0]);
+            nodeId = Integer.valueOf(lineContent[1]);
+            action = lineContent[2];
+        }
+    }
+
+    private static void staticNextCycleFile() {
+        if (bufReaderCurrentLine == null) {
+            return;
+        }
+        // Isto tem um bocadinho de duplicate code, mas whatever
+        String[] lineContent = bufReaderCurrentLine.split(" ");
+        long currentTime = CommonState.getTime();
+        long obtainedTime = Long.valueOf(lineContent[0]);
+        int nodeId = Integer.valueOf(lineContent[1]);
+        String action = lineContent[2];
+
+    }
+
+    private void updateNextBufReaderLine() {
+        try {
+            bufReaderCurrentLine = executionFile.readLine();
+            if (bufReaderCurrentLine == null) {
+                return;
+            }
+            while (bufReaderCurrentLine.isEmpty()) {
+                bufReaderCurrentLine = executionFile.readLine();
+                if (bufReaderCurrentLine == null) {
+                    return;
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new AssertException("Random error reading a line");
+        }
+    }
+
+    private void nextCycleRandom(Node node, int protocolID) {
+        if (isCrashed()) {
             return;
         }
 
@@ -81,19 +198,14 @@ public class CausalNeighbourFrontend extends ConnectionHandler
             List<Message> missingMessages = this.compareHistory(msg.sender, msg.historyFromSender);
             frontendForwardMessage(missingMessages, pid);
         } else {
-            throw new RuntimeException("Unknown message type. " + event.getClass().getSimpleName());
+            throw new AssertException("Unknown message type. " + event.getClass().getSimpleName());
         }
     }
 
     @Override
-    void startConnection(long target) {
+    public void startConnection(long target) {
         StartConnectionMsg msg = new StartConnectionMsg(getId(), target);
         sendMessage(getId(), target, msg, dcPid);
-    }
-
-
-    private boolean isCrashed(Node node) {
-        return !node.isUp();
     }
 
     private void frontendForwardMessage(List<Message> messages, int pid) {
@@ -114,7 +226,7 @@ public class CausalNeighbourFrontend extends ConnectionHandler
         Node srcNode = Network.get(Math.toIntExact(this.getId()));
         Node targetNode = Network.get(Math.toIntExact(message.getNextDestination()));
 
-        if (isCrashed(targetNode)) {
+        if (Utils.nodeToBackend(targetNode).isCrashed()) {
             System.out.println("Wasting time..");
         }
 

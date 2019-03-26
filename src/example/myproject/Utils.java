@@ -1,5 +1,6 @@
 package example.myproject;
 
+import example.myproject.server.BackendInterface;
 import peersim.config.Configuration;
 import peersim.core.Linkable;
 import peersim.core.Node;
@@ -14,6 +15,7 @@ public class Utils {
 
     private Utils() {}
 
+    private static final int BACKEND_PID = Configuration.getPid("causalneighbour");
     private static final int LINKABLE_PID = Configuration.getPid("linkable");
 
     public static Set<Node> getNeighboursExcludingSource(Node currentNode, Node sourceNode) {
@@ -30,6 +32,10 @@ public class Utils {
 
     public static boolean isCrashed(Node node) {
         return !node.isUp();
+    }
+
+    public static BackendInterface nodeToBackend(Node node) {
+        return (BackendInterface) node.getProtocol(BACKEND_PID);
     }
 
     public static Set<Long> nodesToLongs(Set<Node> nodes) {

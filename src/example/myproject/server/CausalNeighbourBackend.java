@@ -3,6 +3,7 @@ package example.myproject.server;
 import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
 import example.myproject.datatypes.NodePath;
+import peersim.config.Configuration;
 import peersim.core.Network;
 import peersim.core.Node;
 
@@ -23,10 +24,12 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
      * The nodeID of the node this specific protocol instance belongs to.
      */
     protected long id;
+    private boolean isCrashed;
 
     private MessagePublisher messagePublisher;
     private PathHandler pathHandler;
     private CausalityHandler causalityHandler;
+    private ConnectionHandler connectionHandler;
 
     public CausalNeighbourBackend(String prefix) {
     }
@@ -45,6 +48,16 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     List<Message> publishMessage() {
         Message freshMessage = messagePublisher.publishMessage();
 
+        return publishMessageImpl(freshMessage);
+    }
+
+    List<Message> publishMessage(int topic) {
+        Message freshMessage = messagePublisher.publishMessage(topic);
+
+        return publishMessageImpl(freshMessage);
+    }
+
+    private List<Message> publishMessageImpl(Message freshMessage) {
         if (freshMessage == null) {
             return Collections.emptyList();
         }
@@ -52,7 +65,10 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
         causalityHandler.addPublisherState(freshMessage);
 
         System.out.println("Publishing a message!");
-        return prepareMessageToForward(freshMessage);
+
+        List<Message> messages = prepareMessageToForward(freshMessage);
+        connectionHandler.handleOutgoingMessages(messages);
+        return messages;
     }
 
     /**
@@ -64,17 +80,18 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
      * @return A list of messages to be forwarded to other servers.
      */
     List<Message> receiveMessage(Message message) {
+        connectionHandler.updateGcReceiveFromInformation(message);
+
         PathHandler.Scenario scenario = pathHandler.evaluationScenario(message);
         List<Message> resultList = Collections.emptyList();
 
         switch (scenario) {
             case ONE:
-                Message result = message;
                 if (messagePublisher.belongsToGroup(message.getGroup())) {
-                    result = causalityHandler.processMessage(result);
+                    causalityHandler.processMessage(message);
                 }
-                result = pathHandler.processMessage(result);
-                resultList = prepareMessageToForward(result);
+                pathHandler.processMessage(message);
+                resultList = prepareMessageToForward(message);
                 break;
 
             case TWO:
@@ -91,6 +108,7 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
 
         System.out.println("Scenario " + scenario);
 
+        connectionHandler.handleOutgoingMessages(resultList);
         return resultList;
     }
 
@@ -141,7 +159,7 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
         NodePath nodePath = pathsGroup.get(0);
         for (int i = 1; i < nodePath.path.size(); i++) {
             Node node = nodePath.path.get(i);
-            if (containsConnection(node)) {
+            if (connectionHandler.containsConnection(node)) {
                 return node.getID();
             }
         }
@@ -232,7 +250,7 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
             int lvl = 1;
             while (lvl < path.path.size()) {
                 Node node = path.path.get(lvl);
-                if (getDownConnections().contains(node)) {
+                if (connectionHandler.getDownConnections().contains(node)) {
                     System.out.println("SAD!");
                     lvl++;
                 } else {
@@ -296,6 +314,7 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
         this.messagePublisher = new MessagePublisher(id);
         this.pathHandler = new PathHandler(id);
         this.causalityHandler = new CausalityHandler(id);
+        this.connectionHandler = new ConnectionHandler(id, this);
     }
 
     /**
@@ -370,25 +389,57 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     public String printStatus() {
         String backendStatus = "Node " + id + " status";
         return backendStatus + System.lineSeparator() +
+                connectionHandler.printStatus() + System.lineSeparator() +
                 messagePublisher.printStatus() + System.lineSeparator() +
                 causalityHandler.printStatus() + System.lineSeparator() +
                 pathHandler.printStatus() + System.lineSeparator();
     }
 
+    @Override
+    public void checkCrashedConnections() {
+        connectionHandler.checkCrashedConnections();
+    }
 
-    // -----------------------------------------
-    // --------- COMMUNICATION DOWNSTREAM ------
-    // -----------------------------------------
+    @Override
+    public List<Long> handleNewConnection(long sender) {
+        return connectionHandler.handleNewConnection(sender);
+    }
+
+    @Override
+    public List<Message> compareHistory(long sender, List<Long> historyFrom) {
+        return connectionHandler.compareHistory(sender, historyFrom);
+    }
+
+    @Override
+    public void startActiveConnection(long connectionStarterId) {
+        Node otherNode = Network.get((int) connectionStarterId);
+        connectionHandler.startActiveConnection(otherNode);
+    }
+
+    @Override
+    public void crash() {
+        if (isCrashed) {
+            throw new AssertException("Crashing a crashed server.");
+        }
+
+        this.isCrashed = true;
+    }
+
+    @Override
+    public void unCrash() {
+        if (!isCrashed) {
+            throw new AssertException("Reviving an alive server.");
+        }
+
+        this.isCrashed = false;
+    }
+
+    @Override
+    public boolean isCrashed() {
+        return this.isCrashed;
+    }
 
     PathHandler getPathHandler() {
         return this.pathHandler;
     }
-
-    abstract Set<Node> getActiveConnections();
-
-    abstract Set<Node> getDownConnections();
-
-    abstract boolean containsConnection(Node node);
-
-
 }

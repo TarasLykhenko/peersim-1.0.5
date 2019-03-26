@@ -27,11 +27,10 @@ public class CausalityHandler {
         this.id = id;
     }
 
-    public Message processMessage(Message message) {
+    public void processMessage(Message message) {
 
         // Before returning, verify that they are causally correct
         deliverMessage(message); // TODO
-        return message;
     }
 
     // TODO ver se isto está bem feito

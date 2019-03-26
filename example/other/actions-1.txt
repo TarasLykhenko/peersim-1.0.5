@@ -1,0 +1,18 @@
+# Format:
+# # means it's a commment
+# Each line has the format:
+#	T N G
+#
+#	T: Time of the action
+#	N: Node number
+#	G: Group topic
+#
+#	T N crash (Crashes node N at time T)
+#
+#	T N uncrash (Revives node N at time T)
+#
+# 	NOTE: This must be used alongside a static nodes-to-groups.txt
+#	NOTE2: In this mode, every action takes 1 time tick (Messages take 1 time tick)
+1 1 A
+1 2 crash
+

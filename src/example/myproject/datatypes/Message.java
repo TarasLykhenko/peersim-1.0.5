@@ -122,8 +122,8 @@ public class Message {
         return this.id;
     }
 
-    public int getMetadataSize() {
-        return this.metadata.size();
+    public long getMetadataSize() {
+        return metadata.stream().mapToLong(Collection::size).sum();
     }
 
     public void printMessage() {

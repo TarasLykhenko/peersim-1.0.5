@@ -64,6 +64,10 @@ public class MessagePublisher {
         }
     }
 
+    Message publishMessage(int topic) {
+        return generateNewMessage(topic);
+    }
+
     private boolean shouldPublishMessage() {
         if (CommonState.getTime() > nextAction) {
             int interval = CommonState.r.nextInt(restTimeInterval * 2) - restTimeInterval;
@@ -78,8 +82,12 @@ public class MessagePublisher {
         List<Integer> listGroups = new ArrayList<>(groups);
         int listIdx = CommonState.r.nextInt(listGroups.size());
         int groupEntry = listGroups.get(listIdx);
-        Map<Long, Integer> data = updateMessagesSentToEachNode(groupEntry);
-        return new Message(groupEntry, data, id, id);
+        return generateNewMessage(groupEntry);
+    }
+
+    private Message generateNewMessage(int topic) {
+        Map<Long, Integer> data = updateMessagesSentToEachNode(topic);
+        return new Message(topic, data, id, id);
     }
 
     // Used to guarantee FIFO

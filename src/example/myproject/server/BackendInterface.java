@@ -1,7 +1,9 @@
 package example.myproject.server;
 
+import example.myproject.datatypes.Message;
 import example.myproject.datatypes.NodePath;
 
+import java.util.List;
 import java.util.Set;
 
 public interface BackendInterface {
@@ -84,7 +86,21 @@ public interface BackendInterface {
 
     void addPathIdMapping(NodePath path, long pathId);
 
-    void startActiveConnection(Long connectionStarterId);
+    void startActiveConnection(long connectionStarterId);
+
+    void checkCrashedConnections();
+
+    List<Long> handleNewConnection(long sender);
+
+    List<Message> compareHistory(long sender, List<Long> historyFrom);
+
+    void startConnection(long target);
+
+    void unCrash();
+
+    void crash();
+
+    boolean isCrashed();
 
     String printStatus();
 }

@@ -10,14 +10,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class TreeWireTopology extends WireGraph {
+public class TreeWireTopology extends BaseTopology {
 
-    private static final String PAR_BREADTH = "breadth";
-    private static final String PAR_DEBUG = "debug";
+    private static final String PAR_BREADTH = "tree-breadth";
 
     private final int breadth;
-    private final boolean DEBUG;
-
     /**
      * Standard constructor that reads the configuration parameters. Normally
      * invoked by the simulation engine.
@@ -26,8 +23,7 @@ public class TreeWireTopology extends WireGraph {
      */
     public TreeWireTopology(String prefix) {
         super(prefix);
-        this.breadth = Configuration.getInt("tree-breadth");
-        this.DEBUG = Configuration.getBoolean(PAR_DEBUG);
+        this.breadth = Configuration.getInt(PAR_BREADTH);
     }
 
     private int cursor = 1;
@@ -41,9 +37,7 @@ public class TreeWireTopology extends WireGraph {
             nextLine = handleNextLevel(graph, nextLine);
         }
 
-        for (int i = 0; i < graph.size(); i++) {
-            debug(i + "'s neighbours: " + graph.getNeighbours(i));
-        }
+        super.wire(graph);
     }
 
     private List<Integer> handleNextLevel(Graph graph, List<Integer> currentLine) {
@@ -64,11 +58,5 @@ public class TreeWireTopology extends WireGraph {
             }
         }
         return nextLine;
-    }
-
-    private void debug(String string) {
-        if (DEBUG) {
-            System.out.println(string);
-        }
     }
 }

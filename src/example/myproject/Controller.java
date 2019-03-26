@@ -2,6 +2,7 @@ package example.myproject;
 
 import example.myproject.datatypes.Message;
 import example.myproject.server.BackendInterface;
+import example.myproject.server.ConnectionHandler;
 import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.core.Fallible;
@@ -82,17 +83,26 @@ public class Controller implements Control {
 
         System.out.println("CURRENT TOTAL BIGGEST SIZE: " + Message.getBiggestTotalSize());
         System.out.println("Biggest vector: " + Message.getBiggestVectorSize());
-        if (true) return false;
+        // if (true) return false;
         currentPoint += STATISTICS_WINDOW;
 
         print("Observer init ======================");
 
+
+        /*
         for (int i = 0; i < Network.size(); i++) {
             BackendInterface backend = (BackendInterface) Network.get(i).getProtocol(pid);
             String status = backend.printStatus();
             print(status);
         }
+        */
 
+
+        System.out.println("Highest Repetitions: " + ConnectionHandler.NUMBER_REPETITIONS);
+        System.out.println("Message: ");
+        if (ConnectionHandler.NUMBER_REPETITIONS != 0) {
+            ConnectionHandler.MESSAGE.printMessage();
+        }
         handleCrashes(currentPoint);
 
 

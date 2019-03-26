@@ -62,6 +62,7 @@ public final class PointToPointTransport implements Transport {
      */
     private final long max;
 
+    boolean isInFileMode;
 
     //---------------------------------------------------------------------
 //Initialization
@@ -74,6 +75,7 @@ public final class PointToPointTransport implements Transport {
         min = MIN_DELAY;
         max = MAX_DELAY;
         latency = Configuration.getLong("latency");
+        isInFileMode = Configuration.getString("execution-model").equals("file");
     }
 
 //---------------------------------------------------------------------
@@ -100,7 +102,6 @@ public final class PointToPointTransport implements Transport {
      * delay, that is drawn from the configured interval according to the uniform
      * distribution.
      */
-    //TODO meter random latency
     public long getLatency(Node src, Node dest) {
         return latency;
     }
@@ -121,7 +122,7 @@ public final class PointToPointTransport implements Transport {
         Long srcId = src.getID();
         Long destId = dest.getID();
 
-        long delay = addBellDelay(getLatency(src, dest));
+        long delay = addExtraDelay(getLatency(src, dest));
 
         long messageWillBeReceived = CommonState.getTime() + delay;
 
@@ -139,7 +140,11 @@ public final class PointToPointTransport implements Transport {
         EDSimulator.add(delay, msg, dest, pid);
     }
 
-    private long addBellDelay(long latency) {
+    private long addExtraDelay(long latency) {
+        if (isInFileMode) {
+            return 1;
+        }
+
         long delay = 0;
 
         long extraDelay = CommonState.r.nextLong(max);

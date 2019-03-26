@@ -4,7 +4,7 @@ import peersim.core.Network;
 import peersim.dynamics.WireGraph;
 import peersim.graph.Graph;
 
-public class LinearWireTopology extends WireGraph {
+public class LinearWireTopology extends BaseTopology {
 
     /**
      * Standard constructor that reads the configuration parameters. Normally
@@ -22,5 +22,7 @@ public class LinearWireTopology extends WireGraph {
             graph.setEdge(i, i + 1);
             graph.setEdge(i + 1, i);
         }
+
+        super.wire(graph);
     }
 }

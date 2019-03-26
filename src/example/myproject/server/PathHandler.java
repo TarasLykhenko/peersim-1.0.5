@@ -66,7 +66,7 @@ public class PathHandler {
      * @param message
      * @return
      */
-    public Message processMessage(Message message) {
+    public void processMessage(Message message) {
         for (List<MetadataEntry> vector : message.getMetadata()) {
             for (MetadataEntry entry : vector) {
                 if (entry.getState() == MetadataEntry.State.JUMP) {
@@ -84,8 +84,6 @@ public class PathHandler {
                 pathsMessagesReceived.put(pathId, value);
             }
         }
-
-        return message;
     }
 
     //TODO isto não me parece que está correcto a actualizar as entradas outdated

@@ -3,6 +3,8 @@ package example.myproject.datatypes;
 import example.myproject.Initialization;
 import javafx.util.Pair;
 
+import java.util.Objects;
+
 public class MetadataEntry {
 
     public enum State {
@@ -54,4 +56,17 @@ public class MetadataEntry {
         }
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        MetadataEntry that = (MetadataEntry) o;
+        return Objects.equals(entry, that.entry) &&
+                state == that.state;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(entry, state);
+    }
 }
