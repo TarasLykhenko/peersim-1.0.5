@@ -8,9 +8,9 @@ import peersim.graph.Graph;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 public class FileWireTopology extends BaseTopology {
 
@@ -22,7 +22,7 @@ public class FileWireTopology extends BaseTopology {
      *
      * @param prefix the configuration prefix for this class
      */
-    protected FileWireTopology(String prefix) {
+    public FileWireTopology(String prefix) {
         super(prefix);
     }
 
@@ -40,31 +40,19 @@ public class FileWireTopology extends BaseTopology {
             throw new AssertException("Could not find file example/other/" + fileName);
         }
 
-
-        Map<String, Integer> stringToNodeId =  new HashMap<>();
+        Set<Integer> nodeCount = new HashSet<>();
         for (String line : fileLines) {
             String[] lineTokens = line.split("-");
-            String firstNode = lineTokens[0];
-            String otherNode = lineTokens[1];
+            int firstNode = Integer.valueOf(lineTokens[0]);
+            int otherNode = Integer.valueOf(lineTokens[1]);
+            nodeCount.add(firstNode);
+            nodeCount.add(otherNode);
 
-            if (!stringToNodeId.containsKey(firstNode)) {
-                int nodeId = stringToNodeId.size();
-                stringToNodeId.put(firstNode, nodeId);
-            }
-
-            if (!stringToNodeId.containsKey(otherNode)) {
-                int nodeId = stringToNodeId.size();
-                stringToNodeId.put(otherNode, nodeId);
-            }
-
-            int firstNodeId = stringToNodeId.get(firstNode);
-            int otherNodeId = stringToNodeId.get(otherNode);
-
-            graph.setEdge(firstNodeId, otherNodeId);
-            graph.setEdge(otherNodeId, firstNodeId);
+            graph.setEdge(firstNode, otherNode);
+            graph.setEdge(otherNode, firstNode);
         }
 
-        if (stringToNodeId.size() != Network.size()) {
+        if (nodeCount.size() != Network.size()) {
             throw new AssertException("The number of nodes in the file is different than ones in the simulation.");
         }
 

@@ -1,7 +1,9 @@
 package example.myproject.server;
 
+import example.myproject.Utils;
 import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
+import peersim.config.Configuration;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -10,6 +12,14 @@ public class CausalityHandler {
 
     private final long id;
     /**
+     * This map is used to store the messages received from each node in the system
+     * and also to store all destinations and msg number, in order to test causality.
+     *
+     * The idea behind this is Causal Barriers but without any optimizations.
+     *
+     *
+     *
+     *
      * This map is used to store the number of messages received
      * from each node in the entire system.
      *
@@ -18,68 +28,105 @@ public class CausalityHandler {
      * When a message is published by a node, the node sends as "data" the
      * number of messages it has seen from other nodes. When a target node
      * receives that message, it compares with the number of messages it has
-     * received from those nodes. If any of the entries of this node is smaller
+     * received from those nodes. If any of the entries of t his node is smaller
      * and the message is delivered then causality has been broken.
+     *
+     * The mapping is Long:Publisher to Map of Long:TargetNode - Integer: Latest msg sent
      */
-    private Map<Long, Integer> publisherMessages = new HashMap<>();
+    private Map<Long, Map<Long, Integer>> publisherMessages = new HashMap<>();
+
+    private final boolean VERIFY_CAUSALITY_TEMP_VAR;
 
     public CausalityHandler(long id) {
         this.id = id;
+        VERIFY_CAUSALITY_TEMP_VAR = Configuration.getBoolean("verify-causality");
     }
 
-    public void processMessage(Message message) {
-
-        // Before returning, verify that they are causally correct
-        deliverMessage(message); // TODO
+    void processMessage(Message message) {
+        deliverMessage(message);
     }
 
-    // TODO ver se isto está bem feito
-    public void deliverMessage(Message message) {
+    private void deliverMessage(Message message) {
 
+        // First check FIFO
         Long sender = message.getSender();
-        Integer value = message.getData().get(id);
+        Integer msgValueForThisNode = message.getData().get(id);
 
-        int currentNodeEntry = publisherMessages.getOrDefault(sender, 0);
+        int currentNodeEntry = publisherMessages
+                .computeIfAbsent(sender, k -> new HashMap<>())
+                .getOrDefault(id, 0);
 
-        if (value != currentNodeEntry + 1) {
-            //TODO ver melhor fora de verificar fifo
-
+        if (msgValueForThisNode != currentNodeEntry + 1) {
             throw new AssertException("FIFO broken. Sender: " + sender +
-                    ", got " + currentNodeEntry + ", this is " + value + ".");
+                    ", got " + currentNodeEntry + ", this is " + msgValueForThisNode + ".");
         }
 
-        publisherMessages.put(sender, value);
+        // Then check Causality
 
-        /* Causality - TODO!
-        Map<Long, Integer> messageCausality = message.getData();
+        if (VERIFY_CAUSALITY_TEMP_VAR) {
+            Map<Long, Map<Long, Integer>> messagePast = message.getPast();
 
-        for (Map.Entry<Long, Integer> entry : messageCausality.entrySet()) {
-            Long causalNode = entry.getKey();
-            Integer causalNodeValue = entry.getValue();
+            if (Utils.DEBUG_V) {
+                printPast();
+                message.printPast();
+            }
 
-            Integer currentNodeEntry = publisherMessages.getOrDefault(causalNode, 0);
+            for (Long publisher : messagePast.keySet()) {
+                if (publisher == id) {
+                    continue;
+                }
 
-            // TODO provavelmente
-            if (currentNodeEntry > causalNodeValue) {
-                throw new AssertException("Causality has been broken.");
+                Map<Long, Integer> msgsSentByPublisher = messagePast.get(publisher);
+                Integer msgPastValue = msgsSentByPublisher.get(id);
+                Integer storedValue = publisherMessages
+                        .computeIfAbsent(publisher, k -> new HashMap<>())
+                        .getOrDefault(id, 0);
+
+                if (msgPastValue > storedValue) {
+                    printPast();
+                    message.printPast();
+                    throw new AssertException("Causality broken. Should have received " + msgPastValue +
+                            " from " + publisher + ", got " + storedValue);
+                }
             }
         }
-        */
+
+
+        // Then update our past with the targets of the current message
+
+        for (long target : message.getData().keySet()) {
+            int value = message.getData().get(target);
+            publisherMessages.computeIfAbsent(sender, k -> new HashMap<>())
+                    .put(target, value);
+        }
     }
 
 
-    public void addPublisherState(Message freshMessage) {
-        freshMessage.addPublisherState(new HashMap<>(publisherMessages));
+    void addPublisherState(Message freshMessage) {
+        freshMessage.addPublisherState(publisherMessages);
     }
 
     String printStatus() {
         StringBuilder builder = new StringBuilder();
         builder.append("Messages from: ").append(System.lineSeparator());
-        for (Map.Entry<Long, Integer> entry : publisherMessages.entrySet()) {
-            Long publisher = entry.getKey();
-            Integer value = entry.getValue();
-            builder.append(publisher + " : " + value).append(System.lineSeparator());
+        for (Long publisher : publisherMessages.keySet()) {
+            Map<Long, Integer> messages = publisherMessages.get(publisher);
+            Integer value = messages.get(id);
+
+            builder.append(publisher)
+                    .append(" : ")
+                    .append(value)
+                    .append(System.lineSeparator());
         }
+
         return builder.toString();
+    }
+
+    private void printPast() {
+        System.out.println("Node " + id + " past: ");
+        for (Long publisher : publisherMessages.keySet()) {
+            Map<Long, Integer> msgsSent = publisherMessages.get(publisher);
+            System.out.println(publisher + " >> " + msgsSent);
+        }
     }
 }

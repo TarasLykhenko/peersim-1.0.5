@@ -1,5 +1,6 @@
 package example.myproject.datatypes;
 
+import example.myproject.Utils;
 import peersim.core.Node;
 
 import java.util.Collection;
@@ -31,7 +32,7 @@ public class NodePath {
     }
 
     public Node getLastNodeOnPath() {
-        return path.get(path.size() - 1);
+        return Utils.getLastEntry(path);
     }
 
     public void printLn(String msg) {

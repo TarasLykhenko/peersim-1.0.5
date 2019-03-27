@@ -4,32 +4,35 @@
 distinct_groups 1
 number_groups_per_node 1
 
-rest_time 20
-rest_time_interval 1
+rest_time 50
+rest_time_interval 500
 debug true
+debug_verbose false
 
 # can be 'file' (reads from other/) or 'random' (generates randomly)
-groups-config file
+groups-config random
 groups-config-file nodes-to-groups-detect-duplicate.txt
 # can be 'file' (reads from other/) or 'random' (generates randomly)
-execution-model file
+execution-model random
 execution-model-file actions-detect-duplicate.txt
 
 # This is used if the topology class is FileWireTopology
-topology-file-name custom-topology.txt
+topology-file-name topology-detect-causality.txt
 
-SIZE 4
-CYCLES 1000
+SIZE 20
+CYCLES 2000
 tree-breadth 2
-latency 200
-delta 4
-publisher 7
-crashed-node 2
+latency 10
+latency-interval 10
+latency-per-100-bytes 15
+delta 2
+publisher 0
+crashed-node 1
 crash-start 200
 crash-end 200
 
 
-
+verify-causality false
 
 
 
@@ -65,7 +68,7 @@ protocol.tr.drop 0
 ################### initialization ======================
 
 ### Creates graph and sets latencies
-init.1 example.myproject.topology.LinearWireTopology
+init.1 example.myproject.topology.TreeWireTopology
 init.1.protocol link
 
 ### Inits queues based on graph

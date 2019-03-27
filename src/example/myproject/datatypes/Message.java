@@ -1,5 +1,8 @@
 package example.myproject.datatypes;
 
+import example.myproject.Initialization;
+import example.myproject.Sizeable;
+import example.myproject.Statistics;
 import example.myproject.Utils;
 import peersim.config.Configuration;
 
@@ -8,41 +11,47 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 // TODO - Remaining optimizations:
 //      - De momento cada nó tem de ver entrada a entrada da metadata
 //      - (Mas isto até faz sentido, pois ele tem de ver entrada a entrada se faz sentido)
 //      - Acho que afinal nem sequer faz sentido optimizar nada disto. Quando ele está a ver
 //      - uma entrada que ele deve cortar, ele analisa e depois corta
-public class Message {
-
-    private static final int delta;
+public class Message implements Sizeable {
     private static long globalId;
-    private static long biggestTotalSize = 0;
-    private static long biggestVectorSize = 0;
 
-
-    static {
-        String PAR_DELTA = "delta";
-        delta = Configuration.getInt(PAR_DELTA);
-    }
-
-    private final Integer group;
-    private final Long sender;
+    private final int group;
+    private final long sender;
     private final List<List<MetadataEntry>> metadata;
     private final Map<Long, Integer> data;
-    private final Long forwarder;
+    private Map<Long, Map<Long, Integer>> past;
+    private final long forwarder;
     private final long id;
-
     private Long nextDestination;
 
-    public Message(Integer group, Map<Long, Integer> data, Long sender, Long forwarder) {
+    //TODO Ver tamanho do passado e data size maybe
+    @Override
+    public long getSize() {
+        return 8 + // Group
+                8 + // Sender
+                getMetadataSize() + // Metadata
+                (data.size() * 12) + // data
+                getPastSize() + // past
+                8 + // forwarder
+                8 + // id
+                8; // nextDestination
+    }
+
+    public Message(int group, Map<Long, Integer> data, long sender, long forwarder) {
         this.group = group;
         this.data = data;
         this.sender = sender;
         this.forwarder = forwarder;
         this.metadata = new ArrayList<>();
         this.id = globalId++;
+
+        assertState();
     }
 
     /**
@@ -52,7 +61,8 @@ public class Message {
      */
     public Message(Message message, List<List<MetadataEntry>> metadata, long forwarder, long destination) {
         this.group = message.group;
-        this.data = message.data;
+        this.data = new HashMap<>(message.data);
+        this.past = Utils.matrixCopy(message.past);
         this.metadata = metadata;
         this.sender = message.sender;
         this.forwarder = forwarder;
@@ -61,12 +71,13 @@ public class Message {
 
         //TODO isto vai ter de ser 2 delta + 1 devido a duplicates 99% certeza
         for (List<MetadataEntry> vector : metadata) {
-            while (vector.size() > delta + 1) {
+            while (vector.size() > Utils.DELTA_MAX_SIZE) {
                 vector.remove(0);
             }
         }
 
         updateMaximumSize();
+        assertState();
     }
 
     /**
@@ -77,6 +88,7 @@ public class Message {
     public Message(Message message) {
         this.group = message.group;
         this.data = new HashMap<>(message.data);
+        this.past = Utils.matrixCopy(message.past);
         this.sender = message.sender;
         this.metadata = Utils.matrixCopy(message.getMetadata());
         this.forwarder = message.forwarder;
@@ -84,14 +96,16 @@ public class Message {
         this.nextDestination = message.nextDestination;
 
         for (List<MetadataEntry> vector : metadata) {
-            while (vector.size() > delta + 1) {
+            while (vector.size() > Utils.DELTA_MAX_SIZE) {
                 vector.remove(0);
             }
         }
+
+        assertState();
     }
 
-    public void addPublisherState(Map<Long, Integer> data) {
-        this.data.putAll(data);
+    public void addPublisherState(Map<Long, Map<Long, Integer>> past) {
+        this.past = Utils.matrixCopy(past);
     }
 
     public int getGroup() {
@@ -102,11 +116,15 @@ public class Message {
         return data;
     }
 
-    public Long getSender() {
+    public Map<Long, Map<Long, Integer>> getPast() {
+        return past;
+    }
+
+    public long getSender() {
         return this.sender;
     }
 
-    public Long getForwarder() {
+    public long getForwarder() {
         return this.forwarder;
     }
 
@@ -114,7 +132,7 @@ public class Message {
         return this.metadata;
     }
 
-    public Long getNextDestination() {
+    public long getNextDestination() {
         return this.nextDestination;
     }
 
@@ -126,16 +144,26 @@ public class Message {
         return metadata.stream().mapToLong(Collection::size).sum();
     }
 
+    public long getPastSize() {
+        long result = 0;
+        result += past.size() * 8;
+        for (long publisher : past.keySet()) {
+            Map<Long, Integer> msgsSentByPublisher = past.get(publisher);
+            result += ( msgsSentByPublisher.size() * 12);
+        }
+
+        return result;
+    }
+
     public void printMessage() {
-        System.out.println("Message " + sender + ": " + data.get(sender) + " | from " + forwarder + " to " + nextDestination);
-        System.out.println("Id: " + id);
-        System.out.println("Group: " + group);
-        System.out.println("Destination: " + nextDestination);
-        System.out.println("Targets: " + data);
-        long size = metadata.stream().mapToLong(Collection::size).sum();
-        System.out.println("Total size: " + size);
         long vectorSize = metadata.stream().mapToLong(Collection::size).max().orElse(0);
-        System.out.println("Biggest vector size: " + vectorSize);
+        System.out.println("Message " + sender + ": " + data.get(sender) + " | from " + forwarder + " to " + nextDestination);
+        System.out.println("Id: " + id + " | Groups: " + group);
+        if (Utils.DEBUG_V) {
+            System.out.println("Targets: " + data);
+            System.out.println("Total size: " + getMetadataSize());
+            System.out.println("Biggest vector size: " + vectorSize);
+        }
         System.out.println("Vectors: (" + metadata.size() + ")");
         for (List<MetadataEntry> vector : metadata) {
             StringBuilder stringBuilder = new StringBuilder();
@@ -147,8 +175,15 @@ public class Message {
         System.out.println();
     }
 
+    public void printPast() {
+        System.out.println("-- Message past -- (sender: " + sender + ")");
+        for (long publisher : past.keySet()) {
+            Map<Long, Integer> msgsSent = past.get(publisher);
+            System.out.println(publisher + " >> " + msgsSent);
+        }
+    }
+
     public static MetadataEntry getLastNonNullEntry(List<MetadataEntry> vector) {
-        //>> vector.get(vector.size() - 1);
         //>> System.out.println("test!");
         //>> System.out.println(vector);
         for (int i = 1; i <= vector.size(); i++) {
@@ -163,22 +198,51 @@ public class Message {
         throw new AssertException("There should always be more than 1 non null entry");
     }
 
-    public static long getBiggestTotalSize() {
-        return biggestTotalSize;
-    }
-
-    public static long getBiggestVectorSize() { return biggestVectorSize; }
-
     private void updateMaximumSize() {
         long totalSize = metadata.stream().mapToLong(Collection::size).sum();
         long msgBiggestVectorSize = metadata.stream().mapToLong(Collection::size).max().orElse(0);
 
-        if (biggestVectorSize < msgBiggestVectorSize) {
-            Message.biggestVectorSize = msgBiggestVectorSize;
+        if (Statistics.biggestVectorSize < msgBiggestVectorSize) {
+            Statistics.biggestVectorSize = msgBiggestVectorSize;
         }
 
-        if (biggestTotalSize < totalSize) {
-            Message.biggestTotalSize = totalSize;
+        if (Statistics.biggestTotalSize < totalSize) {
+            Statistics.biggestTotalSize = totalSize;
+        }
+    }
+
+    public boolean fullyEqual(Message message) {
+        if (this == message) {
+            return true;
+        }
+
+        return  group == message.group &&
+                sender == message.sender &&
+                forwarder == message.forwarder &&
+                id == message.id &&
+                nextDestination.equals(message.nextDestination) &&
+                Utils.matrixIsEqual(metadata, message.metadata) &&
+                data.equals(message.data) &&
+                Utils.matrixIsEqual(past, message.past);
+    }
+
+    private void assertState() {
+        for (List<MetadataEntry> vector : metadata) {
+            if (vector.size() > Utils.DELTA_MAX_SIZE) {
+                throw new AssertException("The vector has too many MD entries. " + vector);
+            }
+
+            for (MetadataEntry entry : vector) {
+                if (entry.getState() == MetadataEntry.State.JUMP) {
+                    continue;
+                }
+
+                NodePath path = Initialization.pathsToPathLongs.get(entry.getPathId());
+                if (path.path.size() > Utils.DELTA + 2) {
+                    path.printLn("");
+                    throw new AssertException("Path is too big. ");
+                }
+            }
         }
     }
 }

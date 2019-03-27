@@ -2,15 +2,15 @@ package example.myproject;
 
 public class Debug {
 
-    void println(String string) {
+    static void println(String string) {
 
     }
 
-    void print(String string) {
+    static void print(String string) {
 
     }
 
-    void debug(String string) {
+    static void debug(String string) {
 
     }
 

@@ -1,6 +1,7 @@
 package example.myproject.server;
 
 import example.myproject.Initialization;
+import example.myproject.Sizeable;
 import example.myproject.Utils;
 import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
@@ -14,11 +15,8 @@ import peersim.edsim.EDProtocol;
 import peersim.transport.Transport;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,30 +27,29 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
     private final String prefix;
     private final int publisher; // TODO isto e uma temp var
 
-    private final String PAR_EXECUTION_MODEL = "execution-model";
-    private final String PAR_EXECUTION_MODEL_FILENAME = "execution-model-file";
-    private final String executionModel;
-    private final BufferedReader executionFile;
-    private String bufReaderCurrentLine = "";
+    private static final String PAR_EXECUTION_MODEL = "execution-model";
+    private static final String PAR_EXECUTION_MODEL_FILENAME = "execution-model-file";
+    private static final BufferedReader executionFile;
+    private static String bufReaderCurrentLine = "";
+    private static final String executionModel;
+
+    static {
+        try {
+            executionModel = Configuration.getString(PAR_EXECUTION_MODEL);
+            String fileName = Configuration.getString(PAR_EXECUTION_MODEL_FILENAME);
+            executionFile = new BufferedReader(new FileReader("example/other/" + fileName));
+            updateNextBufReaderLine();
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new AssertException("Could not get execution model file");
+        }
+    }
 
     public CausalNeighbourFrontend(String prefix) {
         super(prefix);
         this.prefix = prefix;
         this.dcPid = Configuration.getPid("causalneighbour");
         this.publisher = Configuration.getInt("publisher");
-        executionModel = Configuration.getString(PAR_EXECUTION_MODEL);
-        String fileName = Configuration.getString(PAR_EXECUTION_MODEL_FILENAME);
-
-        try {
-            executionFile = new BufferedReader(new FileReader("example/other/" + fileName));
-            bufReaderCurrentLine = executionFile.readLine();
-            while (bufReaderCurrentLine.startsWith("#")) {
-                bufReaderCurrentLine = executionFile.readLine();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new AssertException("Could not get execution model file");
-        }
     }
 
 
@@ -71,8 +68,14 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
      */
     @Override
     public void nextCycle(Node node, int protocolID) {
+        if (isCrashed()) {
+            return;
+        }
+
+        checkCrashedConnections();
+
         if (executionModel.equals("file")) {
-            nextCycleFile(node, protocolID);
+            CausalNeighbourFrontend.staticNextCycleFile(protocolID);
         } else if (executionModel.equals("random")) {
             nextCycleRandom(node, protocolID);
         } else {
@@ -80,75 +83,50 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
         }
     }
 
-    private void nextCycleFile(Node node, int protocolID) {
+    private static void staticNextCycleFile(int protocolID) {
         if (bufReaderCurrentLine == null) {
             return;
         }
-        // Isto tem um bocadinho de duplicate code, mas whatever
-        String[] lineContent = bufReaderCurrentLine.split(" ");
-        long currentTime = CommonState.getTime();
-        long obtainedTime = Long.valueOf(lineContent[0]);
-        int nodeId = Integer.valueOf(lineContent[1]);
-        String action = lineContent[2];
 
-        while (currentTime != obtainedTime) {
-            if (node.getID() != nodeId) {
-                updateNextBufReaderLine();
-                System.out.println("Current line: " + bufReaderCurrentLine);
-                if (bufReaderCurrentLine == null) {
-                    return;
-                }
+        while (true) {
+            String[] lineContent = bufReaderCurrentLine.split(" ");
+            long currentTime = CommonState.getTime();
+            long obtainedTime = Long.valueOf(lineContent[0]);
 
-                lineContent = bufReaderCurrentLine.split(" ");
-                obtainedTime = Long.valueOf(lineContent[0]);
-                nodeId = Integer.valueOf(lineContent[1]);
-                action = lineContent[2];
-                continue;
+            if (currentTime != obtainedTime) {
+                break;
             }
+            System.out.println("CURRENT TIME!: " + currentTime);
+
+            int nodeId = Integer.valueOf(lineContent[1]);
+            String action = lineContent[2];
+            Node node = Network.get(nodeId);
+            CausalNeighbourFrontend frontend = (CausalNeighbourFrontend) node.getProtocol(protocolID);
 
             if (action.equals("crash")) {
-                crash();
+                frontend.crash();
             } else if (action.equals("uncrash")) {
-                unCrash();
+                frontend.unCrash();
             } else {
                 int topic = Initialization.stringGroupToInteger.get(action);
-                List<Message> newMessages = publishMessage(topic);
-                frontendForwardMessage(newMessages, protocolID);
+                List<Message> newMessages = frontend.publishMessage(topic);
+                frontend.frontendForwardMessage(newMessages, protocolID);
             }
 
             updateNextBufReaderLine();
-
             if (bufReaderCurrentLine == null) {
                 return;
             }
-
-            lineContent = bufReaderCurrentLine.split(" ");
-            obtainedTime = Long.valueOf(lineContent[0]);
-            nodeId = Integer.valueOf(lineContent[1]);
-            action = lineContent[2];
         }
     }
 
-    private static void staticNextCycleFile() {
-        if (bufReaderCurrentLine == null) {
-            return;
-        }
-        // Isto tem um bocadinho de duplicate code, mas whatever
-        String[] lineContent = bufReaderCurrentLine.split(" ");
-        long currentTime = CommonState.getTime();
-        long obtainedTime = Long.valueOf(lineContent[0]);
-        int nodeId = Integer.valueOf(lineContent[1]);
-        String action = lineContent[2];
-
-    }
-
-    private void updateNextBufReaderLine() {
+    private static void updateNextBufReaderLine() {
         try {
             bufReaderCurrentLine = executionFile.readLine();
             if (bufReaderCurrentLine == null) {
                 return;
             }
-            while (bufReaderCurrentLine.isEmpty()) {
+            while (bufReaderCurrentLine.isEmpty() || bufReaderCurrentLine.startsWith("#")) {
                 bufReaderCurrentLine = executionFile.readLine();
                 if (bufReaderCurrentLine == null) {
                     return;
@@ -158,24 +136,35 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
             e.printStackTrace();
             throw new AssertException("Random error reading a line");
         }
+        System.out.println("NewLine: " + bufReaderCurrentLine);
     }
 
     private void nextCycleRandom(Node node, int protocolID) {
-        if (isCrashed()) {
-            return;
-        }
-
-        checkCrashedConnections();
-
         //TODO TIRAR ISTO NÉ
         if (node.getID() != publisher) {
-            return;
+         //   return;
         }
         // System.out.println("PUBLISHER: " + node.getID());
 
         List<Message> newMessages = publishMessage();
 
         frontendForwardMessage(newMessages, protocolID);
+    }
+
+    @Override
+    public void unCrash() {
+        if (!isCrashed) {
+            throw new AssertException("Reviving an alive server.");
+        }
+
+        this.isCrashed = false;
+
+        Node thisNode = Network.get((int) id);
+        System.out.println("Crash over at " + id + ". Processing messages.");
+        for (Message message : queuedMessagesReceived) {
+            processEvent(thisNode, dcPid, message);
+        }
+        queuedMessagesReceived.clear();
     }
 
     @Override
@@ -189,7 +178,7 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
             frontendForwardMessage(messagesToForward, pid);
         } else if (event instanceof StartConnectionMsg) {
             StartConnectionMsg msg = (StartConnectionMsg) event;
-            System.out.println("Received startConnection request");
+            System.out.println("(Node " + id + ") Received startConnection request from " + msg.sender);
             List<Long> messageHistory = this.handleNewConnection(msg.sender);
             MessageHistoryMsg messageHistoryMsg = new MessageHistoryMsg(this.getId(), msg.sender, messageHistory);
             sendMessage(this.getId(), msg.sender, messageHistoryMsg, pid);
@@ -205,6 +194,7 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
     @Override
     public void startConnection(long target) {
         StartConnectionMsg msg = new StartConnectionMsg(getId(), target);
+        System.out.println("(Node " + id + ") sending a connection request to " + target);
         sendMessage(getId(), target, msg, dcPid);
     }
 
@@ -213,7 +203,7 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
             return;
         }
 
-        System.out.println("---- Forwarding messages (" + messages.size() + ") ---");
+        System.out.println("---- Node " + id + " forwarding messages (" + messages.size() + ") ---");
         for (Message messageToForward : messages) {
             messageToForward.printMessage();
             frontendForwardMessage(messageToForward, pid);
@@ -243,6 +233,7 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
     private void sendMessage(Node src, Node dst, Object msg, int pid) {
         ((Transport) src.getProtocol(FastConfig.getTransport(pid)))
                 .send(src, dst, msg, pid);
+
     }
 
     @Override
@@ -250,7 +241,7 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
         return new CausalNeighbourFrontend(prefix);
     }
 
-    class StartConnectionMsg {
+    class StartConnectionMsg implements Sizeable {
 
         final long sender;
         final long target;
@@ -259,9 +250,17 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
             this.sender = sender;
             this.target = target;
         }
+
+        /**
+         * Size is 2 longs, each long is 8 bytes, therefore 16.
+         */
+        @Override
+        public long getSize() {
+            return 16;
+        }
     }
 
-    class MessageHistoryMsg {
+    class MessageHistoryMsg implements Sizeable {
 
         final long sender;
         final long target;
@@ -271,6 +270,14 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
             this.sender = sender;
             this.target = target;
             this.historyFromSender = new ArrayList<>(historyFromSender);
+        }
+
+        /**
+         * Size is 2 longs (2*8) + (size of History * 8)each long is 8 bytes
+         */
+        @Override
+        public long getSize() {
+            return 16 + (historyFromSender.size() * 8);
         }
     }
 }

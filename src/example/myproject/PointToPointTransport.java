@@ -18,6 +18,7 @@
 
 package example.myproject;
 
+import example.myproject.datatypes.AssertException;
 import peersim.config.Configuration;
 import peersim.core.CommonState;
 import peersim.core.Node;
@@ -26,9 +27,6 @@ import peersim.transport.Transport;
 
 import java.util.HashMap;
 import java.util.Map;
-
-import static example.common.Settings.MAX_DELAY;
-import static example.common.Settings.MIN_DELAY;
 
 
 /**
@@ -49,20 +47,9 @@ public final class PointToPointTransport implements Transport {
      * Constant minimum delay for message sending
      */
     private final long latency;
-
-
-    /**
-     * Minimum delay for message sending
-     */
-    private final long min;
-
-    /**
-     * Difference between the max and min delay plus one. That is, max delay is
-     * min+range-1.
-     */
-    private final long max;
-
-    boolean isInFileMode;
+    private final long latencyInterval;
+    private final long latencyPer100Bytes;
+    private boolean isInFileMode;
 
     //---------------------------------------------------------------------
 //Initialization
@@ -72,9 +59,9 @@ public final class PointToPointTransport implements Transport {
      * Reads configuration parameter.
      */
     public PointToPointTransport(String prefix) {
-        min = MIN_DELAY;
-        max = MAX_DELAY;
+        latencyInterval = Configuration.getLong("latency-interval");
         latency = Configuration.getLong("latency");
+        latencyPer100Bytes = Configuration.getLong("latency-per-100-bytes");
         isInFileMode = Configuration.getString("execution-model").equals("file");
     }
 
@@ -122,7 +109,10 @@ public final class PointToPointTransport implements Transport {
         Long srcId = src.getID();
         Long destId = dest.getID();
 
-        long delay = addExtraDelay(getLatency(src, dest));
+        long constantLatency = getLatency(src, dest);
+        constantLatency = constantLatency + getSizeDelay(msg);
+
+        long delay = addExtraDelay(constantLatency);
 
         long messageWillBeReceived = CommonState.getTime() + delay;
 
@@ -140,18 +130,36 @@ public final class PointToPointTransport implements Transport {
         EDSimulator.add(delay, msg, dest, pid);
     }
 
+    private long getSizeDelay(Object msg) {
+        if (!(msg instanceof Sizeable)) {
+            throw new AssertException("All messages must be of type Sizeable");
+        }
+
+        Sizeable sizeable = (Sizeable) msg;
+        long size = sizeable.getSize();
+        float amount = (float) size / 100;
+        long result = (long) (amount * latencyPer100Bytes);
+
+        if (Utils.DEBUG_V) {
+            System.out.println("Size is " + size + ", amount is " + amount + ", extra delay is " + result);
+        }
+
+        return result;
+    }
+
     private long addExtraDelay(long latency) {
         if (isInFileMode) {
             return 1;
         }
 
-        long delay = 0;
+        long delay;
 
-        long extraDelay = CommonState.r.nextLong(max);
-        if (extraDelay < min) {
-            extraDelay = min;
-        }
+        long extraDelay = CommonState.r.nextLong(latencyInterval * 2) - latencyInterval;
         delay = latency + extraDelay;
+        if (0 > delay) {
+            System.out.println("DELAY IS SUBZERO!");
+            delay = 1;
+        }
         return delay;
     }
 }

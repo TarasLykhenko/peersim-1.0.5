@@ -1,10 +1,12 @@
 package example.myproject.server;
 
+import example.myproject.Statistics;
 import example.myproject.Utils;
 import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
 import example.myproject.datatypes.MetadataEntry;
 import example.myproject.datatypes.NodePath;
+import peersim.config.Configuration;
 import peersim.core.Network;
 import peersim.core.Node;
 
@@ -27,6 +29,13 @@ public class ConnectionHandler {
     private final PathHandler pathHandler;
     private final CausalNeighbourBackend backend;
     private final long id;
+
+    /**
+     * Per each message to be sent, the id of the message is mapped to the
+     * different destination ids and version of the message that is to be sent
+     *
+     * (Each different message to be sent has different metadata)
+     */
     private Map<Long, Map<Long, Message>> gcStorage = new HashMap<>();
 
     private Map<Long, List<Long>> gcMessagesSentToEachNode = new HashMap<>();
@@ -36,19 +45,17 @@ public class ConnectionHandler {
     private Set<Node> downConnections = new HashSet<>();
     private Set<Node> inActivationConnections = new HashSet<>();
 
-    public static long NUMBER_REPETITIONS = 0;
-    public static Message MESSAGE;
-
-
     ConnectionHandler(long id, CausalNeighbourBackend backend) {
         this.id = id;
         this.backend = backend;
         this.pathHandler = backend.getPathHandler();
     }
 
-    private void addGcInformation(Message message) {
+    // TODO Perceber de novo porque é que há ids duplicados
+    private void addOutgoingGcInformation(Message message) {
 
         List<NodePath> nodePaths = new ArrayList<>();
+
         for (List<MetadataEntry> vector : message.getMetadata()) {
             MetadataEntry lastNonNullEntry = Message.getLastNonNullEntry(vector);
             nodePaths.add(pathHandler.getPathNodesFromPathId(lastNonNullEntry.getPathId()));
@@ -60,64 +67,96 @@ public class ConnectionHandler {
                 .map(Node::getID)
                 .collect(Collectors.toSet());
 
-        System.out.println("(DEBUG N " + id + ") adding msg for " + targetIds);
+
+        if (Utils.DEBUG_V) {
+            System.out.println("(DEBUG N " + id + ") adding msg for " + targetIds);
+        }
         //>> message.printMessage();
+
         for (Long interestedNode : targetIds) {
             addMessageStatistics(message);
+
+            Map<Long, Message> msgsToEachNode = gcStorage.computeIfAbsent(message.getId(), k -> new HashMap<>());
+            if (msgsToEachNode.containsKey(interestedNode) && msgsToEachNode.get(interestedNode).fullyEqual(message)) {
+                throw new AssertException("what the fuck");
+            }
+
             gcStorage.computeIfAbsent(message.getId(), k -> new HashMap<>())
                     .put(interestedNode, new Message(message));
-            gcMessagesSentToEachNode.computeIfAbsent(interestedNode, k -> new ArrayList<>())
-                    .add(message.getId());
+
+            List<Long> msgsSent = gcMessagesSentToEachNode.computeIfAbsent(interestedNode, k -> new ArrayList<>());
+
+            //TODO Isto é O(N) :^(
+            if (msgsSent.stream().anyMatch(aLong -> aLong.equals(message.getId()))) {
+                System.out.println("Repeated value! " + message.getId());
+                continue;
+            }
+
+            msgsSent.add(message.getId());
         }
     }
 
-    private void addMessageStatistics(Message message) {
-        Set<MetadataEntry> differentEntries = new HashSet<>();
-        long totalSize = message.getMetadataSize();
-        for (List<MetadataEntry> vector : message.getMetadata()) {
-            differentEntries.addAll(vector);
-        }
-
-        long numberRepetitions = totalSize - differentEntries.size();
-        if (numberRepetitions > NUMBER_REPETITIONS) {
-            NUMBER_REPETITIONS = numberRepetitions;
-            MESSAGE = message;
-        }
-    }
 
     /**
-     * Currently, this retrives the first node of each nodePath entry and updates
-     * the GC map to the number of messages it received from it.
-     * If this works in every scenario is yet to be understood.
+     * Given a message that is received, all metadata entries up to this node
+     * should have the same path (as a message can only arrive to a node through
+     * a path), therefore we only want to update the "ReceiveFrom" DataStructure
+     * with the nodes that are from that path up to the current node and not further
+     * than that.
      *
      * @param message
      */
     void updateGcReceiveFromInformation(Message message) {
         //>> System.out.println("Updating GC!");
 
-        Set<Long> ids = new HashSet<>();
 
-        for (List<MetadataEntry> vector : message.getMetadata()) {
-            for (MetadataEntry entry : vector) {
-                if (entry.getState() == MetadataEntry.State.JUMP) {
-                    continue;
-                }
-                if (!ids.add(message.getId())) {
-                    continue;
-                    // throw new AssertException("What the fuck: " + ids);
-                }
-
-                NodePath nodePath = pathHandler.getPathNodesFromPathId(entry.getPathId());
-                //>> nodePath.printLn("Path: ");
-                Node node = nodePath.path.get(0);
-
-                //>> System .out.println("UPDATING " + node.getID());
-                gcMessagesReceivedFromEachNode
-                        .computeIfAbsent(node.getID(), k -> new ArrayList<>())
-                        .add(message.getId());
+        // Get the vector with the biggest path information
+        List<MetadataEntry> vector = message.getMetadata().get(0);
+        for (List<MetadataEntry> otherVector : message.getMetadata()) {
+            if (otherVector.size() > vector.size()) {
+                throw new AssertException("This is odd. The vectors should all have the same size.");
             }
         }
+
+        MetadataEntry firstNonJumpEntry = null;
+        for (int i = 0; i < vector.size(); i++) {
+            if (vector.get(i).getState() == MetadataEntry.State.JUMP) {
+                continue;
+            }
+            firstNonJumpEntry = vector.get(i);
+            break;
+        }
+
+        NodePath nodePath = pathHandler.getPathNodesFromPathId(firstNonJumpEntry.getPathId());
+        for (Node node : nodePath.fullPathSet) {
+            if (node.getID() == id) {
+                return;
+            }
+
+            gcMessagesReceivedFromEachNode
+                    .computeIfAbsent(node.getID(), k -> new ArrayList<>())
+                    .add(message.getId());
+        }
+
+        for (int i = 1; i < vector.size(); i++) {
+            if (vector.get(i).getState() == MetadataEntry.State.JUMP) {
+                continue;
+            }
+
+            NodePath nextNodePath = pathHandler.getPathNodesFromPathId(vector.get(i).getPathId());
+            Node lastNode = Utils.getLastEntry(nextNodePath.path);
+
+            if (lastNode.getID() == id) {
+                System.out.println("Final return");
+                return;
+            }
+
+            gcMessagesReceivedFromEachNode
+                    .computeIfAbsent(lastNode.getID(), k -> new ArrayList<>())
+                    .add(message.getId());
+        }
     }
+
 
 
     //TODO Isto de momento só devolve as msgs que recebeu. Poderá ser optimizado um dia
@@ -142,23 +181,30 @@ public class ConnectionHandler {
      * 2nd step: Server B receives the message, sends the messages it received from A.
      * 3rd step: Server A sends the missing messages from A to B.
      *
-     * @param sender The server that is the target of the synch protocol
+     * @param sender            The server that is the target of the synch protocol
      * @param historyFromSender The history from the target server
      * @return All messages that are missing in the target server.
      */
     List<Message> compareHistory(long sender, List<Long> historyFromSender) {
         List<Long> sentMessages = gcMessagesSentToEachNode.get(sender);
 
-        System.out.println("Comparing two lists:");
-        System.out.println(sentMessages);
-        System.out.println(historyFromSender);
+        if (Utils.DEBUG_V) {
+            System.out.println("Comparing two lists:");
+            System.out.println(sentMessages);
+            System.out.println(historyFromSender);
+        }
+
 
         for (int i = 0; i < historyFromSender.size(); i++) {
             long ownMsg = sentMessages.get(i);
             long serverMsg = historyFromSender.get(i);
 
             if (ownMsg != serverMsg) {
-                throw new AssertException("What the fuck?");
+                System.out.println("Comparing two lists: (am " + id + ", target is " + sender + ")");
+                System.out.println("Msgs sent from " + id + " to " + sender + ": " + sentMessages);
+                System.out.println("Msgs received by " + sender + " from " + id + ": " + historyFromSender);
+
+                throw new AssertException("What the fuck? (Nodes " + id + " and " + sender + ")");
             }
         }
 
@@ -169,13 +215,20 @@ public class ConnectionHandler {
 
         List<Long> missingMsgs = new ArrayList<>(sentMessages);
         missingMsgs.removeAll(historyFromSender);
-        System.out.println("(Node " + id + ") Missing msgs for node " + sender + ": " + missingMsgs);
+
+        if (Utils.DEBUG) {
+            System.out.println("(Node " + id + ") Missing msgs for node " + sender + ": " + missingMsgs);
+        }
 
         List<Message> missingMessages = new ArrayList<>();
         for (Long missingMessageId : missingMsgs) {
             Message rawMessage = gcStorage.get(missingMessageId).get(sender);
-            System.out.println("Raw message: ");
-            rawMessage.printMessage();
+
+            if (Utils.DEBUG_V) {
+                System.out.println("Raw message: ");
+                rawMessage.printMessage();
+            }
+
 
             Message message;
             if (rawMessage.getNextDestination() != sender) {
@@ -184,8 +237,10 @@ public class ConnectionHandler {
                 message = rawMessage;
             }
 
-            System.out.println("ADAPTED MSG:");
-            message.printMessage();
+            if (Utils.DEBUG_V) {
+                System.out.println("ADAPTED MSG:");
+                message.printMessage();
+            }
 
             missingMessages.add(message);
         }
@@ -197,12 +252,16 @@ public class ConnectionHandler {
         return missingMessages;
     }
 
-
-
     private Set<Node> connectionIsDown(Node targetNode) {
         System.out.println("(Node " + id + ") detected node " + targetNode.getID() + " down.");
         activeConnections.remove(targetNode);
         downConnections.add(targetNode);
+
+        NodePath path = pathHandler.getShortestPathOfNode(targetNode);
+        if (path.path.size() > Utils.DELTA + 1) {
+            path.printLn("This is too far. Not returning any neighbours.");
+            return Collections.emptySet();
+        }
 
         Node thisNode = Network.get(Math.toIntExact(id));
         Set<Node> newNeighbours = Utils
@@ -219,7 +278,8 @@ public class ConnectionHandler {
 
         while (iterator.hasNext()) {
             Node node = iterator.next();
-            if (node.isUp()) {
+
+            if (!Utils.isCrashed(node)) {
                 connectionIsBackOnline(node);
             }
         }
@@ -227,7 +287,9 @@ public class ConnectionHandler {
 
     private void connectionIsBackOnline(Node targetNode) {
         System.out.println("(Node " + id + ") detected node " + targetNode.getID() + " up.");
-        startActiveConnection(targetNode);
+
+        inActivationConnections.add(targetNode);
+        backend.startConnection(targetNode.getID());
 
         downConnections.remove(targetNode);
 
@@ -240,6 +302,7 @@ public class ConnectionHandler {
 
     void startActiveConnection(Node otherNode) {
         activeConnections.add(otherNode);
+        //backend.startActiveConnection(otherNode.getID());
     }
 
     /**
@@ -275,7 +338,7 @@ public class ConnectionHandler {
      * @param differentMessagesToSend
      */
     void handleOutgoingMessages(List<Message> differentMessagesToSend) {
-        differentMessagesToSend.forEach(this::addGcInformation);
+        differentMessagesToSend.forEach(this::addOutgoingGcInformation);
         differentMessagesToSend.forEach(this::checkIfDestinationIsCrashed);
         addMessagesToConnectionQueues(differentMessagesToSend);
     }
@@ -312,5 +375,19 @@ public class ConnectionHandler {
                 "Down connections: " + crashedConnections + System.lineSeparator() +
                 "Syncing connections: " + inActivationConnections + System.lineSeparator() +
                 "Garbage size: " + gcStorage.size() + System.lineSeparator();
+    }
+
+    private void addMessageStatistics(Message message) {
+        Set<MetadataEntry> differentEntries = new HashSet<>();
+        long totalSize = message.getMetadataSize();
+        for (List<MetadataEntry> vector : message.getMetadata()) {
+            differentEntries.addAll(vector);
+        }
+
+        long numberRepetitions = totalSize - differentEntries.size();
+        if (numberRepetitions > Statistics.NUMBER_REPETITIONS) {
+            Statistics.NUMBER_REPETITIONS = numberRepetitions;
+            Statistics.MESSAGE = message;
+        }
     }
 }

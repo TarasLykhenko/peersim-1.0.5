@@ -1,6 +1,7 @@
 package example.myproject.server;
 
 import example.myproject.Initialization;
+import example.myproject.Utils;
 import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
 import example.myproject.datatypes.MetadataEntry;
@@ -23,6 +24,7 @@ public class PathHandler {
     private final long id;
     private Set<NodePath> paths = new HashSet<>();
 
+    //TODO arranjar fazer isto bem
     /**
      * Maps the path each node belongs to.
      * Note: If several nodes are on the same path, they will have the same list result.
@@ -222,7 +224,7 @@ public class PathHandler {
     }
 
     boolean pathIsSubPath(NodePath subPath, NodePath path) {
-        Node lastNodeSubPath = subPath.path.get(subPath.path.size() - 1);
+        Node lastNodeSubPath = Utils.getLastEntry(subPath.path);
 
         //>> System.out.println("Checking if is subpath:");
         //>> subPath.printLn("subPath ");
@@ -356,6 +358,7 @@ public class PathHandler {
         return paths;
     }
 
+    //TODO arranjar fazer isto bem
     NodePath getFullPathOfNode(Node node) {
         return nodesToCorrespondingPath.get(node);
     }

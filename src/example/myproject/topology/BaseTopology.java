@@ -1,14 +1,10 @@
 package example.myproject.topology;
 
-import peersim.config.Configuration;
+import example.myproject.Utils;
 import peersim.dynamics.WireGraph;
 import peersim.graph.Graph;
 
 public abstract class BaseTopology extends WireGraph {
-
-    private static final String PAR_DEBUG = "debug";
-
-    private final boolean DEBUG;
 
     /**
      * Standard constructor that reads the configuration parameters. Normally
@@ -18,11 +14,10 @@ public abstract class BaseTopology extends WireGraph {
      */
     BaseTopology(String prefix) {
         super(prefix);
-        this.DEBUG = Configuration.getBoolean(PAR_DEBUG);
     }
 
     public void wire(Graph graph) {
-        if (DEBUG) {
+        if (Utils.DEBUG) {
             for (int i = 0; i < graph.size(); i++) {
                 debug(i + "'s neighbours: " + graph.getNeighbours(i));
             }
@@ -30,7 +25,7 @@ public abstract class BaseTopology extends WireGraph {
     }
 
     protected void debug(String string) {
-        if (DEBUG) {
+        if (Utils.DEBUG) {
             System.out.println(string);
         }
     }

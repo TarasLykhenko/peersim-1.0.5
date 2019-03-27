@@ -1,9 +1,9 @@
 package example.myproject.server;
 
+import example.myproject.Utils;
 import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
 import example.myproject.datatypes.NodePath;
-import peersim.config.Configuration;
 import peersim.core.Network;
 import peersim.core.Node;
 
@@ -24,12 +24,15 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
      * The nodeID of the node this specific protocol instance belongs to.
      */
     protected long id;
-    private boolean isCrashed;
+    protected boolean isCrashed = false;
 
     private MessagePublisher messagePublisher;
     private PathHandler pathHandler;
     private CausalityHandler causalityHandler;
     private ConnectionHandler connectionHandler;
+
+
+    protected List<Message> queuedMessagesReceived = new ArrayList<>();
 
     public CausalNeighbourBackend(String prefix) {
     }
@@ -65,6 +68,7 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
         causalityHandler.addPublisherState(freshMessage);
 
         System.out.println("Publishing a message!");
+        freshMessage.printMessage();
 
         List<Message> messages = prepareMessageToForward(freshMessage);
         connectionHandler.handleOutgoingMessages(messages);
@@ -80,18 +84,30 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
      * @return A list of messages to be forwarded to other servers.
      */
     List<Message> receiveMessage(Message message) {
-        connectionHandler.updateGcReceiveFromInformation(message);
-
-        PathHandler.Scenario scenario = pathHandler.evaluationScenario(message);
         List<Message> resultList = Collections.emptyList();
+
+        if (isCrashed) {
+            queuedMessagesReceived.add(message);
+            return resultList;
+        }
+
+        connectionHandler.updateGcReceiveFromInformation(message);
+        PathHandler.Scenario scenario = pathHandler.evaluationScenario(message);
 
         switch (scenario) {
             case ONE:
+                long startTimeProcess = System.currentTimeMillis();
+                causalityHandler.processMessage(message);
+                /*
                 if (messagePublisher.belongsToGroup(message.getGroup())) {
                     causalityHandler.processMessage(message);
                 }
+                */
                 pathHandler.processMessage(message);
                 resultList = prepareMessageToForward(message);
+                long endTimeProcess = System.currentTimeMillis();
+
+                System.out.println("Time to process msg: " + (endTimeProcess - startTimeProcess));
                 break;
 
             case TWO:
@@ -102,11 +118,14 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
             case THREE:
                 // TODO provavelmente tem de propagar as metadatas para o resto
                 pathHandler.handleDuplicateMessage(message);
-                throw new AssertException("TODO must implement this scenario!");
-                // break;
+                //causalityHandler.handleDuplicateMessage(message); //TODO nao sei ate que ponto isto é necessario
+                // throw new AssertException("TODO must implement this scenario! : " + id);
+                break;
         }
 
-        System.out.println("Scenario " + scenario);
+        if (Utils.DEBUG_V) {
+            System.out.println("Scenario " + scenario);
+        }
 
         connectionHandler.handleOutgoingMessages(resultList);
         return resultList;
@@ -165,7 +184,9 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
         }
 
         //TODO deal with this
-        throw new AssertException("Every possible connection is down.");
+        throw new AssertException("Every possible connection is down." + System.lineSeparator() +
+                "Active connections: " + Utils.nodesToLongs(connectionHandler.getActiveConnections()) + System.lineSeparator() +
+                "Down connections: " + Utils.nodesToLongs(connectionHandler.getDownConnections()));
     }
 
 
@@ -179,7 +200,9 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     private Set<NodePath> getDistinctPaths(Set<Long> liveInterestedNodes) {
         Set<NodePath> distinctPaths = new HashSet<>();
 
-        NodePath.printPathLongs("Set of nodes", liveInterestedNodes);
+        if (Utils.DEBUG_V) {
+            NodePath.printPathLongs("Set of nodes", liveInterestedNodes);
+        }
 
         for (Long nodeId : liveInterestedNodes) {
             Node node = Network.get(Math.toIntExact(nodeId));
@@ -251,7 +274,9 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
             while (lvl < path.path.size()) {
                 Node node = path.path.get(lvl);
                 if (connectionHandler.getDownConnections().contains(node)) {
-                    System.out.println("SAD!");
+                    if ( Utils.DEBUG_V) {
+                        System.out.println("SAD!");
+                    }
                     lvl++;
                 } else {
                     long entry = node.getID();
@@ -423,15 +448,6 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
         }
 
         this.isCrashed = true;
-    }
-
-    @Override
-    public void unCrash() {
-        if (!isCrashed) {
-            throw new AssertException("Reviving an alive server.");
-        }
-
-        this.isCrashed = false;
     }
 
     @Override

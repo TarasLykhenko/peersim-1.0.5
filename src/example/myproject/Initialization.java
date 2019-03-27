@@ -36,7 +36,6 @@ public class Initialization implements Control {
     private static final String PAR_GROUPS_CONFIG = "groups-config";
     private static final String PAR_GROUPS_CONFIG_FILE = "groups-config-file";
 
-    private final int delta;
     private final int linkablePid;
     private final int backendPid;
     private final int distinctGroups;
@@ -51,7 +50,6 @@ public class Initialization implements Control {
 
 
     public Initialization(String prefix) {
-        this.delta = Configuration.getInt(PAR_DELTA);
         this.linkablePid = Configuration.getPid(prefix + "." + PAR_LINKABLE);
         this.backendPid = Configuration.getPid(PAR_BACKEND);
         this.distinctGroups = Configuration.getInt(PAR_DISTINCT_GROUPS);
@@ -96,9 +94,9 @@ public class Initialization implements Control {
                 BackendInterface neighbourServer = nodeToBackend(neighbour);
                 neighbourServer.startActiveConnection(node.getID());
             }
-
         }
     }
+
     private void setBackendIds() {
         for (int nodeIdx = 0; nodeIdx < Network.size(); nodeIdx++) {
             Node node = Network.get(nodeIdx);
@@ -107,6 +105,7 @@ public class Initialization implements Control {
             servers.put(server.getId(), server);
         }
     }
+
     /**
      * Maps the path of a src to a dst.
      *
@@ -115,7 +114,6 @@ public class Initialization implements Control {
      * List is the path itself.
      */
     private Map<Long, Map<Long, List<Node>>> globalPaths = new HashMap<>();
-
 
 
     private void generateGlobalPaths() {
@@ -127,10 +125,10 @@ public class Initialization implements Control {
             Set<List<Node>> result = new HashSet<>();
             List<Node> currentPath = new ArrayList<>();
             currentPath.add(node);
-            getPaths(currentPath, result, 0, Integer.MAX_VALUE, true);
+            getPaths(currentPath, result, 0, Integer.MAX_VALUE);
 
             for (List<Node> path : result) {
-                Node endNode = path.get(path.size() - 1);
+                Node endNode = Utils.getLastEntry(path);
                 globalPaths.computeIfAbsent(node.getID(), k -> new HashMap<>())
                         .put(endNode.getID(), path);
             }
@@ -149,6 +147,7 @@ public class Initialization implements Control {
         }
         */
     }
+
     private void discoverPathsForEachNode() {
         long pathId = 100_000;
         for (int nodeIdx = 0; nodeIdx < Network.size(); nodeIdx++) {
@@ -159,7 +158,7 @@ public class Initialization implements Control {
             Set<List<Node>> result = new HashSet<>();
             List<Node> currentPath = new ArrayList<>();
             currentPath.add(node);
-            getPaths(currentPath, result, 0, delta + 1, true);
+            getPaths(currentPath, result, 0, Utils.DELTA + 1);
 
             System.out.println("Printing paths for " + node.getID());
             for (List<Node> path : result) {
@@ -173,6 +172,8 @@ public class Initialization implements Control {
                     neighbourServer.addPathIdMapping(nodePath, pathId);
                 }
             }
+
+            System.out.println();
 
             // server.setNeighbourHood(result);
         }
@@ -235,7 +236,7 @@ public class Initialization implements Control {
 
     private void spreadGroups(Set<Integer> groups, List<Node> currentPath) {
         Node beforeLast = currentPath.size() == 1 ? null : currentPath.get(currentPath.size() - 2);
-        Node lastNode = currentPath.get(currentPath.size() - 1);
+        Node lastNode = Utils.getLastEntry(currentPath);
         Set<Node> neighboursExcludingSource = Utils.getNeighboursExcludingSource(lastNode, beforeLast);
         for (Node node : neighboursExcludingSource) {
             BackendInterface server = nodeToBackend(node);
@@ -350,13 +351,14 @@ public class Initialization implements Control {
     }
 
     private void getPaths(List<Node> currentPath, Set<List<Node>> result,
-                          int currentDistance, int maxDistance, boolean allNodes) {
+                          int currentDistance, int maxDistance) {
         // End of path
         if (currentDistance == maxDistance) {
             result.add(currentPath);
+            System.out.println("Got to max distance of " + maxDistance);
             return;
         }
-        Node lastNode = currentPath.get(currentPath.size() - 1);
+        Node lastNode = Utils.getLastEntry(currentPath);
         Node nodeBeforeLastNode;
         if (currentPath.size() <= 1) {
             nodeBeforeLastNode = null;
@@ -365,26 +367,12 @@ public class Initialization implements Control {
         }
         Set<Node> nextNeighbours = Utils.getNeighboursExcludingSource(lastNode, nodeBeforeLastNode);
 
-        if (allNodes) {
-            result.add(currentPath);
-            for (Node nextNode : nextNeighbours) {
-                List<Node> nextPath = new ArrayList<>(currentPath);
-                nextPath.add(nextNode);
-                getPaths(nextPath, result, currentDistance + 1, maxDistance, allNodes);
-            }
-        } else {
-            if (nextNeighbours.isEmpty()) {
-                // End of path
-                result.add(currentPath);
-            } else {
-                for (Node nextNode : nextNeighbours) {
-                    List<Node> nextPath = new ArrayList<>(currentPath);
-                    nextPath.add(nextNode);
-                    getPaths(nextPath, result, currentDistance + 1, maxDistance, allNodes);
-                }
-            }
+        result.add(currentPath);
+        for (Node nextNode : nextNeighbours) {
+            List<Node> nextPath = new ArrayList<>(currentPath);
+            nextPath.add(nextNode);
+            getPaths(nextPath, result, currentDistance + 1, maxDistance);
         }
-
     }
 
     private BackendInterface nodeToBackend(Node node) {

@@ -8,6 +8,7 @@ import peersim.core.Control;
 import peersim.core.Fallible;
 import peersim.core.Network;
 import peersim.core.Node;
+import peersim.core.Protocol;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -81,8 +82,8 @@ public class Controller implements Control {
             }
         }
 
-        System.out.println("CURRENT TOTAL BIGGEST SIZE: " + Message.getBiggestTotalSize());
-        System.out.println("Biggest vector: " + Message.getBiggestVectorSize());
+        System.out.println("CURRENT TOTAL BIGGEST SIZE: " + Statistics.biggestTotalSize);
+        System.out.println("Biggest vector: " + Statistics.biggestVectorSize);
         // if (true) return false;
         currentPoint += STATISTICS_WINDOW;
 
@@ -98,10 +99,10 @@ public class Controller implements Control {
         */
 
 
-        System.out.println("Highest Repetitions: " + ConnectionHandler.NUMBER_REPETITIONS);
+        System.out.println("Highest Repetitions: " + Statistics.NUMBER_REPETITIONS);
         System.out.println("Message: ");
-        if (ConnectionHandler.NUMBER_REPETITIONS != 0) {
-            ConnectionHandler.MESSAGE.printMessage();
+        if (Statistics.NUMBER_REPETITIONS != 0) {
+            Statistics.MESSAGE.printMessage();
         }
         handleCrashes(currentPoint);
 
@@ -128,13 +129,13 @@ public class Controller implements Control {
 
         if (currentPoint == crashStart) {
             System.out.println("BOOM!");
-            Node node = Network.get(crashedNode);
-            node.setFailState(Fallible.DOWN);
+            BackendInterface backend = (BackendInterface) Network.get(crashedNode).getProtocol(pid);
+            backend.crash();
         }
 
         if (currentPoint == crashEnd) {
-            Node node = Network.get(crashedNode);
-            node.setFailState(Fallible.OK);
+            BackendInterface backend = (BackendInterface) Network.get(crashedNode).getProtocol(pid);
+            backend.unCrash();
         }
     }
 
