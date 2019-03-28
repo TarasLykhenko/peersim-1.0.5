@@ -12,11 +12,12 @@ import java.util.stream.Collectors;
 
 public class NodePath {
 
-    public long id;
-    public List<Node> path;
-    public Set<Node> fullPathSet;
-    public Set<Node> pathSetWithoutStart;
-    private String pathString;
+    public final long id;
+    public final List<Node> path;
+    public final Set<Node> fullPathSet;
+    public final Set<Long> fullPathSetLongs;
+    public final Set<Node> pathSetWithoutStart;
+    private final String pathString;
 
     public NodePath(List<Node> path, long id) {
         this.id = id;
@@ -29,6 +30,7 @@ public class NodePath {
                 .map(Node::getID)
                 .map(Object::toString)
                 .collect(Collectors.joining(":"));
+        this.fullPathSetLongs = path.stream().map(Node::getID).collect(Collectors.toSet());
     }
 
     public Node getLastNodeOnPath() {
@@ -57,5 +59,9 @@ public class NodePath {
                 .map(Object::toString)
                 .collect(Collectors.joining(":"));
         System.out.println(msg + " - " + result);
+    }
+
+    public boolean containsNode(long id) {
+        return fullPathSetLongs.contains(id);
     }
 }

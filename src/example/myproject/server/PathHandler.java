@@ -16,7 +16,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 public class PathHandler {
@@ -53,8 +52,8 @@ public class PathHandler {
      */
     private Map<Long, Integer> pathsMessagesReceived = new HashMap<>();
 
-    private Map<Long, NodePath> pathIdsToPathNodes = new HashMap<>();
-    private Map<Long, NodePath> otherPathIdsToPathNodes = new HashMap<>();
+    private Map<Long, NodePath> innerPathIdsToPathNodes = new HashMap<>();
+    private Map<Long, NodePath> outerPathIdsToPathNodes = new HashMap<>();
     private Map<NodePath, Long> pathNodesToPathIds = new HashMap<>();
 
 
@@ -113,33 +112,34 @@ public class PathHandler {
         }
     }
 
-    void setNeighbourhood(Set<NodePath> differentPaths) {
-        this.paths = differentPaths;
-
-        for (NodePath path : differentPaths) {
-            for (Node node : path.path) {
-                nodesToCorrespondingPath.put(node, path);
-            }
-        }
-    }
-
-    void setNeighbourhoodAndPathId(NodePath path, long pathId) {
-        this.paths.add(path);
-
-        shortestPathToNode.put(path.getLastNodeOnPath(), path);
-
-        for (Node node : path.path) {
-            nodesToCorrespondingPath.put(node, path);
-        }
-
-        addPathIdMapping(path, pathId);
-    }
-
-    void addPathIdMapping(NodePath path, long pathId) {
-        pathIdsToPathNodes.put(pathId, path);
+    void addInnerPathIdMapping(NodePath path, long pathId) {
+        innerPathIdsToPathNodes.put(pathId, path);
         pathNodesToPathIds.put(path, pathId);
         pathMessagesSent.put(pathId, 0);
         pathsMessagesReceived.put(pathId, 0);
+
+        Node sourceNode = path.path.get(0);
+        Node lastNode = Utils.getLastEntry(path.path);
+        if (sourceNode.getID() == id && shortestPathToNode.containsKey(lastNode)) {
+            System.out.println("Old path: " + shortestPathToNode.get(lastNode));
+            System.out.println("New path: " + path);
+            throw new AssertException("!🚨🚨🚨🚨🚨🚨🚨🚨!");
+        }
+
+        if (sourceNode.getID() == id) {
+            System.out.println("(" + id + ") Adding " + path + " to " + lastNode.getID());
+            shortestPathToNode.put(lastNode, path);
+        }
+
+        paths.add(path);
+    }
+
+    void addOuterPathIdMapping(NodePath path, long pathId) {
+        outerPathIdsToPathNodes.put(pathId, path);
+        pathsMessagesReceived.put(pathId, 0);
+        //paths.add(path); // TODO nao sei se isto vai ser preciso eventualmente
+        // TODO isto tá commented atm, acho que nao é preciso meter este path lá
+        // pathNodesToPathIds.put(path, pathId);
     }
 
     /**
@@ -291,7 +291,7 @@ public class PathHandler {
     }
 
     NodePath getPathNodesFromPathId(Long pathId) {
-        return pathIdsToPathNodes.get(pathId);
+        return innerPathIdsToPathNodes.get(pathId);
     }
 
     /**
@@ -321,9 +321,21 @@ public class PathHandler {
                     continue;
                 }
 
+
                 long pathId = entry.getPathId();
                 int metadataPathValue = entry.getValue();
                 int currentNodeEntry = pathsMessagesReceived.get(pathId);
+
+                // Handle outer pathId
+                if (pathIsInner(pathId)) {
+                    if (metadataPathValue <= currentNodeEntry) {
+                        System.out.println("Detected duplicate message: " +
+                                outerPathIdsToPathNodes.get(pathId) + " - msg val: "
+                                + metadataPathValue + " | own val: " + currentNodeEntry);
+                        return Scenario.THREE;
+                    }
+                }
+
 
              //>>   getPathNodesFromPathId(pathId).printLn("Path: ");
             //>>    System.out.println(">> msg entry: " + metadataPathValue);
@@ -352,6 +364,10 @@ public class PathHandler {
         // deliverMessage(message);
         //TODO actualizar antes ou depois a metadata?
         // forwardMessages(message);
+    }
+
+    boolean pathIsInner(long pathId) {
+        return innerPathIdsToPathNodes.containsKey(pathId);
     }
 
     // ------------------

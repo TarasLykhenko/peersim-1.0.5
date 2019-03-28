@@ -117,16 +117,19 @@ public class ConnectionHandler {
             }
         }
 
-        MetadataEntry firstNonJumpEntry = null;
+        MetadataEntry firstNonJumpAndRelevantEntry = null;
         for (MetadataEntry metadataEntry : vector) {
             if (metadataEntry.getState() == MetadataEntry.State.JUMP) {
                 continue;
             }
-            firstNonJumpEntry = metadataEntry;
-            break;
+
+            if (pathHandler.pathIsInner(metadataEntry.getPathId())) {
+                firstNonJumpAndRelevantEntry = metadataEntry;
+                break;
+            }
         }
 
-        NodePath nodePath = pathHandler.getPathNodesFromPathId(firstNonJumpEntry.getPathId());
+        NodePath nodePath = pathHandler.getPathNodesFromPathId(firstNonJumpAndRelevantEntry.getPathId());
         for (Node node : nodePath.fullPathSet) {
             if (node.getID() == id) {
                 return;

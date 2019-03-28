@@ -2,6 +2,7 @@ package example.myproject.server;
 
 import example.myproject.datatypes.Message;
 import example.myproject.datatypes.NodePath;
+import example.myproject.datatypes.PathMessage;
 
 import java.util.List;
 import java.util.Set;
@@ -68,27 +69,7 @@ public interface BackendInterface {
      */
     Set<NodePath> getNeighbourhood();
 
-    /**
-     * Sets the server's neighbourhood
-     * @param differentPaths A set of lists of all
-     *                       different possible paths up to a given distance
-     */
-    void setNeighbourHood(Set<NodePath> differentPaths);
-
-    /**
-     * Sets the server's neighbourhood and pathId
-     */
-    void setNeighbourhoodAndPathId(NodePath path, long pathId);
-
-    // void setNeighbourhoodAndPathIdOutwards(NodePath path, long pathId);
-
-    // void setNeighbourhoodAndPathIdInwards(NodePath path, long pathId);
-
-    void addPathIdMapping(NodePath path, long pathId);
-
-
-
-    void addOuterPathIdMapping(NodePath path, long pathId);
+    void receivePath(PathMessage pathMessage);
 
     void startActiveConnection(long connectionStarterId);
 

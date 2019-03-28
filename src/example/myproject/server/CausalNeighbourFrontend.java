@@ -5,10 +5,12 @@ import example.myproject.Sizeable;
 import example.myproject.Utils;
 import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
+import example.myproject.datatypes.PathMessage;
 import peersim.cdsim.CDProtocol;
 import peersim.config.Configuration;
 import peersim.config.FastConfig;
 import peersim.core.CommonState;
+import peersim.core.Linkable;
 import peersim.core.Network;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
@@ -24,6 +26,7 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
         implements CDProtocol, EDProtocol {
 
     private final int dcPid;
+    private final int linkablePid;
     private final String prefix;
     private final int publisher; // TODO isto e uma temp var
 
@@ -49,6 +52,7 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
         super(prefix);
         this.prefix = prefix;
         this.dcPid = Configuration.getPid("causalneighbour");
+        this.linkablePid = Configuration.getPid("linkable");
         this.publisher = Configuration.getInt("publisher");
     }
 
@@ -166,6 +170,36 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
         }
         queuedMessagesReceived.clear();
     }
+
+    /**
+     * NOTE: This message doesn't take any time sending events, as it's all
+     * in-process calls.
+     *
+     * @param pathMessage
+     */
+    @Override
+    public void receivePath(PathMessage pathMessage) {
+        boolean shouldSpread = processNewReceivedPath(pathMessage);
+
+        if (shouldSpread) {
+            Node thisNode = Network.get(Math.toIntExact(id));
+            Linkable linkable = (Linkable) thisNode.getProtocol(linkablePid);
+
+            PathMessage newPathMessage = new PathMessage(pathMessage, id);
+            for (int i = 0; i < linkable.degree(); i++) {
+                Node neighbor = linkable.getNeighbor(i);
+
+                // Don't send back the message
+                if (neighbor.getID() == pathMessage.getSender()) {
+                    continue;
+                }
+
+                System.out.println("NODE " + id + " SENDING PATH " + newPathMessage.getNodePath() + " TO " + neighbor.getID());
+                Utils.nodeToBackend(neighbor).receivePath(newPathMessage);
+            }
+        }
+    }
+
 
     @Override
     public void processEvent(Node node, int pid, Object event) {

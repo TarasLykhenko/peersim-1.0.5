@@ -16,12 +16,12 @@
 #   NOTE3: Time starts at 0, node IDs start at 0
 
 0 0 A
-0 1 crash
-1 0 A
+1 0 B
+2 0 B
+4 0 A
+4 1 crash
+8 0 A
+8 1 uncrash
+8 2 crash
 10 0 A
-10 1 uncrash
-10 2 crash
-35 0 A
-#40 2 uncrash
-#50 0 A
-#60 0 A
+

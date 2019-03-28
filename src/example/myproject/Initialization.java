@@ -2,6 +2,7 @@ package example.myproject;
 
 import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.NodePath;
+import example.myproject.datatypes.PathMessage;
 import example.myproject.server.BackendInterface;
 import peersim.config.Configuration;
 import peersim.core.CommonState;
@@ -162,55 +163,19 @@ public class Initialization implements Control {
             getPaths(currentPath, result, 0, Utils.DELTA + 1);
 
             System.out.println("Printing paths for " + node.getID());
+
+            Set<PathMessage> messagesToSpread = new HashSet<>();
             for (List<Node> path : result) {
                 pathId++;
                 NodePath nodePath = new NodePath(path, pathId);
                 nodePath.printLn(">> " + nodePath.id + " ");
-                server.setNeighbourhoodAndPathId(nodePath, pathId);
                 pathsToPathLongs.put(pathId, nodePath);
-                for (Node neighbourNode : nodePath.path) {
-                    BackendInterface neighbourServer = nodeToBackend(neighbourNode);
-                    neighbourServer.addPathIdMapping(nodePath, pathId);
-                }
+                messagesToSpread.add(new PathMessage(pathId, nodePath, 0, server.getId()));
             }
 
-            System.out.println();
-
-            // server.setNeighbourHood(result);
-        }
-
-        for (int nodeIdx = 0; nodeIdx < Network.size(); nodeIdx++) {
-            Node node = Network.get(nodeIdx);
-            BackendInterface server = nodeToBackend(node);
-            Set<Node> result = new HashSet<>();
-            getOuterNodes(result, node, null, 0, Utils.DELTA, 2 * Utils.DELTA + 1);
-
-            if (Utils.DEBUG_V) {
-                System.out.println("Node is " + node.getID());
-                System.out.println("Outer neighbours are " + Utils.nodesToLongs(result));
+            for (PathMessage pathMessage : messagesToSpread) {
+                server.receivePath(pathMessage);
             }
-        }
-    }
-
-    private void getOuterNodes(Set<Node> result, Node currentNode, Node lastNode,
-                               int currentDistance,
-                               final int outerStart, final int outerEnd) {
-        if (currentDistance < outerStart) {
-            Set<Node> neighbours = Utils.getNeighboursExcludingSource(currentNode, lastNode);
-            for (Node neighbour : neighbours) {
-                getOuterNodes(result, neighbour, currentNode, currentDistance + 1, outerStart, outerEnd);
-            }
-        }
-
-        if (currentDistance > outerEnd) {
-            return;
-        }
-
-        Set<Node> neighbours = Utils.getNeighboursExcludingSource(currentNode, lastNode);
-        result.addAll(neighbours);
-
-        for (Node neighbour : neighbours) {
-            getOuterNodes(result, neighbour, currentNode, currentDistance + 1, outerStart, outerEnd);
         }
     }
 

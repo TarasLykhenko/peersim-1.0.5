@@ -4,9 +4,12 @@ import example.myproject.Utils;
 import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
 import example.myproject.datatypes.NodePath;
+import example.myproject.datatypes.PathMessage;
 import peersim.core.Network;
 import peersim.core.Node;
 
+import javax.rmi.CORBA.Util;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -361,11 +364,6 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     }
 
     @Override
-    public void setNeighbourHood(Set<NodePath> differentPaths) {
-        pathHandler.setNeighbourhood(differentPaths);
-    }
-
-    @Override
     public Set<Integer> getCopyOfSRT() {
         return messagePublisher.getCopyOfSRT();
     }
@@ -398,16 +396,6 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     @Override
     public void setForwarderOfGroup(Integer group) {
         messagePublisher.setForwarderOfGroup(group);
-    }
-
-    @Override
-    public void setNeighbourhoodAndPathId(NodePath path, long pathId) {
-        pathHandler.setNeighbourhoodAndPathId(path, pathId);
-    }
-
-    @Override
-    public void addPathIdMapping(NodePath path, long pathId) {
-        pathHandler.addPathIdMapping(path, pathId);
     }
 
     @Override
@@ -453,6 +441,41 @@ public abstract class CausalNeighbourBackend implements BackendInterface {
     @Override
     public boolean isCrashed() {
         return this.isCrashed;
+    }
+
+    /**
+     * Adds the pathMessage's pathId and path to the inner paths or
+     * or outer path (depending on the distance travelled)
+     * @param pathMessage The message to be spread
+     * @return True if the message should be
+     */
+    boolean processNewReceivedPath(PathMessage pathMessage) {
+        NodePath nodePath = pathMessage.getNodePath();
+        long pathId = pathMessage.getPathId();
+
+        // Only accept relevant paths inside the inner path
+        // (e.g. paths that contain the current node)
+        if (senderNodeInsideInnerArea(pathMessage) && !nodePath.containsNode(id)) {
+            return false;
+        }
+
+        if (senderNodeInsideInnerArea(pathMessage)) {
+            pathHandler.addInnerPathIdMapping(nodePath, pathId);
+            return true;
+        } else if (senderNodeInsideOuterArea(pathMessage)) {
+            pathHandler.addOuterPathIdMapping(nodePath, pathId);
+            return true;
+        }
+
+        return false;
+    }
+
+    private boolean senderNodeInsideInnerArea(PathMessage pathMessage) {
+        return pathMessage.getCurrentDistance() <= Utils.DELTA + 1;
+    }
+
+    private boolean senderNodeInsideOuterArea(PathMessage pathMessage) {
+        return pathMessage.getCurrentDistance() <= Utils.DELTA_MAX_SIZE;
     }
 
     PathHandler getPathHandler() {

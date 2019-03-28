@@ -3,26 +3,19 @@ package example.myproject.topology;
 
 import peersim.config.Configuration;
 import peersim.core.Network;
-import peersim.dynamics.WireGraph;
 import peersim.graph.Graph;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class TreeWireTopology extends BaseTopology {
+public class TreeWireTopology implements TopologyInterface {
 
     private static final String PAR_BREADTH = "tree-breadth";
 
     private final int breadth;
-    /**
-     * Standard constructor that reads the configuration parameters. Normally
-     * invoked by the simulation engine.
-     *
-     * @param prefix the configuration prefix for this class
-     */
-    public TreeWireTopology(String prefix) {
-        super(prefix);
+
+    TreeWireTopology() {
         this.breadth = Configuration.getInt(PAR_BREADTH);
     }
 
@@ -33,11 +26,9 @@ public class TreeWireTopology extends BaseTopology {
         nextLine.add(0);
 
         while (cursor < Network.size()) {
-            debug("NextLine: " + nextLine);
+            BaseTopology.debug("NextLine: " + nextLine);
             nextLine = handleNextLevel(graph, nextLine);
         }
-
-        super.wire(graph);
     }
 
     private List<Integer> handleNextLevel(Graph graph, List<Integer> currentLine) {

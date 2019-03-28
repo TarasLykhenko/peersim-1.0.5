@@ -12,24 +12,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class FileWireTopology extends BaseTopology {
+public class FileWireTopology implements TopologyInterface {
 
     private static final String PAR_WIRE_FILE_NAME = "topology-file-name";
-    /**
-     *
-     * Standard constructor that reads the configuration parameters. Normally
-     * invoked by the simulation engine.
-     *
-     * @param prefix the configuration prefix for this class
-     */
-    public FileWireTopology(String prefix) {
-        super(prefix);
-    }
 
-    /**
-     * NOTE: This is looking for files inside example/other
-     */
-    @Override
     public void wire(Graph graph) {
         String fileName = Configuration.getString(PAR_WIRE_FILE_NAME);
         List<String> fileLines;
@@ -55,7 +41,5 @@ public class FileWireTopology extends BaseTopology {
         if (nodeCount.size() != Network.size()) {
             throw new AssertException("The number of nodes in the file is different than ones in the simulation.");
         }
-
-        super.wire(graph);
     }
 }

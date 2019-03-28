@@ -32,8 +32,7 @@ public class Utils {
         DEBUG = Configuration.getBoolean(PAR_DEBUG);
         DEBUG_V = Configuration.getBoolean(PAR_DEBUG_VERBOSE);
         DELTA = Configuration.getInt("delta");
-        //DELTA_MAX_SIZE = (DELTA * 2) + 1;
-        DELTA_MAX_SIZE = DELTA + 1; //TODO TIRAR ISTO, ISTO TA MAL!
+        DELTA_MAX_SIZE = (DELTA * 2) + 1;
     }
 
     private Utils() {}
