@@ -142,7 +142,7 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
     private void nextCycleRandom(Node node, int protocolID) {
         //TODO TIRAR ISTO NÉ
         if (node.getID() != publisher) {
-         //   return;
+            return;
         }
         // System.out.println("PUBLISHER: " + node.getID());
 

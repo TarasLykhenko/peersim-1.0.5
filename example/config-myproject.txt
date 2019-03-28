@@ -19,9 +19,9 @@ execution-model-file actions-detect-duplicate.txt
 # This is used if the topology class is FileWireTopology
 topology-file-name topology-detect-causality.txt
 
-SIZE 20
-CYCLES 2000
-tree-breadth 2
+SIZE 600
+CYCLES 10
+tree-breadth 3
 latency 10
 latency-interval 10
 latency-per-100-bytes 15

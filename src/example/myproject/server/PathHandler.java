@@ -25,6 +25,8 @@ public class PathHandler {
     private Set<NodePath> paths = new HashSet<>();
 
     //TODO arranjar fazer isto bem
+    // Isto tem de ser mapeado com Node para Set<NodePath>, sendo este set a lista de
+    // caminhos que passam para além do nó
     /**
      * Maps the path each node belongs to.
      * Note: If several nodes are on the same path, they will have the same list result.
@@ -52,7 +54,9 @@ public class PathHandler {
     private Map<Long, Integer> pathsMessagesReceived = new HashMap<>();
 
     private Map<Long, NodePath> pathIdsToPathNodes = new HashMap<>();
+    private Map<Long, NodePath> otherPathIdsToPathNodes = new HashMap<>();
     private Map<NodePath, Long> pathNodesToPathIds = new HashMap<>();
+
 
     public PathHandler(long id) {
         this.id = id;

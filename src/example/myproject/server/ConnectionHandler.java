@@ -6,7 +6,6 @@ import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
 import example.myproject.datatypes.MetadataEntry;
 import example.myproject.datatypes.NodePath;
-import peersim.config.Configuration;
 import peersim.core.Network;
 import peersim.core.Node;
 
@@ -119,11 +118,11 @@ public class ConnectionHandler {
         }
 
         MetadataEntry firstNonJumpEntry = null;
-        for (int i = 0; i < vector.size(); i++) {
-            if (vector.get(i).getState() == MetadataEntry.State.JUMP) {
+        for (MetadataEntry metadataEntry : vector) {
+            if (metadataEntry.getState() == MetadataEntry.State.JUMP) {
                 continue;
             }
-            firstNonJumpEntry = vector.get(i);
+            firstNonJumpEntry = metadataEntry;
             break;
         }
 
@@ -156,8 +155,6 @@ public class ConnectionHandler {
                     .add(message.getId());
         }
     }
-
-
 
     //TODO Isto de momento só devolve as msgs que recebeu. Poderá ser optimizado um dia
     /**

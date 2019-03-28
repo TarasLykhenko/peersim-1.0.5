@@ -150,9 +150,10 @@ public class Initialization implements Control {
 
     private void discoverPathsForEachNode() {
         long pathId = 100_000;
+
+        // First generate the Delta + 1 paths for each node
         for (int nodeIdx = 0; nodeIdx < Network.size(); nodeIdx++) {
             Node node = Network.get(nodeIdx);
-
             BackendInterface server = nodeToBackend(node);
 
             Set<List<Node>> result = new HashSet<>();
@@ -176,6 +177,40 @@ public class Initialization implements Control {
             System.out.println();
 
             // server.setNeighbourHood(result);
+        }
+
+        for (int nodeIdx = 0; nodeIdx < Network.size(); nodeIdx++) {
+            Node node = Network.get(nodeIdx);
+            BackendInterface server = nodeToBackend(node);
+            Set<Node> result = new HashSet<>();
+            getOuterNodes(result, node, null, 0, Utils.DELTA, 2 * Utils.DELTA + 1);
+
+            if (Utils.DEBUG_V) {
+                System.out.println("Node is " + node.getID());
+                System.out.println("Outer neighbours are " + Utils.nodesToLongs(result));
+            }
+        }
+    }
+
+    private void getOuterNodes(Set<Node> result, Node currentNode, Node lastNode,
+                               int currentDistance,
+                               final int outerStart, final int outerEnd) {
+        if (currentDistance < outerStart) {
+            Set<Node> neighbours = Utils.getNeighboursExcludingSource(currentNode, lastNode);
+            for (Node neighbour : neighbours) {
+                getOuterNodes(result, neighbour, currentNode, currentDistance + 1, outerStart, outerEnd);
+            }
+        }
+
+        if (currentDistance > outerEnd) {
+            return;
+        }
+
+        Set<Node> neighbours = Utils.getNeighboursExcludingSource(currentNode, lastNode);
+        result.addAll(neighbours);
+
+        for (Node neighbour : neighbours) {
+            getOuterNodes(result, neighbour, currentNode, currentDistance + 1, outerStart, outerEnd);
         }
     }
 

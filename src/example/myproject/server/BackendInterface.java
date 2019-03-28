@@ -86,6 +86,10 @@ public interface BackendInterface {
 
     void addPathIdMapping(NodePath path, long pathId);
 
+
+
+    void addOuterPathIdMapping(NodePath path, long pathId);
+
     void startActiveConnection(long connectionStarterId);
 
     void checkCrashedConnections();
