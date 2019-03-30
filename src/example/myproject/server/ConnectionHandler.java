@@ -6,6 +6,7 @@ import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
 import example.myproject.datatypes.MetadataEntry;
 import example.myproject.datatypes.NodePath;
+import javafx.util.Pair;
 import peersim.core.Network;
 import peersim.core.Node;
 
@@ -44,6 +45,26 @@ public class ConnectionHandler {
     private Set<Node> downConnections = new HashSet<>();
     private Set<Node> inActivationConnections = new HashSet<>();
 
+    /**
+     * Stores the messages that have too many jumps. These are messages
+     * that were meant to be sent but couldn't, as they have too many jumps.
+     *
+     * There are two scenarios for messages to be able to leave this queue.
+     *
+     * 1st) The target neighbours that were dead and therefore added a jump
+     * are now alive, therefore if the number of jumps is equal or smaller than delta
+     * then the message can now be sent.
+     *
+     * 2nd) A previously-crashed node sends a duplicate message, whose original
+     * message we couldn't forward as it had too many jumps. By joining the metadata
+     * of the duplicate message and the original, if the new version has
+     * equal or smaller than delta umps then the message can now be sent.
+     *
+     * Mapping is messageID to message. (Duplicate messages will have the same id)
+     * NOTE: The stored messages are pre-processing.
+     */
+    private Map<Long, Message> messagesWithTooManyJumps = new HashMap<>();
+
     ConnectionHandler(long id, CausalNeighbourBackend backend) {
         this.id = id;
         this.backend = backend;
@@ -75,24 +96,64 @@ public class ConnectionHandler {
         for (Long interestedNode : targetIds) {
             addMessageStatistics(message);
 
-            Map<Long, Message> msgsToEachNode = gcStorage.computeIfAbsent(message.getId(), k -> new HashMap<>());
-            if (msgsToEachNode.containsKey(interestedNode) && msgsToEachNode.get(interestedNode).fullyEqual(message)) {
-                throw new AssertException("what the fuck");
-            }
-
-            gcStorage.computeIfAbsent(message.getId(), k -> new HashMap<>())
-                    .put(interestedNode, new Message(message));
-
-            List<Long> msgsSent = gcMessagesSentToEachNode.computeIfAbsent(interestedNode, k -> new ArrayList<>());
-
-            //TODO Isto é O(N) :^(
-            if (msgsSent.stream().anyMatch(aLong -> aLong.equals(message.getId()))) {
-                System.out.println("Repeated value! " + message.getId());
-                continue;
-            }
-
-            msgsSent.add(message.getId());
+            storeMessageToTarget(message, interestedNode);
         }
+    }
+
+    private Message getMessageToTarget(long messageId, long target) {
+        return gcStorage.computeIfAbsent(messageId, k -> new HashMap<>()).get(target);
+    }
+
+    private void storeMessageToTarget(Message message, long interestedNode) {
+        // TODO ver se não é preciso fazer um merge de mensagens
+        if (getMessageToTarget(message.getId(), interestedNode) != null) {
+            return;
+        }
+
+        int interestedNodeDistance = pathHandler.getDistanceToNode(interestedNode);
+        int lastDestinationDistance = pathHandler.getDistanceToNode(message.getNextDestination());
+        int jumpsToRemove = lastDestinationDistance - interestedNodeDistance;
+
+        Message messageCopy = createNewMessageWithoutLastJumps(message, jumpsToRemove);
+        gcStorage.computeIfAbsent(message.getId(), k -> new HashMap<>())
+                .put(interestedNode, messageCopy);
+
+        List<Long> msgsSent = gcMessagesSentToEachNode.computeIfAbsent(interestedNode, k -> new ArrayList<>());
+
+        //TODO Isto é O(N) :^(
+        if (msgsSent.stream().anyMatch(aLong -> aLong.equals(messageCopy.getId()))) {
+            if (Utils.DEBUG_V) {
+                System.out.println("Repeated value! " + messageCopy.getId());
+            }
+            return;
+        }
+
+        //System.out.println("(NODE " + id + "): STORING ");
+        //message.printMessage();
+        msgsSent.add(messageCopy.getId());
+    }
+
+    private Message createNewMessageWithoutLastJumps(Message message, int lastJumpsDistance) {
+        Message messageCopy = new Message(message);
+        for (List<MetadataEntry> vector : messageCopy.getMetadata()) {
+            int currentJumps = 0;
+
+            for (int i = vector.size(); i > 0; i--) {
+                if (currentJumps >= lastJumpsDistance) {
+                    break;
+                }
+
+                MetadataEntry entry = vector.get(i - 1);
+                if (entry.getState() == MetadataEntry.State.JUMP) {
+                    vector.remove(i - 1);
+                    currentJumps++;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        return messageCopy;
     }
 
 
@@ -105,7 +166,7 @@ public class ConnectionHandler {
      *
      * @param message
      */
-    void updateGcReceiveFromInformation(Message message) {
+    private void updateGcReceiveFromInformation(Message message) {
         //>> System.out.println("Updating GC!");
 
 
@@ -160,6 +221,7 @@ public class ConnectionHandler {
     }
 
     //TODO Isto de momento só devolve as msgs que recebeu. Poderá ser optimizado um dia
+
     /**
      * Part of the synch protocol. This is the 2nd of the 3rd step.
      *
@@ -188,11 +250,16 @@ public class ConnectionHandler {
     List<Message> compareHistory(long sender, List<Long> historyFromSender) {
         List<Long> sentMessages = gcMessagesSentToEachNode.get(sender);
 
-        if (Utils.DEBUG_V) {
-            System.out.println("Comparing two lists:");
+        // TODO mudar isto, fazer um get para obter msgs to gcMessagesSentTo..
+        if (sentMessages == null) {
+            sentMessages = Collections.emptyList();
+        }
+
+//        if (Utils.DEBUG_V) {
+            System.out.println("Comparing two lists between " + id + " and " + sender + ":");
             System.out.println(sentMessages);
             System.out.println(historyFromSender);
-        }
+  //      }
 
 
         for (int i = 0; i < historyFromSender.size(); i++) {
@@ -208,8 +275,13 @@ public class ConnectionHandler {
             }
         }
 
+        Node senderNode = Network.get((int) sender);
+
         if (sentMessages.size() == historyFromSender.size()) {
             System.out.println("COMPARE OVER! GOOD JOB");
+            inActivationConnections.remove(senderNode);
+            activeConnections.add(senderNode);
+
             return Collections.emptyList();
         }
 
@@ -222,7 +294,7 @@ public class ConnectionHandler {
 
         List<Message> missingMessages = new ArrayList<>();
         for (Long missingMessageId : missingMsgs) {
-            Message rawMessage = gcStorage.get(missingMessageId).get(sender);
+            Message rawMessage = getMessageToTarget(missingMessageId, sender);
 
             if (Utils.DEBUG_V) {
                 System.out.println("Raw message: ");
@@ -245,32 +317,61 @@ public class ConnectionHandler {
             missingMessages.add(message);
         }
 
-        Node senderNode = Network.get((int) sender);
-
         inActivationConnections.remove(senderNode);
         activeConnections.add(senderNode);
+
+        List<Pair<Message, Message>> adaptedMissingMessages =
+                missingMessages.stream().map(m -> new Pair<Message, Message>(null, m)).collect(Collectors.toList());
+
+        handleOutgoingMessages(adaptedMissingMessages);
         return missingMessages;
     }
 
-    private Set<Node> connectionIsDown(Node targetNode) {
+    private Set<Node> connectionIsDown(Node targetNode, Node sourceNode) {
         System.out.println("(Node " + id + ") detected node " + targetNode.getID() + " down.");
+        System.out.println("SOURCE: " + sourceNode.getID() + " | TARGET: " + targetNode.getID());
         activeConnections.remove(targetNode);
         downConnections.add(targetNode);
 
-        NodePath path = pathHandler.getShortestPathOfNode(targetNode);
-        if (path.path.size() > Utils.DELTA + 1) {
-            path.printLn("This is too far. Not returning any neighbours.");
-            return Collections.emptySet();
-        }
+        Set<Node> extraNeighbours = new HashSet<>();
 
-        Node thisNode = Network.get(Math.toIntExact(id));
         Set<Node> newNeighbours = Utils
-                .getNeighboursExcludingSource(targetNode, thisNode);
+                .getNeighboursExcludingSource(targetNode, sourceNode);
         System.out.println("(Node " + id + ") new connections: " + Utils.nodesToLongs(newNeighbours));
 
+        Iterator<Node> it = newNeighbours.iterator();
+        while (it.hasNext()) {
+            Node newNeighbour = it.next();
+            if (perfectFaultDetectorGodMode(newNeighbour)) {
+
+                int distance = pathHandler.getDistanceToNode(targetNode.getID());
+                if (distance == Utils.DELTA + 1) {
+                    pathHandler.getShortestPathOfNode(targetNode).printLn("This is too far. Not returning any neighbours.");
+                    return Collections.emptySet();
+                }
+
+                extraNeighbours.addAll(connectionIsDown(newNeighbour, targetNode));
+                it.remove();
+            }
+        }
+
+        if (newNeighbours.stream().anyMatch(node -> inActivationConnections.contains(node))) {
+            throw new AssertException("Duplicate connection sent " + Utils.nodesToLongs(inActivationConnections) + " | new neighbours: " + Utils.nodesToLongs(newNeighbours));
+        }
+
         inActivationConnections.addAll(newNeighbours);
-        return newNeighbours;
+        extraNeighbours.addAll(newNeighbours);
+        return extraNeighbours;
         //newNeighbours.forEach(this::startActiveConnection);
+    }
+
+    //TODO fazer melhor o FD
+
+    /**
+     * Returns true if the argument node is down.
+     */
+    boolean perfectFaultDetectorGodMode(Node node) {
+        return Utils.nodeToBackend(node).isCrashed();
     }
 
     void checkCrashedConnections() {
@@ -281,6 +382,7 @@ public class ConnectionHandler {
 
             if (!Utils.isCrashed(node)) {
                 connectionIsBackOnline(node);
+                iterator.remove();
             }
         }
     }
@@ -291,13 +393,13 @@ public class ConnectionHandler {
         inActivationConnections.add(targetNode);
         backend.startConnection(targetNode.getID());
 
-        downConnections.remove(targetNode);
+        // Removed on the checkCrashedConnections call
+        //downConnections.remove(targetNode);
 
-        Node thisNode = Network.get(Math.toIntExact(id));
-        Set<Node> newNeighbours = Utils
-                .getNeighboursExcludingSource(targetNode, thisNode);
-        System.out.println("(Node " + id + ") removed connections: " + Utils.nodesToLongs(newNeighbours));
-        activeConnections.removeAll(newNeighbours);
+        Set<Node> nodesBeyond = pathHandler.getNodesBeyondTarget(targetNode);
+
+        System.out.println("(Node " + id + ") removed connections: " + Utils.nodesToLongs(nodesBeyond));
+        activeConnections.removeAll(nodesBeyond);
     }
 
     void startActiveConnection(Node otherNode) {
@@ -313,19 +415,41 @@ public class ConnectionHandler {
      *
      * @param differentMessagesToSend
      */
-    private void addMessagesToConnectionQueues(List<Message> differentMessagesToSend) {
-        Iterator<Message> iterator = differentMessagesToSend.iterator();
-        while (iterator.hasNext()) {
-            Message message = iterator.next();
-            long destination = message.getNextDestination();
+    private void addMessagesToConnectionQueues(List<Pair<Message, Message>> differentMessagesToSend) {
+        Iterator<Pair<Message, Message>> it = differentMessagesToSend.iterator();
+        while (it.hasNext()) {
+            Message processedMessage = it.next().getValue();
+
+            long destination = processedMessage.getNextDestination();
             Node dstNode = Network.get((int) destination);
             if (inActivationConnections.contains(dstNode)) {
                 //>> System.out.println("Adding!");
                 // nodeMessageQueue.computeIfAbsent(dstNode, k -> new ArrayList<>()).add(message);
                 //>> System.out.println("Removing msg to dst " + destination);
-                iterator.remove();
+                it.remove();
             }
         }
+    }
+
+    void handleIngoingMessage(Message message) {
+        updateGcReceiveFromInformation(message);
+    }
+
+    Message checkMessagesWithTooManyJumps(Message message) {
+        long messageId = message.getId();
+
+        if (messagesWithTooManyJumps.containsKey(messageId)) {
+            Message storedMessage = messagesWithTooManyJumps.get(messageId);
+            Message messageWithLessJumps = storedMessage.merge(message);
+            if (messageWithLessJumps.hasTooManyJumps()) {
+                messagesWithTooManyJumps.put(messageId, messageWithLessJumps);
+            } else {
+                messagesWithTooManyJumps.remove(messageId);
+                return messageWithLessJumps;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -337,10 +461,48 @@ public class ConnectionHandler {
      *
      * @param differentMessagesToSend
      */
-    void handleOutgoingMessages(List<Message> differentMessagesToSend) {
-        differentMessagesToSend.forEach(this::addOutgoingGcInformation);
-        differentMessagesToSend.forEach(this::checkIfDestinationIsCrashed);
+    List<Message> handleOutgoingMessages(List<Pair<Message, Message>> differentMessagesToSend) {
+        differentMessagesToSend.stream().map(Pair::getValue).forEach(this::addOutgoingGcInformation);
+        filterStoreMessageWithTooManyJumps(differentMessagesToSend);
+        differentMessagesToSend.stream().map(Pair::getValue).forEach(this::checkIfDestinationIsCrashed);
         addMessagesToConnectionQueues(differentMessagesToSend);
+
+        return differentMessagesToSend.stream().map(Pair::getValue).collect(Collectors.toList());
+    }
+
+    private void filterStoreMessageWithTooManyJumps(List<Pair<Message, Message>> messages) {
+        Iterator<Pair<Message, Message>> it = messages.iterator();
+        while (it.hasNext()) {
+            Pair<Message, Message> pair = it.next();
+            Message originalMessage = pair.getKey();
+            Message processedMessage = pair.getValue();
+            long msgId = processedMessage.getId();
+
+            if (processedMessage.hasTooManyJumps()) {
+                System.out.println("Removing message " + msgId);
+                if (messagesWithTooManyJumps.containsKey(msgId)) {
+                    throw new AssertException("Already contains the key?!");
+                }
+                messagesWithTooManyJumps.put(msgId, originalMessage);
+                it.remove();
+            }
+        }
+    }
+
+    /**
+     * Analyzes the current active connections to see if they are alive
+     */
+    void checkForCrashes() {
+        Set<Node> activeConnectionsIter = new HashSet<>(activeConnections);
+
+        for (Node neighbour : activeConnectionsIter) {
+            if (perfectFaultDetectorGodMode(neighbour)) {
+                Set<Node> newNeighbours = connectionIsDown(neighbour, Network.get(Math.toIntExact(id)));
+                for (Node newNeighbour : newNeighbours) {
+                    backend.startConnection(newNeighbour.getID());
+                }
+            }
+        }
     }
 
     private void checkIfDestinationIsCrashed(Message message) {
@@ -348,7 +510,7 @@ public class ConnectionHandler {
         Node dstNode = Network.get((int) destination);
 
         if (Utils.isCrashed(dstNode)) {
-            Set<Node> newNeighbours = connectionIsDown(dstNode);
+            Set<Node> newNeighbours = connectionIsDown(dstNode, Network.get(Math.toIntExact(id)));
             for (Node newNeighbour : newNeighbours) {
                 backend.startConnection(newNeighbour.getID());
             }
@@ -370,10 +532,11 @@ public class ConnectionHandler {
     String printStatus() {
         Set<Long> upConnections = activeConnections.stream().map(Node::getID).collect(Collectors.toSet());
         Set<Long> crashedConnections = downConnections.stream().map(Node::getID).collect(Collectors.toSet());
+        Set<Long> inActivation = inActivationConnections.stream().map(Node::getID).collect(Collectors.toSet());
 
         return "Up connections: " + upConnections + System.lineSeparator() +
                 "Down connections: " + crashedConnections + System.lineSeparator() +
-                "Syncing connections: " + inActivationConnections + System.lineSeparator() +
+                "Syncing connections: " + inActivation + System.lineSeparator() +
                 "Garbage size: " + gcStorage.size() + System.lineSeparator();
     }
 

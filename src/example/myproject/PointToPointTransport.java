@@ -19,6 +19,9 @@
 package example.myproject;
 
 import example.myproject.datatypes.AssertException;
+import example.myproject.datatypes.Message;
+import example.myproject.datatypes.MetadataEntry;
+import example.myproject.datatypes.NodePath;
 import peersim.config.Configuration;
 import peersim.core.CommonState;
 import peersim.core.Node;
@@ -26,6 +29,7 @@ import peersim.edsim.EDSimulator;
 import peersim.transport.Transport;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 
@@ -62,7 +66,7 @@ public final class PointToPointTransport implements Transport {
         latencyInterval = Configuration.getLong("latency-interval");
         latency = Configuration.getLong("latency");
         latencyPer100Bytes = Configuration.getLong("latency-per-100-bytes");
-        isInFileMode = Configuration.getString("execution-model").equals("file");
+        isInFileMode = ScenarioReader.getInstance().isInFileMode();
     }
 
 //---------------------------------------------------------------------
@@ -127,7 +131,55 @@ public final class PointToPointTransport implements Transport {
 
         lastWillBeReceived.get(srcId).put(destId, messageWillBeReceived);
 
+        assertMessage(msg);
         EDSimulator.add(delay, msg, dest, pid);
+    }
+
+    private void assertMessage(Object msg) {
+        if (msg instanceof Message) {
+            Message message = (Message) msg;
+
+            int vectorSize = message.getMetadata().get(0).size();
+            int numberJumps = 0;
+            for (MetadataEntry entry : message.getMetadata().get(0)) {
+                if (entry.getState() == MetadataEntry.State.JUMP) {
+                    numberJumps++;
+                }
+            }
+
+            for (List<MetadataEntry> vector : message.getMetadata()) {
+                if (vector.size() > Utils.DELTA_MAX_SIZE) {
+                    throw new AssertException("The vector has too many MD entries. " + vector);
+                }
+
+                if (vector.size() != vectorSize) {
+                    throw new AssertException("All vectors must have the same size");
+                }
+
+                int innerNumberJumps = 0;
+                for (MetadataEntry entry : vector) {
+                    if (entry.getState() == MetadataEntry.State.JUMP) {
+                        innerNumberJumps++;
+                        continue;
+                    }
+
+                    NodePath path = Initialization.pathsToPathLongs.get(entry.getPathId());
+                    if (path.path.size() > Utils.DELTA + 2) {
+                        path.printLn("");
+                        throw new AssertException("Path is too big. ");
+                    }
+                }
+
+                if (innerNumberJumps != numberJumps) {
+                    throw new AssertException("All entries should have the same number of jumps.");
+                }
+            }
+
+            if (numberJumps > Utils.DELTA) {
+                message.printMessage();
+                //    throw new AssertException("Sending a message with too many jumps ! ");
+            }
+        }
     }
 
     private long getSizeDelay(Object msg) {
@@ -140,7 +192,7 @@ public final class PointToPointTransport implements Transport {
         float amount = (float) size / 100;
         long result = (long) (amount * latencyPer100Bytes);
 
-        if (Utils.DEBUG_V) {
+        if (Utils.DEBUG_VERY_V) {
             System.out.println("Size is " + size + ", amount is " + amount + ", extra delay is " + result);
         }
 

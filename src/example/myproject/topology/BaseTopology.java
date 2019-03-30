@@ -1,8 +1,8 @@
 package example.myproject.topology;
 
+import example.myproject.ScenarioReader;
 import example.myproject.Utils;
 import example.myproject.datatypes.AssertException;
-import peersim.config.Configuration;
 import peersim.dynamics.WireGraph;
 import peersim.graph.Graph;
 
@@ -19,7 +19,8 @@ public class BaseTopology extends WireGraph {
     public BaseTopology(String prefix) {
         super(prefix);
 
-        String topologyType = Configuration.getString("topology-type");
+        String topologyType = ScenarioReader.getInstance().getTopologyType();
+        System.out.println("Topology is " + topologyType);
 
         switch (topologyType) {
             case "file":

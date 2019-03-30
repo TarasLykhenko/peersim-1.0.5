@@ -52,12 +52,23 @@ public class CausalityHandler {
         Long sender = message.getSender();
         Integer msgValueForThisNode = message.getData().get(id);
 
+
+        //TODO NAO SEI SE ISTO TA BEM POR CAUSA DA CAUSALIDADE.
+        // DE MOMENTO RETORNA DEVIDO A NAO SER TARGET DO PUBLICADOR
+        if (msgValueForThisNode == null) {
+            return;
+        }
+
         int currentNodeEntry = publisherMessages
                 .computeIfAbsent(sender, k -> new HashMap<>())
                 .getOrDefault(id, 0);
 
-        if (msgValueForThisNode != currentNodeEntry + 1) {
-            throw new AssertException("FIFO broken. Sender: " + sender +
+        if (msgValueForThisNode <= currentNodeEntry) {
+            throw new AssertException("FIFO broker: Received a duplicate msg. " +
+                    sender + ", got " + currentNodeEntry + ", this is " + msgValueForThisNode + ".");
+        }
+        if (msgValueForThisNode > currentNodeEntry + 1) {
+            throw new AssertException("FIFO broken. Missing a message. Sender: " + sender +
                     ", got " + currentNodeEntry + ", this is " + msgValueForThisNode + ".");
         }
 
@@ -77,7 +88,7 @@ public class CausalityHandler {
                 }
 
                 Map<Long, Integer> msgsSentByPublisher = messagePast.get(publisher);
-                Integer msgPastValue = msgsSentByPublisher.get(id);
+                Integer msgPastValue = msgsSentByPublisher.getOrDefault(id, 0);
                 Integer storedValue = publisherMessages
                         .computeIfAbsent(publisher, k -> new HashMap<>())
                         .getOrDefault(id, 0);

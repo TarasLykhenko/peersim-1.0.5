@@ -37,7 +37,7 @@ public class Controller implements Control {
     private static final boolean WRITE_TO_SOUT = true;
     private final boolean PRINT_VERBOSE = false;
     private final boolean PRINT_IMPORTANT = false;
-    private final float STATISTICS_WINDOW = 5;
+    private final float STATISTICS_WINDOW = 50;
 
     private final int takeStatisticsEvery;
 
@@ -82,6 +82,8 @@ public class Controller implements Control {
             }
         }
 
+//        if (true) return false;
+
         System.out.println("CURRENT TOTAL BIGGEST SIZE: " + Statistics.biggestTotalSize);
         System.out.println("Biggest vector: " + Statistics.biggestVectorSize);
         // if (true) return false;
@@ -90,13 +92,12 @@ public class Controller implements Control {
         print("Observer init ======================");
 
 
-        /*
+
         for (int i = 0; i < Network.size(); i++) {
             BackendInterface backend = (BackendInterface) Network.get(i).getProtocol(pid);
             String status = backend.printStatus();
             print(status);
         }
-        */
 
 
         System.out.println("Highest Repetitions: " + Statistics.NUMBER_REPETITIONS);

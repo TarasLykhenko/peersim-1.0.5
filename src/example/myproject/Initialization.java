@@ -1,6 +1,5 @@
 package example.myproject;
 
-import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.NodePath;
 import example.myproject.datatypes.PathMessage;
 import example.myproject.server.BackendInterface;
@@ -12,30 +11,22 @@ import peersim.core.Network;
 import peersim.core.Node;
 import peersim.util.ExtendedRandom;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public class Initialization implements Control {
 
-    private static final String PAR_DELTA = "delta";
     private static final String PAR_LINKABLE = "linkable"; // TODO bem
     private static final String PAR_BACKEND = "backend";
     private static final String PAR_DISTINCT_GROUPS = "distinct_groups";
     private static final String PAR_NUMBER_GROUPS_PER_NODE = "number_groups_per_node";
-    private static final String PAR_GROUPS_CONFIG = "groups-config";
-    private static final String PAR_GROUPS_CONFIG_FILE = "groups-config-file";
 
     private final int linkablePid;
     private final int backendPid;
@@ -47,8 +38,6 @@ public class Initialization implements Control {
     public static Map<Integer, Set<Long>> groupsToMembersAndForwarders = new HashMap<>();
     public static Map<Long, NodePath> pathsToPathLongs = new HashMap<>();
     public static Map<Long, BackendInterface> servers = new LinkedHashMap<>();
-    public static Map<String, Integer> stringGroupToInteger = new HashMap<>();
-
 
     public Initialization(String prefix) {
         this.linkablePid = Configuration.getPid(prefix + "." + PAR_LINKABLE);
@@ -162,13 +151,17 @@ public class Initialization implements Control {
             currentPath.add(node);
             getPaths(currentPath, result, 0, Utils.DELTA + 1);
 
-            System.out.println("Printing paths for " + node.getID());
+            if (Utils.DEBUG_VERY_V) {
+                System.out.println("Printing paths for " + node.getID());
+            }
 
             Set<PathMessage> messagesToSpread = new HashSet<>();
             for (List<Node> path : result) {
                 pathId++;
                 NodePath nodePath = new NodePath(path, pathId);
-                nodePath.printLn(">> " + nodePath.id + " ");
+                if (Utils.DEBUG_VERY_V) {
+                    nodePath.printLn(">> " + nodePath.id + " ");
+                }
                 pathsToPathLongs.put(pathId, nodePath);
                 messagesToSpread.add(new PathMessage(pathId, nodePath, 0, server.getId()));
             }
@@ -181,44 +174,13 @@ public class Initialization implements Control {
 
     private void generateSRTsForEachNode() {
         // Step 1: Add groups each node will be interested in
-        String type = Configuration.getString(PAR_GROUPS_CONFIG);
-        if (type.equals("random")) {
+        Map<Long, Set<Integer>> groupsInfo = ScenarioReader.getInstance().getGroupsInfo();
+        if (groupsInfo == null) {
             generateRandomGroupsForNodes();
-        } else if (type.equals("file")) {
-            generateGroupsFromFile();
         } else {
-            throw new AssertException("Unknown parameter in " + PAR_GROUPS_CONFIG);
+            generateGroupsFromFile(groupsInfo);
         }
 
-        // Step 2: Add intermediary group forwarders
-        //
-        // If a node A is in the middle of two nodes that
-        // are interested in a group that node A is not interested,
-        // node A will need to forward it
-        /*
-        for (Integer group : groupsToMembers.keySet()) {
-            Set<Long> members = groupsToMembers.get(group);
-
-            Set<Node> commonPath = new HashSet<>();
-
-            for (Long src : members) {
-                for (Long dst : members) {
-                    List<Node> path = globalPaths.get(src).get(dst);
-                    commonPath.addAll(path);
-                }
-            }
-
-            for (Node node : commonPath) {
-                BackendInterface server = nodeToBackend(node);
-                if (!server.belongsToGroup(group)) {
-                    server.setForwarderOfGroup(group);
-                    nodeToGroups.get(server.getId()).add(group);
-                }
-            }
-        }
-        */
-
-        //TODO estou a fazer isto da forma a sério segundo pubsub
         for (int i = 0; i < Network.size(); i++) {
             Node node = Network.get(i);
             BackendInterface server = nodeToBackend(node);
@@ -254,54 +216,20 @@ public class Initialization implements Control {
     }
 
     private void addIntermediateForwarders(List<Node> path, int group) {
-        System.out.println("Path is : " +
-                path.stream().map(Node::getID).map(Object::toString).collect(Collectors.joining("-")));
+        if (Utils.DEBUG_VERY_V) {
+            System.out.println("Path is : " +
+                    path.stream().map(Node::getID).map(Object::toString).collect(Collectors.joining("-")));
+        }
 
         for (Node node : path) {
             BackendInterface server = nodeToBackend(node);
             if (!server.belongsToGroup(group)) {
-                System.out.println("adding " + server.getId() + " as forwarder for " + group);
+                if (Utils.DEBUG_VERY_V) {
+                    System.out.println("adding " + server.getId() + " as forwarder for " + group);
+                }
                 server.setForwarderOfGroup(group);
                 nodeToGroups.get(server.getId()).add(group);
             }
-        }
-    }
-
-    private void generateGroupsFromFile() {
-        int groupCounter = 0;
-        try {
-            String fileName = Configuration.getString(PAR_GROUPS_CONFIG_FILE);
-            List<String> file = Files.readAllLines(Paths.get("example/other/" + fileName));
-
-            if (file.size() != Network.size() + 1) {
-                throw new AssertException("The file and network have different node amounts!" +
-                        " File has " + (file.size() - 1) + " nodes, network has " + Network.size() + " nodes.");
-            }
-
-            String firstLine = file.get(0);
-            String[] groups = firstLine.split(" ");
-            for (String group : groups) {
-                stringGroupToInteger.put(group, groupCounter++);
-            }
-
-            for (int lineIdx = 1; lineIdx < file.size(); lineIdx++) {
-                String[] lineContent = file.get(lineIdx).split(" ");
-                int nodeIdx = Integer.valueOf(lineContent[0]);
-                BackendInterface server = nodeToBackend(Network.get(nodeIdx));
-
-                for (int groupIdx = 1; groupIdx < lineContent.length; groupIdx++) {
-                    int group = stringGroupToInteger.get(lineContent[groupIdx]);
-                    server.addGroup(group);
-
-                    groupsToMembers.computeIfAbsent(group, k -> new HashSet<>())
-                            .add(server.getId());
-                    nodeToGroups.computeIfAbsent(server.getId(), k -> new HashSet<>())
-                            .add(group);
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-            System.exit(1);
         }
     }
 
@@ -317,6 +245,21 @@ public class Initialization implements Control {
                         .add(server.getId());
                 nodeToGroups.computeIfAbsent(server.getId(), k -> new HashSet<>())
                         .add(group);
+            }
+        }
+    }
+
+    private void generateGroupsFromFile(Map<Long, Set<Integer>> nodesToGroups) {
+        for (Long nodeId : nodesToGroups.keySet()) {
+            Set<Integer> groups = nodesToGroups.get(nodeId);
+
+            nodeToGroups.put(nodeId, groups);
+
+            for (Integer group : groups) {
+                groupsToMembers.computeIfAbsent(group, k -> new HashSet<>())
+                        .add(nodeId);
+                BackendInterface server = Utils.nodeToBackend(Network.get(Math.toIntExact(nodeId)));
+                server.addGroup(group);
             }
         }
     }

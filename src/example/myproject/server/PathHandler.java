@@ -6,6 +6,7 @@ import example.myproject.datatypes.AssertException;
 import example.myproject.datatypes.Message;
 import example.myproject.datatypes.MetadataEntry;
 import example.myproject.datatypes.NodePath;
+import javafx.util.Pair;
 import peersim.core.Network;
 import peersim.core.Node;
 
@@ -30,7 +31,7 @@ public class PathHandler {
      * Maps the path each node belongs to.
      * Note: If several nodes are on the same path, they will have the same list result.
      */
-    private Map<Node, NodePath> nodesToCorrespondingPath = new HashMap<>();
+    private Map<Node, Set<NodePath>> nodesToCorrespondingPaths = new HashMap<>();
 
     /**
      * Only includes the nodes that are on the path from source to target
@@ -82,6 +83,14 @@ public class PathHandler {
                 int value = entry.getValue();
                 int currentValue = pathsMessagesReceived.get(pathId);
 
+                if (pathIsOuter(pathId)) {
+                    System.out.println("Received msg from outer: " +
+                                    Initialization.pathsToPathLongs.get(pathId) +
+                                    " > " + value + " | " + currentValue);
+                    pathsMessagesReceived.put(pathId, value);
+                    continue;
+                }
+
                 if (value > currentValue + 1) {
                     throw new AssertException("This should never happen.");
                 }
@@ -93,6 +102,7 @@ public class PathHandler {
 
     //TODO isto não me parece que está correcto a actualizar as entradas outdated
     void handleDuplicateMessage(Message message) {
+        System.out.println("Got a duplicate Message!");
         for (List<MetadataEntry> metadataList : message.getMetadata()) {
             for (MetadataEntry metadataEntry : metadataList) {
                 if (metadataEntry.getState() == MetadataEntry.State.JUMP) {
@@ -129,6 +139,11 @@ public class PathHandler {
         if (sourceNode.getID() == id) {
             System.out.println("(" + id + ") Adding " + path + " to " + lastNode.getID());
             shortestPathToNode.put(lastNode, path);
+            nodeToDistance.put(lastNode, path.pathSetWithoutStart.size());
+
+            for (Node node : path.fullPathSet) {
+                nodesToCorrespondingPaths.computeIfAbsent(node, k -> new HashSet<>()).add(path);
+            }
         }
 
         paths.add(path);
@@ -148,12 +163,14 @@ public class PathHandler {
      *
      * For each vector, we need to extract the previous vectors from the same subpath
      * and append the new metadata entry to the corresponding vector
+     *
+     * Returns a pair containing the pre-processed message (key) and processed message (value)
      * @param message
      * @param pathsGroup
      * @return
      */
-    Message generateNewMessageForPath(Message message, List<NodePath> pathsGroup,
-                                      long forwarder, long destination) {
+    Pair<Message, Message> generateNewMessageForPath(Message message, List<NodePath> pathsGroup,
+                                                     long forwarder, long destination) {
 
         List<List<MetadataEntry>> metadataToAdd = new ArrayList<>();
 
@@ -174,10 +191,16 @@ public class PathHandler {
 
         addJumpsIfExist(metadataToAdd, destination);
 
-        return new Message(message, metadataToAdd, forwarder, destination);
+        Message processedMessage = new Message(message, metadataToAdd, forwarder, destination);
+        return new Pair<>(message, processedMessage);
     }
 
-    Message syncNewMessageForPath(Message message, List<NodePath> pathsGroup, long forwarder, long destination) {
+    public int getDistanceToNode(long nodeId) {
+        return nodeToDistance.get(Network.get((int) nodeId));
+    }
+
+    Message syncNewMessageForPath(Message message, List<NodePath> pathsGroup,
+                                  long forwarder, long destination) {
         List<List<MetadataEntry>> metadataToAdd = new ArrayList<>();
 
         for (NodePath path : pathsGroup) {
@@ -280,10 +303,23 @@ public class PathHandler {
         return result;
     }
 
+    public Set<Node> getNodesBeyondTarget(Node targetNode) {
+        Set<Node> result = new HashSet<>();
+        Set<NodePath> nodePaths = nodesToCorrespondingPaths.get(targetNode);
+        for (NodePath nodePath : nodePaths) {
+            result.addAll(nodePath.fullPathSet);
+        }
+
+        NodePath pathToTarget = getShortestPathOfNode(targetNode);
+        result.removeAll(pathToTarget.fullPathSet);
+
+        return result;
+    }
+
     enum Scenario {
-        ONE,
-        TWO,
-        THREE
+        NORMAL,
+        MISSING,
+        DUPLICATE
     }
 
     Long getPathIdFromPathNodes(NodePath pathNodes) {
@@ -327,12 +363,14 @@ public class PathHandler {
                 int currentNodeEntry = pathsMessagesReceived.get(pathId);
 
                 // Handle outer pathId
-                if (pathIsInner(pathId)) {
+                if (pathIsOuter(pathId)) {
                     if (metadataPathValue <= currentNodeEntry) {
                         System.out.println("Detected duplicate message: " +
                                 outerPathIdsToPathNodes.get(pathId) + " - msg val: "
                                 + metadataPathValue + " | own val: " + currentNodeEntry);
-                        return Scenario.THREE;
+                        return Scenario.DUPLICATE;
+                    } else {
+                        continue;
                     }
                 }
 
@@ -347,20 +385,20 @@ public class PathHandler {
                 } else if (metadataPathValue > currentNodeEntry + 1) {
                     // Scenario 2
                     // bufferMessage(message);
-                    getPathNodesFromPathId(pathId).printLn("Path ");
+                    Initialization.pathsToPathLongs.get(pathId).printLn("Path ");
                     System.out.println("Metadata value: " + metadataPathValue);
                     System.out.println("Own value: " + currentNodeEntry);
                     throw new AssertException("Because of the new connection synch, this should never happen.");
-                    // return Scenario.TWO;
+                    // return Scenario.MISSING;
                 } else if (metadataPathValue <= currentNodeEntry) {
                     // Scenario 3
                     // handleDuplicateMessage(message);
-                    return Scenario.THREE;
+                    return Scenario.DUPLICATE;
                 }
             }
         }
         // Scenario 1
-        return Scenario.ONE;
+        return Scenario.NORMAL;
         // deliverMessage(message);
         //TODO actualizar antes ou depois a metadata?
         // forwardMessages(message);
@@ -370,17 +408,16 @@ public class PathHandler {
         return innerPathIdsToPathNodes.containsKey(pathId);
     }
 
+    boolean pathIsOuter(long pathId) {
+        return outerPathIdsToPathNodes.containsKey(pathId);
+    }
+
     // ------------------
     // INTERFACE METHODS
     // ------------------
 
     Set<NodePath> getNeighbourhood() {
         return paths;
-    }
-
-    //TODO arranjar fazer isto bem
-    NodePath getFullPathOfNode(Node node) {
-        return nodesToCorrespondingPath.get(node);
     }
 
     String printStatus() {
@@ -405,4 +442,6 @@ public class PathHandler {
         }
         return builder.toString();
     }
+
+
 }

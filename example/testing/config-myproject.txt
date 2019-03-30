@@ -5,7 +5,6 @@ rest_time 50
 rest_time_interval 40
 debug true
 debug_verbose false
-debug_very_verbose false
 
 #scenario-name test-jumps.txt
 #SIZE 6
@@ -18,7 +17,7 @@ tree-breadth 3
 latency 10
 latency-interval 10
 latency-per-100-bytes 15
-delta 1
+delta 3
 publisher 0
 crashed-node 1
 crash-start 200

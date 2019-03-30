@@ -1,36 +1,23 @@
 package example.myproject.topology;
 
+import example.myproject.ScenarioReader;
 import example.myproject.datatypes.AssertException;
-import peersim.config.Configuration;
+import javafx.util.Pair;
 import peersim.core.Network;
 import peersim.graph.Graph;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 public class FileWireTopology implements TopologyInterface {
 
-    private static final String PAR_WIRE_FILE_NAME = "topology-file-name";
-
     public void wire(Graph graph) {
-        String fileName = Configuration.getString(PAR_WIRE_FILE_NAME);
-        List<String> fileLines;
-        try {
-            fileLines = Files.readAllLines(Paths.get("example/other/" + fileName));
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new AssertException("Could not find file example/other/" + fileName);
-        }
-
         Set<Integer> nodeCount = new HashSet<>();
-        for (String line : fileLines) {
-            String[] lineTokens = line.split("-");
-            int firstNode = Integer.valueOf(lineTokens[0]);
-            int otherNode = Integer.valueOf(lineTokens[1]);
+        for (Pair<Integer, Integer> connection : ScenarioReader.getInstance().getConnections()) {
+
+            int firstNode = connection.getKey();
+            int otherNode = connection.getValue();
+
             nodeCount.add(firstNode);
             nodeCount.add(otherNode);
 

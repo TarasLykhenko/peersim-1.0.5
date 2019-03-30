@@ -5,9 +5,7 @@ import peersim.config.Configuration;
 import peersim.core.Linkable;
 import peersim.core.Node;
 
-import java.io.BufferedReader;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -19,18 +17,23 @@ public class Utils {
 
     private static final String PAR_DEBUG = "debug";
     private static final String PAR_DEBUG_VERBOSE = "debug_verbose";
+    private static final String PAR_DEBUG_VERY_VERBOSE = "debug_very_verbose";
     public static final boolean DEBUG;
     /**
      * Verbose debug
      */
     public static final boolean DEBUG_V;
 
+    public static final boolean DEBUG_VERY_V;
+
     public static final int DELTA;
     public static final int DELTA_MAX_SIZE;
+
 
     static {
         DEBUG = Configuration.getBoolean(PAR_DEBUG);
         DEBUG_V = Configuration.getBoolean(PAR_DEBUG_VERBOSE);
+        DEBUG_VERY_V = Configuration.getBoolean(PAR_DEBUG_VERY_VERBOSE);
         DELTA = Configuration.getInt("delta");
         DELTA_MAX_SIZE = (DELTA * 2) + 1;
     }
@@ -53,7 +56,7 @@ public class Utils {
     }
 
     public static <T> T getLastEntry(List<T> list) {
-        if (list.size() == 0) {
+        if (list.isEmpty()) {
             return null;
         }
 

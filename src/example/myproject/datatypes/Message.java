@@ -1,17 +1,14 @@
 package example.myproject.datatypes;
 
-import example.myproject.Initialization;
 import example.myproject.Sizeable;
 import example.myproject.Statistics;
 import example.myproject.Utils;
-import peersim.config.Configuration;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 // TODO - Remaining optimizations:
 //      - De momento cada nó tem de ver entrada a entrada da metadata
@@ -26,9 +23,10 @@ public class Message implements Sizeable {
     private final List<List<MetadataEntry>> metadata;
     private final Map<Long, Integer> data;
     private Map<Long, Map<Long, Integer>> past;
+    private final List<Long> travelledPath;
     private final long forwarder;
     private final long id;
-    private Long nextDestination;
+    private final Long nextDestination;
 
     //TODO Ver tamanho do passado e data size maybe
     @Override
@@ -50,13 +48,15 @@ public class Message implements Sizeable {
         this.forwarder = forwarder;
         this.metadata = new ArrayList<>();
         this.id = globalId++;
-
-        assertState();
+        this.travelledPath = new ArrayList<>();
+        this.nextDestination = null;
+        this.travelledPath.add(sender);
     }
 
     /**
      * Given an existing message that may contain metadata and a given node,
      * create a new message from it containing the relevant metadata for such path
+     *
      * @param message
      */
     public Message(Message message, List<List<MetadataEntry>> metadata, long forwarder, long destination) {
@@ -66,10 +66,10 @@ public class Message implements Sizeable {
         this.metadata = metadata;
         this.sender = message.sender;
         this.forwarder = forwarder;
+        this.travelledPath = new ArrayList<>(message.travelledPath);
         this.nextDestination = destination;
         this.id = message.id;
 
-        //TODO isto vai ter de ser 2 delta + 1 devido a duplicates 99% certeza
         for (List<MetadataEntry> vector : metadata) {
             while (vector.size() > Utils.DELTA_MAX_SIZE) {
                 vector.remove(0);
@@ -77,7 +77,6 @@ public class Message implements Sizeable {
         }
 
         updateMaximumSize();
-        assertState();
     }
 
     /**
@@ -94,14 +93,94 @@ public class Message implements Sizeable {
         this.forwarder = message.forwarder;
         this.id = message.id;
         this.nextDestination = message.nextDestination;
+        this.travelledPath = new ArrayList<>(message.travelledPath);
 
         for (List<MetadataEntry> vector : metadata) {
             while (vector.size() > Utils.DELTA_MAX_SIZE) {
                 vector.remove(0);
             }
         }
+    }
 
-        assertState();
+    //TODO? Acho que não é preciso fazer isto tbh
+
+    /**
+     * Merges two message's metadata, in order to remove jumps
+     *
+     * @param message
+     * @return
+     */
+    public Message merge(Message message) {
+        if (id != message.id) {
+            throw new AssertException("Attemping to merge different messages");
+        }
+        if (!nextDestination.equals(message.nextDestination)) {
+           // throw new AssertException("Messages have different destinations?!");
+        }
+        if (forwarder != message.forwarder) {
+         //   throw new AssertException("Messages have different forwarders?!");
+        }
+        if (metadata.size() != message.metadata.size()) {
+            // TODO falta fazer isto
+            throw new AssertException("Merging messages with different vectors");
+        }
+
+        if (Utils.DEBUG_V) {
+            System.out.println("MERGING");
+            printMessage();
+            message.printMessage();
+        }
+
+        List<List<MetadataEntry>> newMetadata = new ArrayList<>();
+
+        for (int i = 0; i < metadata.size(); i++) {
+            List<MetadataEntry> newVector = new ArrayList<>();
+            newMetadata.add(newVector);
+
+            List<MetadataEntry> vectorOne = metadata.get(i);
+            List<MetadataEntry> vectorTwo = message.metadata.get(i);
+
+            if (vectorOne.size() != vectorTwo.size()) {
+                System.out.println("S1: " + vectorOne.size() + " | S2: " + vectorTwo.size());
+                throw new AssertException("Vectors must have the same size. " + System.lineSeparator() +
+                        "(Vector 1: " + vectorOne + " | Vector 2: " + vectorTwo + ")");
+            }
+
+            for (int j = 0; j < vectorTwo.size(); j++) {
+                MetadataEntry entryOne = vectorOne.get(j);
+                MetadataEntry entryTwo = vectorTwo.get(j);
+
+                if (entryOne.getState() == MetadataEntry.State.JUMP) {
+                    newVector.add(entryTwo);
+                } else {
+                    newVector.add(entryOne);
+                }
+
+                if (    entryOne.getState() != MetadataEntry.State.JUMP &&
+                        entryTwo.getState() != MetadataEntry.State.JUMP) {
+                    if (!entryOne.equals(entryTwo)) {
+                        throw new AssertException("Entries that are not jumps should be equal.");
+                    }
+                }
+            }
+        }
+
+        Message mergedMessage = new Message(this, newMetadata, message.forwarder, message.nextDestination);
+
+        if (Utils.DEBUG_V) {
+            if (mergedMessage.fullyEqual(message)) {
+                System.out.println("Merged message is equal to the argument message");
+            } else if (mergedMessage.fullyEqual(this)) {
+                System.out.println("Merged message is equal to the original message");
+            } else {
+                System.out.println("Merged message is UNIQUE!");
+            }
+            mergedMessage.printMessage();
+            System.out.println("MERGE COMPLETE");
+        }
+
+
+        return mergedMessage;
     }
 
     public void addPublisherState(Map<Long, Map<Long, Integer>> past) {
@@ -149,7 +228,7 @@ public class Message implements Sizeable {
         result += past.size() * 8;
         for (long publisher : past.keySet()) {
             Map<Long, Integer> msgsSentByPublisher = past.get(publisher);
-            result += ( msgsSentByPublisher.size() * 12);
+            result += (msgsSentByPublisher.size() * 12);
         }
 
         return result;
@@ -159,6 +238,7 @@ public class Message implements Sizeable {
         long vectorSize = metadata.stream().mapToLong(Collection::size).max().orElse(0);
         System.out.println("Message " + sender + ": " + data.get(sender) + " | from " + forwarder + " to " + nextDestination);
         System.out.println("Id: " + id + " | Groups: " + group);
+        System.out.println("Travelled path: " + travelledPath);
         if (Utils.DEBUG_V) {
             System.out.println("Targets: " + data);
             System.out.println("Total size: " + getMetadataSize());
@@ -216,7 +296,7 @@ public class Message implements Sizeable {
             return true;
         }
 
-        return  group == message.group &&
+        return group == message.group &&
                 sender == message.sender &&
                 forwarder == message.forwarder &&
                 id == message.id &&
@@ -226,23 +306,49 @@ public class Message implements Sizeable {
                 Utils.matrixIsEqual(past, message.past);
     }
 
-    private void assertState() {
-        for (List<MetadataEntry> vector : metadata) {
-            if (vector.size() > Utils.DELTA_MAX_SIZE) {
-                throw new AssertException("The vector has too many MD entries. " + vector);
-            }
+    public void addNewNodeToTravelPath(long nodeId) {
+        travelledPath.add(nodeId);
+    }
 
+    /**
+     * Returns true if there are more than delta jumps.
+     *
+     * @return
+     */
+    public boolean hasTooManyJumps() {
+        int numberJumps = 0;
+
+        //System.out.println("CHECKING MESSAGE!");
+        //printMessage();
+
+        // Functional programming
+        long sum = metadata.stream().map(
+                vector -> vector.stream()
+                        .filter(entry -> entry.getState() == MetadataEntry.State.JUMP)
+                        .count())
+                .mapToLong(Long::intValue).sum();
+
+        // Vanilla programming
+        numberJumps = getNumberJumps();
+
+        if (sum != numberJumps) {
+            throw new AssertException("Functional programming failed :^(");
+        }
+
+        return numberJumps > Utils.DELTA;
+    }
+
+    private int getNumberJumps() {
+        int numberJumps = 0;
+
+        for (List<MetadataEntry> vector : metadata) {
             for (MetadataEntry entry : vector) {
                 if (entry.getState() == MetadataEntry.State.JUMP) {
-                    continue;
-                }
-
-                NodePath path = Initialization.pathsToPathLongs.get(entry.getPathId());
-                if (path.path.size() > Utils.DELTA + 2) {
-                    path.printLn("");
-                    throw new AssertException("Path is too big. ");
+                    numberJumps++;
                 }
             }
         }
+
+        return numberJumps;
     }
 }

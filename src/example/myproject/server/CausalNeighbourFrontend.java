@@ -1,6 +1,6 @@
 package example.myproject.server;
 
-import example.myproject.Initialization;
+import example.myproject.ScenarioReader;
 import example.myproject.Sizeable;
 import example.myproject.Utils;
 import example.myproject.datatypes.AssertException;
@@ -16,9 +16,6 @@ import peersim.core.Node;
 import peersim.edsim.EDProtocol;
 import peersim.transport.Transport;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,22 +28,8 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
     private final int publisher; // TODO isto e uma temp var
 
     private static final String PAR_EXECUTION_MODEL = "execution-model";
-    private static final String PAR_EXECUTION_MODEL_FILENAME = "execution-model-file";
-    private static final BufferedReader executionFile;
-    private static String bufReaderCurrentLine = "";
-    private static final String executionModel;
+    private final boolean isInFileMode;
 
-    static {
-        try {
-            executionModel = Configuration.getString(PAR_EXECUTION_MODEL);
-            String fileName = Configuration.getString(PAR_EXECUTION_MODEL_FILENAME);
-            executionFile = new BufferedReader(new FileReader("example/other/" + fileName));
-            updateNextBufReaderLine();
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new AssertException("Could not get execution model file");
-        }
-    }
 
     public CausalNeighbourFrontend(String prefix) {
         super(prefix);
@@ -54,21 +37,21 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
         this.dcPid = Configuration.getPid("causalneighbour");
         this.linkablePid = Configuration.getPid("linkable");
         this.publisher = Configuration.getInt("publisher");
+        this.isInFileMode = ScenarioReader.getInstance().isInFileMode();
     }
 
 
     /**
      * Algorithm:
-     *  1) Generate message
-     *  2) See which direct neighbours are interested in the message
-     *      2.1) If the direct neighbours are down,
-     *          check their directory neighbours (and so on until delta)
+     * 1) Generate message
+     * 2) See which direct neighbours are interested in the message
+     * 2.1) If the direct neighbours are down,
+     * check their directory neighbours (and so on until delta)
      *
-     *  3) Check the nodes that are on the same path (so that they have the same
-     *      metadata
-     *  4) Add metadata to each message to be sent
-     *  5) Send the message to each path.
-     *
+     * 3) Check the nodes that are on the same path (so that they have the same
+     * metadata
+     * 4) Add metadata to each message to be sent
+     * 5) Send the message to each path.
      */
     @Override
     public void nextCycle(Node node, int protocolID) {
@@ -78,75 +61,49 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
 
         checkCrashedConnections();
 
-        if (executionModel.equals("file")) {
+        if (isInFileMode) {
             CausalNeighbourFrontend.staticNextCycleFile(protocolID);
-        } else if (executionModel.equals("random")) {
-            nextCycleRandom(node, protocolID);
         } else {
-            throw new AssertException("Unknown execution model");
+            nextCycleRandom(node, protocolID);
         }
     }
 
     private static void staticNextCycleFile(int protocolID) {
-        if (bufReaderCurrentLine == null) {
-            return;
-        }
+        List<String> actionsForTime =
+                ScenarioReader.getInstance().getActionsForTime(CommonState.getTime());
 
-        while (true) {
-            String[] lineContent = bufReaderCurrentLine.split(" ");
-            long currentTime = CommonState.getTime();
-            long obtainedTime = Long.valueOf(lineContent[0]);
+        // System.out.println("Action: " + actionsForTime);
+        if (actionsForTime != null) {
+            for (String actionString : actionsForTime) {
 
-            if (currentTime != obtainedTime) {
-                break;
-            }
-            System.out.println("CURRENT TIME!: " + currentTime);
+                String[] lineContent = actionString.split(" ");
 
-            int nodeId = Integer.valueOf(lineContent[1]);
-            String action = lineContent[2];
-            Node node = Network.get(nodeId);
-            CausalNeighbourFrontend frontend = (CausalNeighbourFrontend) node.getProtocol(protocolID);
+                int nodeId = Integer.valueOf(lineContent[0]);
+                String action = lineContent[1];
+                Node node = Network.get(nodeId);
+                CausalNeighbourFrontend frontend = (CausalNeighbourFrontend) node.getProtocol(protocolID);
 
-            if (action.equals("crash")) {
-                frontend.crash();
-            } else if (action.equals("uncrash")) {
-                frontend.unCrash();
-            } else {
-                int topic = Initialization.stringGroupToInteger.get(action);
-                List<Message> newMessages = frontend.publishMessage(topic);
-                frontend.frontendForwardMessage(newMessages, protocolID);
-            }
-
-            updateNextBufReaderLine();
-            if (bufReaderCurrentLine == null) {
-                return;
-            }
-        }
-    }
-
-    private static void updateNextBufReaderLine() {
-        try {
-            bufReaderCurrentLine = executionFile.readLine();
-            if (bufReaderCurrentLine == null) {
-                return;
-            }
-            while (bufReaderCurrentLine.isEmpty() || bufReaderCurrentLine.startsWith("#")) {
-                bufReaderCurrentLine = executionFile.readLine();
-                if (bufReaderCurrentLine == null) {
-                    return;
+                if (action.equals("crash")) {
+                    System.out.println("Crashing " + nodeId);
+                    frontend.crash();
+                } else if (action.equals("uncrash")) {
+                    System.out.println("Reviving " + nodeId);
+                    frontend.unCrash();
+                } else if (action.equals("detect-crashes")) {
+                    frontend.checkForCrashes();
+                } else {
+                    int topic = ScenarioReader.topicStringsToInts.get(action);
+                    List<Message> newMessages = frontend.publishMessage(topic);
+                    frontend.frontendForwardMessage(newMessages, protocolID);
                 }
             }
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new AssertException("Random error reading a line");
         }
-        System.out.println("NewLine: " + bufReaderCurrentLine);
     }
 
     private void nextCycleRandom(Node node, int protocolID) {
         //TODO TIRAR ISTO NÉ
         if (node.getID() != publisher) {
-            return;
+            // return;
         }
         // System.out.println("PUBLISHER: " + node.getID());
 
@@ -154,6 +111,24 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
 
         frontendForwardMessage(newMessages, protocolID);
     }
+
+    private boolean isCrashed = false;
+    private List<Object> queuedMessagesReceived = new ArrayList<>();
+
+    @Override
+    public void crash() {
+        if (isCrashed) {
+            throw new AssertException("(Node " + id + ") Crashing a crashed server.");
+        }
+
+        this.isCrashed = true;
+    }
+
+    @Override
+    public boolean isCrashed() {
+        return this.isCrashed;
+    }
+
 
     @Override
     public void unCrash() {
@@ -165,8 +140,8 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
 
         Node thisNode = Network.get((int) id);
         System.out.println("Crash over at " + id + ". Processing messages.");
-        for (Message message : queuedMessagesReceived) {
-            processEvent(thisNode, dcPid, message);
+        for (Object obj : queuedMessagesReceived) {
+            processEvent(thisNode, dcPid, obj);
         }
         queuedMessagesReceived.clear();
     }
@@ -194,7 +169,10 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
                     continue;
                 }
 
-                System.out.println("NODE " + id + " SENDING PATH " + newPathMessage.getNodePath() + " TO " + neighbor.getID());
+                if (Utils.DEBUG_VERY_V) {
+                    System.out.println("NODE " + id + " SENDING PATH " + newPathMessage.getNodePath() + " TO " + neighbor.getID());
+                }
+
                 Utils.nodeToBackend(neighbor).receivePath(newPathMessage);
             }
         }
@@ -203,6 +181,11 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
 
     @Override
     public void processEvent(Node node, int pid, Object event) {
+        if (isCrashed) {
+            queuedMessagesReceived.add(event);
+            return;
+        }
+
         if (event instanceof Message) {
             Message message = (Message) event;
             System.out.println("---------------------");
@@ -237,7 +220,7 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
             return;
         }
 
-        System.out.println("---- Node " + id + " forwarding messages (" + messages.size() + ") ---");
+        System.out.println("---- Node " + id + " forwarding " + messages.size() + " messages ---");
         for (Message messageToForward : messages) {
             messageToForward.printMessage();
             frontendForwardMessage(messageToForward, pid);
@@ -246,14 +229,22 @@ public class CausalNeighbourFrontend extends CausalNeighbourBackend
         System.out.println();
     }
 
+    /**
+     * Forwards a given message to the destination of the message.
+     *
+     * Note: If the destination is crashes, the message will still be sent.
+     * @param message
+     * @param pid
+     */
     private void frontendForwardMessage(Message message, int pid) {
         Node srcNode = Network.get(Math.toIntExact(this.getId()));
         Node targetNode = Network.get(Math.toIntExact(message.getNextDestination()));
 
         if (Utils.nodeToBackend(targetNode).isCrashed()) {
-            System.out.println("Wasting time..");
+            System.out.println("Wasting time.. NOTE: MOT SENDING!");
         }
 
+        message.addNewNodeToTravelPath(message.getNextDestination());
         sendMessage(srcNode, targetNode, message, pid);
     }
 
