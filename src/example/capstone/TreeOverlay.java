@@ -58,7 +58,7 @@ class TreeOverlay {
     }
 
     private void debugChild(Long node) {
-        System.out.println(node + " has parent " + nodeIdToNodes.get(node).parent.nodeId);
+        //System.out.println(node + " has parent " + nodeIdToNodes.get(node).parent.nodeId);
         for (Long child : nodeIdToNodes.get(node).children) {
             debugChild(child);
         }

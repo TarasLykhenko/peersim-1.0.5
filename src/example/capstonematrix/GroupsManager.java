@@ -43,7 +43,7 @@ public class GroupsManager {
         tree = Configuration.getPid(PAR_TREE);
         String rawStringGroups = Configuration.getString(PAR_GROUPS);
         populate(rawStringGroups);
-        debugRegions();
+        //debugRegions();
     }
 
     private void debugRegions() {
@@ -152,7 +152,7 @@ public class GroupsManager {
 
     private void addRegion(Set<StateTreeProtocol> datacenters) {
         if (nodesToRegion.containsKey(datacenters)) {
-            System.out.println("Region with " + datacenters + " already exists");
+            //System.out.println("Region with " + datacenters + " already exists");
             return;
         } else {
             regionCounter++;

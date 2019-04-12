@@ -8,3 +8,5 @@ java -cp "target/classes;jep-2.3.0.jar;djep-1.0.0.jar" peersim.Simulator example
 java -cp "target/classes;jep-2.3.0.jar;djep-1.0.0.jar" peersim.Simulator example/config-occult-compression.txt
 
 python plotter-all.py output/capstone.txt capstone output/capstone-matrix.txt capstone-matrix output/saturn.txt saturn output/cops.txt cops output/occult.txt occult output/occult-compression.txt occult-compression
+
+#python plotter-all.py output/capstone-matrix.txt cap

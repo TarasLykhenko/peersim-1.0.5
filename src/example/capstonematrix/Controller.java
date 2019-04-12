@@ -21,6 +21,7 @@ package example.capstonematrix;
 import example.capstonematrix.datatypes.HRC;
 import example.common.AbstractController;
 import example.common.BasicClientInterface;
+import example.common.Settings;
 import peersim.config.Configuration;
 import peersim.core.Network;
 import peersim.core.Node;
@@ -73,9 +74,11 @@ public class Controller extends AbstractController {
             for (Long dcId : migrationTable.keySet()) {
                 Map<Client, HRC> stuckClients = migrationTable.get(dcId);
                 for (Client c : stuckClients.keySet()) {
-                    System.out.println("Client " + c.getId() + " from " + dcId + " is stuck:");
-                    stuckClients.get(c).print();
-                    System.out.println(datacenter.getLastReceived());
+                    if (Settings.PRINT_INFO) {
+                        System.out.println("Client " + c.getId() + " from " + dcId + " is stuck:");
+                        stuckClients.get(c).print();
+                        System.out.println(datacenter.getLastReceived());
+                    }
                 }
             }
         }

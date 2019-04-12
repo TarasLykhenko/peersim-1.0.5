@@ -1,5 +1,6 @@
 package example.occult;
 
+import example.common.Settings;
 import example.common.datatypes.DataObject;
 import peersim.config.Configuration;
 import peersim.core.Control;
@@ -91,7 +92,7 @@ public class InitTreeProtocol implements Control {
         generateDataObjects(datacenters);
         generateClients(datacenters);
 
-        debugPrintStatus(datacenters);
+        //debugPrintStatus(datacenters);
 
         return false;
     }
@@ -218,7 +219,9 @@ public class InitTreeProtocol implements Control {
     private void generateDataObjectsForGroup(Set<StateTreeProtocol> datacentersGroup,
                                              int level, double percentage) {
         int numberObjectsToCreate = Math.round((float) (percentage / 100) * TOTAL_OBJECTS_PER_DATACENTER);
-        System.out.println("Generating " + numberObjectsToCreate + " objects for group.");
+        if (Settings.PRINT_INFO) {
+            System.out.println("Generating " + numberObjectsToCreate + " objects for group.");
+        }
         Map<Integer, Set<Integer>> shardIdsToKeys = new HashMap<>();
 
         Set<DataObject> result = new HashSet<>();
@@ -258,10 +261,10 @@ public class InitTreeProtocol implements Control {
 
         int recursiveCounter = 0;
         String group = datacentersGroup.stream().map(StateTreeProtocol::getNodeId).map(Object::toString).sorted().collect(Collectors.joining(" "));
-        System.out.println("Splitting! (Group: " + group + ")");
+       // System.out.println("Splitting! (Group: " + group + ")");
         for (Integer shardId : shardIds) {
             StateTreeProtocol master = listOfDcs.get(recursiveCounter);
-            System.out.println("Shard is " + shardId + ", master is " + master.getNodeId());
+         //   System.out.println("Shard is " + shardId + ", master is " + master.getNodeId());
             GroupsManager.getInstance().addShardMaster(shardId, master, datacentersGroup);
             recursiveCounter++;
             if (recursiveCounter == listOfDcs.size()) {

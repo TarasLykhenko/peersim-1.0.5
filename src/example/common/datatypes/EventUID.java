@@ -12,7 +12,7 @@ public class EventUID {
 
     public EventUID(long src, long dst, Operation operation) {
         if (operation == null) {
-            System.out.println("WTF!");
+        //    System.out.println("WTF!");
         }
         this.operation = operation;
         this.timestamp = CommonState.getTime();

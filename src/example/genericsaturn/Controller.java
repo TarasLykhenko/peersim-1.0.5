@@ -21,6 +21,7 @@ package example.genericsaturn;
 import example.common.AbstractController;
 import example.common.BasicClientInterface;
 import example.common.BasicStateTreeProtocol;
+import example.common.Settings;
 import peersim.core.Network;
 import peersim.util.IncrementalStats;
 
@@ -56,7 +57,9 @@ public class Controller extends AbstractController {
         for (int i = 0; i < Network.size(); i++) {
             BasicStateTreeProtocol v = (BasicStateTreeProtocol) Network.get(i).getProtocol(pid);
             for (BasicClientInterface client : v.getClients()) {
-                System.out.println("Node " + v.getNodeId() + " has client " + client.getId());
+                if (Settings.PRINT_INFO) {
+                    System.out.println("Node " + v.getNodeId() + " has client " + client.getId());
+                }
             }
         }
     }

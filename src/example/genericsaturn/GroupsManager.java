@@ -52,7 +52,7 @@ public class GroupsManager {
                 nodeToLevelNeighbours.put(node.getID(), nodeNeighbours);
             }
         }
-        System.out.println();
+        //System.out.println();
     }
 
     public Map<Integer, Set<StateTreeProtocol>> getNeighboursOfDatacenter(Long nodeId) {

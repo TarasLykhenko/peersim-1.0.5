@@ -111,11 +111,15 @@ public final class PointToPointTransport implements Transport {
         }
 
         if (SHOULD_PARTITION_DC) {
-            System.out.println("ADDING PARTITION TO DC");
+            if (Settings.PRINT_INFO) {
+                System.out.println("ADDING PARTITION TO DC");
+            }
             partitionConnections(partitionsDCFile, partitionDCTable, timePartitionOver);
         }
         if (SHOULD_PARTITION_CLIENTS) {
-            System.out.println("ADDInG PARTITION TO CLIENT");
+            if (Settings.PRINT_INFO) {
+                System.out.println("ADDInG PARTITION TO CLIENT");
+            }
             partitionConnections(partitionsClientsFile, partitionClientTable, timePartitionOver);
         }
     }
@@ -224,7 +228,9 @@ public final class PointToPointTransport implements Transport {
         if (partitionOver != 0) {
             partitionOver -= currentTime;
             if (partitionOver > 0) {
-                System.out.println("ADDING DELAY TO " + msg.getClass().getSimpleName());
+                if (Settings.PRINT_INFO) {
+                    System.out.println("ADDING DELAY TO " + msg.getClass().getSimpleName());
+                }
                 delay += partitionOver;
             }
         }

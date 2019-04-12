@@ -20,6 +20,7 @@ package peersim.edsim;
 
 import java.util.*;
 
+import example.common.Settings;
 import peersim.config.*;
 import peersim.core.*;
 
@@ -264,7 +265,9 @@ private static boolean executeNext() {
 	long time = ev.time;
 	if (time >= nextlog)
 	{
-		System.err.println("Current time: " + time);
+		if (Settings.PRINT_INFO) {
+			System.err.println("Current time: " + time);
+		}
 		// seemingly complicated: to prevent overflow
 		while( time-nextlog >= logtime ) nextlog+=logtime;
 		if( endtime-nextlog >= logtime ) nextlog+=logtime;

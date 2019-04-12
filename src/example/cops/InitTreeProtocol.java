@@ -18,6 +18,7 @@ import static example.common.Settings.CLIENTS_PER_DATACENTER;
 import static example.common.Settings.CLIENT_EAGER_PERCENTAGE;
 import static example.common.Settings.CLIENT_LOCALITY_PERCENTAGE;
 import static example.common.Settings.LEVELS_PERCENTAGE;
+import static example.common.Settings.PRINT_INFO;
 import static example.common.Settings.TOTAL_OBJECTS_PER_DATACENTER;
 
 public class InitTreeProtocol implements Control {
@@ -78,7 +79,9 @@ public class InitTreeProtocol implements Control {
         generateDataObjects(datacenters);
         generateClients(datacenters);
 
-        debugPrintStatus(datacenters);
+        if (PRINT_INFO) {
+            debugPrintStatus(datacenters);
+        }
 
         return false;
     }

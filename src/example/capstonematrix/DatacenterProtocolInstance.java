@@ -23,6 +23,7 @@ import example.capstonematrix.datatypes.ReadResult;
 import example.capstonematrix.datatypes.UpdateMessage;
 import example.capstonematrix.datatypes.UpdateResult;
 import example.common.BasicClientInterface;
+import example.common.Settings;
 import example.common.datatypes.DataObject;
 import javafx.util.Pair;
 import peersim.core.Network;
@@ -287,8 +288,10 @@ public abstract class DatacenterProtocolInstance
      */
     void capstoneWrite(int key, HRC incorporatedHRC) {
         if (incorporatedHRC != null) {
-            System.out.println("Writing HRC of region " + incorporatedHRC.getRegionId());
-            incorporatedHRC.print();
+            if (Settings.PRINT_INFO) {
+                System.out.println("Writing HRC of region " + incorporatedHRC.getRegionId());
+                incorporatedHRC.print();
+            }
         }
         storageTable.put(key, incorporatedHRC);
     }
@@ -307,16 +310,24 @@ public abstract class DatacenterProtocolInstance
         int updateLC = updateMessage.getUpdateLC();
         HRC past = updateMessage.getPast();
 
-        System.out.println("(MSG " + updateLC + ") Original HRC: (Node " + sourceId + " to " + nodeId + ")");
-        past.print();
+        if (Settings.PRINT_INFO) {
+            System.out.println("(MSG " + updateLC + ") Original HRC: (Node " + sourceId + " to " + nodeId + ")");
+            past.print();
+        }
         HRC transformedHRC = past.transform((int) sourceId, (int) nodeId);
-        System.out.println("Transformed HRC:");
-        transformedHRC.print();
+
+        if (Settings.PRINT_INFO) {
+            System.out.println("Transformed HRC:");
+            transformedHRC.print();
+        }
+
         if (transformedHRC.canAcceptHRC(sourceId, nodeId, lastReceived)) {
             applyUpdate(key, sourceId, updateLC, transformedHRC);
         } else {
             //System.exit(-1);
-            System.out.println("Buffering!");
+            if (Settings.PRINT_INFO) {
+                System.out.println("Buffering!");
+            }
             bufferRemoteUpdate(key, sourceId, updateLC, transformedHRC);
         }
     }
@@ -353,7 +364,9 @@ public abstract class DatacenterProtocolInstance
                 BufferedUpdate update = bufferedUpdates.get(0);
 
                 if (update.past.canAcceptHRC(datacenterId, nodeId, lastReceived)) {
-                    System.out.println("UNBUFFERING!");
+                    if (Settings.PRINT_INFO) {
+                        System.out.println("UNBUFFERING!");
+                    }
                     bufferedUpdates.remove(0);
                     applyUpdate(update.key, datacenterId, update.updateLC, update.past);
                     return;

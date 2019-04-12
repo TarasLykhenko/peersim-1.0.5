@@ -227,7 +227,9 @@ public abstract class AbstractController implements Control {
             if (PRINT_IMPORTANT) {
                 importantWriter.close();
             }
-            doEndExecution(clients);
+            if (Settings.PRINT_INFO) {
+                doEndExecution(clients);
+            }
             return true;
         }
         return false;
@@ -307,7 +309,9 @@ public abstract class AbstractController implements Control {
             writer.println(string);
         }
         if (WRITE_TO_SOUT) {
-            System.out.println(string);
+            if (Settings.PRINT_INFO) {
+                System.out.println(string);
+            }
         }
     }
 

@@ -2,6 +2,7 @@ package example.capstonematrix.datatypes;
 
 import example.capstonematrix.GroupsManager;
 import example.capstonematrix.StateTreeProtocol;
+import example.common.Settings;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -90,7 +91,9 @@ public class HRC {
 
         int k = getK(nodeA, nodeB);
 
-        System.out.println("k value: " + k);
+        if (Settings.PRINT_INFO) {
+            System.out.println("k value: " + k);
+        }
 
         // Step 1
         for (int i = 0; i < k; i++) {
@@ -200,7 +203,9 @@ public class HRC {
             }
         }
 
-        System.out.println("ACCEPTING!");
+        if (Settings.PRINT_INFO) {
+            System.out.println("ACCEPTING!");
+        }
         return true;
     }
 
@@ -214,24 +219,26 @@ public class HRC {
     }
 
     public void print() {
-        int maxListSize = 0;
-        for (List<Integer> regionList : clock) {
-            if (regionList.size() > maxListSize) {
-                maxListSize = regionList.size();
-            }
-        }
-
-        for (int i = 0; i < clock.size(); i++) {
-            List<Integer> regionEntries = clock.get(i);
-            for (int j = 0; j < regionEntries.size(); j++) {
-                System.out.print(clock.get(i).get(j) + " ");
+        if (Settings.PRINT_INFO) {
+            int maxListSize = 0;
+            for (List<Integer> regionList : clock) {
+                if (regionList.size() > maxListSize) {
+                    maxListSize = regionList.size();
+                }
             }
 
-            for (int j = regionEntries.size(); j < maxListSize; j++) {
-                System.out.print("- ");
-            }
+            for (int i = 0; i < clock.size(); i++) {
+                List<Integer> regionEntries = clock.get(i);
+                for (int j = 0; j < regionEntries.size(); j++) {
+                    System.out.print(clock.get(i).get(j) + " ");
+                }
 
-            System.out.println();
+                for (int j = regionEntries.size(); j < maxListSize; j++) {
+                    System.out.print("- ");
+                }
+
+                System.out.println();
+            }
         }
     }
 
