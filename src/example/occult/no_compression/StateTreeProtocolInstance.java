@@ -174,7 +174,7 @@ abstract class StateTreeProtocolInstance
     private void acceptClient(OccultClientInterface client) {
         clients.add(client);
         idToClient.put(client.getId(), client);
-        client.migrationOver();
+        client.migrationOver(nodeId);
         receivedMigrations++;
     }
 

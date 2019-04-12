@@ -1,6 +1,7 @@
 package example.occult.temporal_compression;
 
 import example.common.datatypes.DataObject;
+import example.occult.GroupsManager;
 import example.occult.OccultClient;
 import example.occult.StateTreeProtocol;
 import peersim.config.Configuration;
@@ -16,8 +17,8 @@ public class Client extends OccultClient {
 
     private final int maxCtsSize;
 
-    public Client(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality) {
-        super(id, isEager, dataObjectsPerLevel, datacenter, locality);
+    public Client(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality, GroupsManager groupsManager) {
+        super(id, isEager, dataObjectsPerLevel, datacenter, locality, groupsManager);
         this.maxCtsSize = Configuration.getInt(PAR_CLIENT_TS_SIZE);
     }
 
@@ -60,13 +61,13 @@ public class Client extends OccultClient {
                 clientTimestamp.put(shardId, updateShardStamp);
             }
         } else if (clientTimestamp.size() < maxCtsSize) {
-           // System.out.println("Adding..");
+            // System.out.println("Adding..");
             // Scenario 2: Client TS does not contain the entry but
             // has space for more entries, therefore add it
             //  System.out.println("Scenario 2: My Size: " + clientTimestamp.size() + " | maxSize: " + maxCtsSize);
             clientTimestamp.put(shardId, updateShardStamp);
         } else {
-           // System.out.println("Adding to catch all. (MySize: " + clientTimestamp.size() + ")");
+            // System.out.println("Adding to catch all. (MySize: " + clientTimestamp.size() + ")");
             // Scenario 3: ShardID not explicitly tracked, add Catchall
             int lowestShardId = 0;
             int lowestShardIdStamp = Integer.MAX_VALUE;

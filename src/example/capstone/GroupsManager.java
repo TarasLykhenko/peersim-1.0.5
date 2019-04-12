@@ -1,5 +1,7 @@
 package example.capstone;
 
+import example.common.BasicStateTreeProtocol;
+import example.common.GroupsManagerInterface;
 import example.common.datatypes.DataObject;
 import peersim.config.Configuration;
 import peersim.core.Network;
@@ -10,11 +12,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static example.capstone.ProtocolMapperInit.*;
 import static example.capstone.ProtocolMapperInit.nodeType;
 
-public class GroupsManager {
+public class GroupsManager implements GroupsManagerInterface {
 
     private static final String PAR_LEVELS = "levels";
     private static final String PAR_ROOT_NODE = "root";
@@ -23,6 +26,9 @@ public class GroupsManager {
     private final int datacenter;
     private final int levels;
     private final int root;
+
+    private Map<Long, Map<Integer, Set<DataObject>>> dataCenterIdsDataObjects = new HashMap<>();
+    private Map<Long, Map<Integer, Set<Long>>> exclusiveNodeToLevelNeighbourIds;
 
     private Map<Long, Map<Integer, Set<StateTreeProtocol>>> nodeToLevelNeighbours = new HashMap<>();
 
@@ -161,6 +167,9 @@ public class GroupsManager {
         dataCenterDataObjects
                 .computeIfAbsent(datacenter, k -> new HashMap<>())
                 .put(level, result);
+        dataCenterIdsDataObjects
+                .computeIfAbsent(datacenter.getNodeId(), k -> new HashMap<>())
+                .put(level, result);
         levelsToAllDataObjects
                 .computeIfAbsent(level, k -> new HashSet<>())
                 .addAll(result);
@@ -185,5 +194,47 @@ public class GroupsManager {
 
     TreeOverlay getTreeOverlay() {
         return treeOverlay;
+    }
+
+    @Override
+    public Map<Long, Map<Integer, Set<DataObject>>> getDataCenterIdsDataObjects() {
+        return dataCenterIdsDataObjects;
+    }
+
+    @Override
+    public Map<Integer, Set<Long>> getExclusiveNodeToLevelNeighbourIds(long nodeId) {
+        if (exclusiveNodeToLevelNeighbourIds == null) {
+            exclusiveNodeToLevelNeighbourIds = new HashMap<>();
+
+            for (Long serverId : nodeToLevelNeighbours.keySet()) {
+                Map<Integer, Set<StateTreeProtocol>> levelsAndNodes = nodeToLevelNeighbours.get(serverId);
+
+                int level = 0;
+                while (true) {
+                    if (!levelsAndNodes.containsKey(level)) {
+                        break;
+                    }
+
+                    Set<Long> levelNodes = levelsAndNodes.get(level).stream()
+                            .map(BasicStateTreeProtocol::getNodeId)
+                            .collect(Collectors.toSet());
+
+                    // Make it exclusive
+                    for (int i = level - 1; i >= 0; i--) {
+                        Set<Long> existingLongs = exclusiveNodeToLevelNeighbourIds.get(serverId).get(i);
+                        levelNodes.removeAll(existingLongs);
+                    }
+
+                    // Add result
+                    exclusiveNodeToLevelNeighbourIds
+                            .computeIfAbsent(serverId, k -> new HashMap<>())
+                            .put(level, levelNodes);
+
+                    level++;
+                }
+            }
+        }
+
+        return exclusiveNodeToLevelNeighbourIds.get(nodeId);
     }
 }

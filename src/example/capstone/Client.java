@@ -19,8 +19,8 @@ public class Client extends AbstractBaseClient {
 
     private Map<Long, Integer> clientClock = new HashMap<>();
 
-    public Client(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality) {
-        super(id, isEager, dataObjectsPerLevel, datacenter, locality);
+    public Client(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality, GroupsManager groupsManager) {
+        super(id, isEager, dataObjectsPerLevel, datacenter, locality, groupsManager);
         List<Long> nodesToRoot = GroupsManager.getInstance()
                 .getTreeOverlay()
                 .getNodesOnPathToRoot(Math.toIntExact(datacenter.getNodeId()));
@@ -39,15 +39,13 @@ public class Client extends AbstractBaseClient {
     }
 
     @Override
-    public Operation specificDoRead(int readLevel) {
-        DataObject randomDataObject = chooseRandomDataObject(readLevel);
-        return new ReadOperation(randomDataObject.getKey());
+    public Operation specificDoRead(DataObject dataObject) {
+        return new ReadOperation(dataObject.getKey());
     }
 
     @Override
-    public Operation specificDoUpdate(int updateLevel) {
-        DataObject randomDataObject = chooseRandomDataObject(updateLevel);
-        return new UpdateOperation(randomDataObject.getKey(), clientClock);
+    public Operation specificDoUpdate(DataObject dataObject) {
+        return new UpdateOperation(dataObject.getKey(), clientClock);
     }
 
     @Override
@@ -67,8 +65,8 @@ public class Client extends AbstractBaseClient {
         clientClock.put(result.getCloudletId(), result.getCloudletCounter());
     }
 
-    public void migrationOver(Map<Long, Integer> cloudletClock) {
-        migrationOver();
+    public void migrationOver(long dcId, Map<Long, Integer> cloudletClock) {
+        migrationOver(dcId);
         this.clientClock = new HashMap<>(cloudletClock);
     }
 

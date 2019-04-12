@@ -152,10 +152,10 @@ public class InitTreeProtocol implements Control {
                 for (int i = 0; i < amountLocalityClients; i++) {
                     totalClients++;
                     if (i < amountEagerClients) {
-                        OccultClientInterface newClient = clientFactory(totalClients, true, allDataObjectsOfNeighbours, datacenter, localityDistance);
+                        OccultClientInterface newClient = clientFactory(totalClients, true, allDataObjectsOfNeighbours, datacenter, localityDistance, GroupsManager.getInstance());
                         clients.add(newClient);
                     } else {
-                        OccultClientInterface newClient = clientFactory(totalClients, false, allDataObjectsOfNeighbours, datacenter, localityDistance);
+                        OccultClientInterface newClient = clientFactory(totalClients, false, allDataObjectsOfNeighbours, datacenter, localityDistance, GroupsManager.getInstance());
                         clients.add(newClient);
                     }
                 }
@@ -168,11 +168,11 @@ public class InitTreeProtocol implements Control {
                                                 boolean isEager,
                                                 Map<Integer, Set<DataObject>> allDataObjectsOfNeighbours,
                                                 StateTreeProtocol datacenter,
-                                                int localityDistance) {
+                                                int localityDistance, GroupsManager groupsManager) {
         if (clientType.equals(OCCULT_NO_COMPRESSION)) {
-            return new example.occult.no_compression.Client(totalClients, isEager, allDataObjectsOfNeighbours, datacenter, localityDistance);
+            return new example.occult.no_compression.Client(totalClients, isEager, allDataObjectsOfNeighbours, datacenter, localityDistance, groupsManager);
         } else if (clientType.equals(OCCULT_TEMPORAL_COMPRESSION)) {
-            return new example.occult.temporal_compression.Client(totalClients, isEager, allDataObjectsOfNeighbours, datacenter, localityDistance);
+            return new example.occult.temporal_compression.Client(totalClients, isEager, allDataObjectsOfNeighbours, datacenter, localityDistance, groupsManager);
         } else {
             throw new RuntimeException("Wrong occult type");
         }

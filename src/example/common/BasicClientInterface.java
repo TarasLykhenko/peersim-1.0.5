@@ -34,5 +34,5 @@ public interface BasicClientInterface {
 
     void migrationStart();
 
-    void migrationOver();
+    void migrationOver(long dcId);
 }

@@ -14,50 +14,25 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static example.common.Settings.CLIENT_MIGRATION_ODDS;
-import static example.common.Settings.CLIENT_OBJECT_READ_LVL_0;
-import static example.common.Settings.CLIENT_OBJECT_READ_LVL_1;
-import static example.common.Settings.CLIENT_OBJECT_READ_LVL_2;
-import static example.common.Settings.CLIENT_OBJECT_READ_LVL_3;
-import static example.common.Settings.CLIENT_OBJECT_UPDATE_LVL_0;
-import static example.common.Settings.CLIENT_OBJECT_UPDATE_LVL_1;
-import static example.common.Settings.CLIENT_OBJECT_UPDATE_LVL_2;
-import static example.common.Settings.CLIENT_OBJECT_UPDATE_LVL_3;
+import static example.common.Settings.CLIENT_READ_LEVEL_PERCENTAGE;
 import static example.common.Settings.CLIENT_READ_PERCENTAGE;
+import static example.common.Settings.CLIENT_UPDATE_LEVEL_PERCENTAGE;
 import static example.common.Settings.REST_TIME;
 import static example.common.Settings.REST_TIME_INTERVAL;
 
-public abstract class AbstractBaseClient implements BasicClientInterface {
+public abstract class AbstractBaseClientOLD implements BasicClientInterface {
 
-    private static final int[] MIGRATION_LEVELS_PERCENTAGE;
-
-    private static final int[] READ_LEVEL_0_PERCENTAGE;
-    private static final int[] READ_LEVEL_1_PERCENTAGE;
-    private static final int[] READ_LEVEL_2_PERCENTAGE;
-    private static final int[] READ_LEVEL_3_PERCENTAGE;
-
-    private static final int[] UPDATE_LEVEL_0_PERCENTAGE;
-    private static final int[] UPDATE_LEVEL_1_PERCENTAGE;
-    private static final int[] UPDATE_LEVEL_2_PERCENTAGE;
-    private static final int[] UPDATE_LEVEL_3_PERCENTAGE;
+    private static final int[] READ_LEVEL_PERCENTAGE;
+    private static final int[] UPDATE_LEVEL_PERCENTAGE;
 
     static {
-        MIGRATION_LEVELS_PERCENTAGE = convertStringArray(CLIENT_MIGRATION_ODDS);
-
-        READ_LEVEL_0_PERCENTAGE = convertStringArray(CLIENT_OBJECT_READ_LVL_0);
-        READ_LEVEL_1_PERCENTAGE = convertStringArray(CLIENT_OBJECT_READ_LVL_1);
-        READ_LEVEL_2_PERCENTAGE = convertStringArray(CLIENT_OBJECT_READ_LVL_2);
-        READ_LEVEL_3_PERCENTAGE = convertStringArray(CLIENT_OBJECT_READ_LVL_3);
-
-        UPDATE_LEVEL_0_PERCENTAGE = convertStringArray(CLIENT_OBJECT_UPDATE_LVL_0);
-        UPDATE_LEVEL_1_PERCENTAGE = convertStringArray(CLIENT_OBJECT_UPDATE_LVL_1);
-        UPDATE_LEVEL_2_PERCENTAGE = convertStringArray(CLIENT_OBJECT_UPDATE_LVL_2);
-        UPDATE_LEVEL_3_PERCENTAGE = convertStringArray(CLIENT_OBJECT_UPDATE_LVL_3);
-    }
-
-
-    private static int[] convertStringArray(String stringArray) {
-        return Arrays.stream(stringArray
+        READ_LEVEL_PERCENTAGE = Arrays.stream(CLIENT_READ_LEVEL_PERCENTAGE
+                .replace("[", "")
+                .replace("]", "")
+                .split(","))
+                .mapToInt(Integer::parseInt)
+                .toArray();
+        UPDATE_LEVEL_PERCENTAGE = Arrays.stream(CLIENT_UPDATE_LEVEL_PERCENTAGE
                 .replace("[", "")
                 .replace("]", "")
                 .split(","))
@@ -69,16 +44,12 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
     private final int id;
     private final boolean isEager;
     private final int locality;
-    private long currentDCId;
     private final BasicStateTreeProtocol originalDC; // Used for debugging
 
     // "Static" content
     private static final ExtendedRandom randomGenerator = CommonState.r;
     private final Set<DataObject> possibleDataObjects;
     private final Map<Integer, Set<DataObject>> dataObjectsPerLevel;
-
-    private final Map<Long, Map<Integer, Set<DataObject>>> datacentersToObjectsPerLevel;
-    private final Map<Integer, Set<Long>> exclusiveDCsPerLevel;
 
 
     // State
@@ -104,21 +75,16 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
 
 
 
-    public AbstractBaseClient(int id, boolean isEager,
-                              Map<Integer, Set<DataObject>> dataObjectsPerLevel,
-                              BasicStateTreeProtocol datacenter, int locality,
-                              GroupsManagerInterface groupsManager) {
+    public AbstractBaseClientOLD(int id, boolean isEager,
+                                 Map<Integer, Set<DataObject>> dataObjectsPerLevel,
+                                 BasicStateTreeProtocol datacenter, int locality) {
         this.id = id;
         this.dataObjectsPerLevel = new HashMap<>(dataObjectsPerLevel);
         this.possibleDataObjects = dataObjectsPerLevel
                 .values().stream().flatMap(Collection::stream).collect(Collectors.toSet());
         this.isEager = isEager;
         this.originalDC = datacenter;
-        this.currentDCId = datacenter.getNodeId();
         this.locality = locality;
-
-        datacentersToObjectsPerLevel = groupsManager.getDataCenterIdsDataObjects();
-        exclusiveDCsPerLevel = groupsManager.getExclusiveNodeToLevelNeighbourIds(originalDC.getNodeId());
     }
 
     @Override
@@ -193,39 +159,18 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
             return lastOperation;
         }
 
-        // First choose where to migrate to.
-        int level = getRandomLevel(MIGRATION_LEVELS_PERCENTAGE);
-        long nextMigrationDC = getMigrationDC(level);
-
         isWaitingForResult = true;
         waitingSince = CommonState.getTime();
 
         int readOrUpdate = randomGenerator.nextInt(101);
 
         if (isBetween(readOrUpdate, 0, CLIENT_READ_PERCENTAGE )) {
-            lastOperation = doRead(level, nextMigrationDC);
+            lastOperation = doRead();
         } else {
-            lastOperation = doUpdate(level, nextMigrationDC);
+            lastOperation = doUpdate();
         }
 
         return lastOperation;
-    }
-
-    /**
-     * Returns the DC to migrate to (can be the own server)
-     */
-    private long getMigrationDC(int level) {
-        if (exclusiveDCsPerLevel.get(level).contains(currentDCId)) {
-            return currentDCId;
-        } else {
-            Set<Long> dcIds = exclusiveDCsPerLevel.get(level);
-            int bound = dcIds.size();
-            if (bound == 0) {
-                bound = 1;
-            }
-            return dcIds.stream().skip(randomGenerator.nextInt(bound))
-                    .findFirst().get();
-        }
     }
 
     /**
@@ -234,59 +179,27 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
      */
     public abstract boolean doExtraBehaviour();
 
-    private Operation doRead(int level, long dataCenter) {
+    private Operation doRead() {
         lastOperationTimestamp = CommonState.getTime();
         numberReads++;
 
-        int[] readLevelsPercentage = getReadLevelsPercentage(level);
-        int readLevel = getRandomLevel(readLevelsPercentage);
-        DataObject dataObject = chooseRandomDataObject(readLevel, dataCenter);
+        int readLevel = getRandomLevel(READ_LEVEL_PERCENTAGE);
 
-        return specificDoRead(dataObject);
+        return specificDoRead(readLevel);
     }
 
-    private int[] getReadLevelsPercentage(int level) {
-        if (level == 0) {
-            return READ_LEVEL_0_PERCENTAGE;
-        } else if (level == 1) {
-            return READ_LEVEL_1_PERCENTAGE;
-        } else if (level == 2) {
-            return READ_LEVEL_2_PERCENTAGE;
-        } else if (level == 3) {
-            return READ_LEVEL_3_PERCENTAGE;
-        } else {
-            throw new NullPointerException("Incorrect level");
-        }
-    }
-
-    private Operation doUpdate(int level, long dataCenter) {
+    private Operation doUpdate() {
         lastOperationTimestamp = CommonState.getTime();
         numberUpdates++;
 
-        int[] updateLevelsPercentage = getUpdateLevelsPercentage(level);
-        int updateLevel = getRandomLevel(updateLevelsPercentage);
-        DataObject dataObject = chooseRandomDataObject(updateLevel, dataCenter);
+        int updateLevel = getRandomLevel(UPDATE_LEVEL_PERCENTAGE);
 
-        return specificDoUpdate(dataObject);
+        return specificDoUpdate(updateLevel);
     }
 
-    private int[] getUpdateLevelsPercentage(int level) {
-        if (level == 0) {
-            return UPDATE_LEVEL_0_PERCENTAGE;
-        } else if (level == 1) {
-            return UPDATE_LEVEL_1_PERCENTAGE;
-        } else if (level == 2) {
-            return UPDATE_LEVEL_2_PERCENTAGE;
-        } else if (level == 3) {
-            return UPDATE_LEVEL_3_PERCENTAGE;
-        } else {
-            throw new NullPointerException("Incorrect level");
-        }
-    }
+    public abstract Operation specificDoRead(int readLevel);
 
-    public abstract Operation specificDoRead(DataObject dataObject);
-
-    public abstract Operation specificDoUpdate(DataObject dataObject);
+    public abstract Operation specificDoUpdate(int updateLevel);
 
     /*
     private Operation doRead() {
@@ -358,8 +271,7 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
     }
 
     @Override
-    public void migrationOver(long dcId) {
-        currentDCId = dcId;
+    public void migrationOver(long datacenterId) {
         justMigrated = true;
         isWaitingForResult = false;
         numberMigrations++;
@@ -376,7 +288,7 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
                 return i;
             }
         }
-        throw new RuntimeException("The settinsg file must have a wrong percentage vector.");
+        throw new RuntimeException("Well..the odds didn't work correctly.");
     }
 
     static Map<Integer, Integer> levelsToCount = new HashMap<>();
@@ -387,8 +299,8 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
         levelsToCount.put(level, currentVal);
     }
 
-    protected DataObject chooseRandomDataObject(int level, long datacenter) {
-        int bound = datacentersToObjectsPerLevel.get(datacenter).get(level).size();
+    protected DataObject chooseRandomDataObject(int level) {
+        int bound = dataObjectsPerLevel.get(level).size();
         if (bound == 0) {
             bound = 1;
         }

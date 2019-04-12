@@ -329,7 +329,7 @@ public abstract class StateTreeProtocolInstance
         clients.add(client);
         idToClient.put(client.getId(), client);
         receivedMigrations++;
-        client.migrationOver();
+        client.migrationOver(nodeId);
         pendingClientsQueue.remove(event.getIdentifier());
         // System.out.println("Accepted Client " + client.getId() + " at " + nodeId);
         //System.out.println("Migration sucessful! " + key);

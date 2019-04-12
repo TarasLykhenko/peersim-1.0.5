@@ -427,7 +427,7 @@ public abstract class DatacenterProtocolInstance
     private void acceptClient(Client client) {
         clients.add(client);
         idToClient.put(client.getId(), client);
-        client.migrationOver(cloudletClock);
+        client.migrationOver(nodeId, cloudletClock);
         receivedMigrations++;
         //System.out.println("Migration sucessful! " + key);
     }

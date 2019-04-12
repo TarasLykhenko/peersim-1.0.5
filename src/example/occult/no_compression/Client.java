@@ -1,6 +1,7 @@
 package example.occult.no_compression;
 
 import example.common.datatypes.DataObject;
+import example.occult.GroupsManager;
 import example.occult.OccultClient;
 import example.occult.StateTreeProtocol;
 import peersim.core.CommonState;
@@ -10,8 +11,8 @@ import java.util.Set;
 
 public class Client extends OccultClient {
 
-    public Client(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality) {
-        super(id, isEager, dataObjectsPerLevel, datacenter, locality);
+    public Client(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality, GroupsManager groupsManager) {
+        super(id, isEager, dataObjectsPerLevel, datacenter, locality, groupsManager);
     }
 
 

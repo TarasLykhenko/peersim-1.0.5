@@ -40,8 +40,8 @@ public abstract class OccultClient extends AbstractBaseClient
     protected Map<Integer, Integer> clientTimestamp = new HashMap<>();
     protected int catchAllShardStamp = 0;
 
-    public OccultClient(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality) {
-        super(id, isEager, dataObjectsPerLevel, datacenter, locality);
+    public OccultClient(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality, GroupsManager groupsManager) {
+        super(id, isEager, dataObjectsPerLevel, datacenter, locality, groupsManager);
     }
 
     @Override
@@ -70,15 +70,13 @@ public abstract class OccultClient extends AbstractBaseClient
     }
 
     @Override
-    public Operation specificDoRead(int readLevel) {
-        DataObject randomDataObject = chooseRandomDataObject(readLevel);
-        return new ReadOperation(randomDataObject.getKey(), false);
+    public Operation specificDoRead(DataObject dataObject) {
+        return new ReadOperation(dataObject.getKey(), false);
     }
 
     @Override
-    public Operation specificDoUpdate(int updateLevel) {
-        DataObject randomDataObject = chooseRandomDataObject(updateLevel);
-        return new UpdateOperation(randomDataObject.getKey(), clientTSCopy(), getNumberCatchAll());
+    public Operation specificDoUpdate(DataObject dataObject) {
+        return new UpdateOperation(dataObject.getKey(), clientTSCopy(), getNumberCatchAll());
     }
 
 
@@ -151,8 +149,8 @@ public abstract class OccultClient extends AbstractBaseClient
     }
 
     @Override
-    public void migrationOver() {
-        super.migrationOver();
+    public void migrationOver(long nodeId) {
+        super.migrationOver(nodeId);
         Operation op = lastOperation;
         if (op instanceof ReadOperation) {
             ReadOperation ro = (ReadOperation) op;

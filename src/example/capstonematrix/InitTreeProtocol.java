@@ -145,9 +145,9 @@ public class InitTreeProtocol implements Control {
                 for (int i = 0; i < amountLocalityClients; i++) {
                     totalClients++;
                     if (i < amountEagerClients) {
-                        clients.add(new Client(totalClients, true, allDataObjectsOfNeighbours, datacenter, localityDistance));
+                        clients.add(new Client(totalClients, true, allDataObjectsOfNeighbours, datacenter, localityDistance, GroupsManager.getInstance()));
                     } else {
-                        clients.add(new Client(totalClients, false, allDataObjectsOfNeighbours, datacenter, localityDistance));
+                        clients.add(new Client(totalClients, false, allDataObjectsOfNeighbours, datacenter, localityDistance, GroupsManager.getInstance()));
                     }
                 }
                 datacenter.addClients(clients);

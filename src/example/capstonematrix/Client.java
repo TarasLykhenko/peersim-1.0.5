@@ -16,8 +16,8 @@ public class Client extends AbstractBaseClient {
 
     private HRC clientPast;
 
-    public Client(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality) {
-        super(id, isEager, dataObjectsPerLevel, datacenter, locality);
+    public Client(int id, boolean isEager, Map<Integer, Set<DataObject>> dataObjectsPerLevel, StateTreeProtocol datacenter, int locality, GroupsManager groupsManager) {
+        super(id, isEager, dataObjectsPerLevel, datacenter, locality, groupsManager);
         int regionId = GroupsManager.getInstance().getMostSpecificRegion(datacenter.getNodeId());
         clientPast = new HRC(regionId);
     }
@@ -32,15 +32,13 @@ public class Client extends AbstractBaseClient {
     }
 
     @Override
-    public Operation specificDoRead(int readLevel) {
-        DataObject randomDataObject = chooseRandomDataObject(readLevel);
-        return new ReadOperation(randomDataObject.getKey());
+    public Operation specificDoRead(DataObject dataObject) {
+        return new ReadOperation(dataObject.getKey());
     }
 
     @Override
-    public Operation specificDoUpdate(int updateLevel) {
-        DataObject randomDataObject = chooseRandomDataObject(updateLevel);
-        return new UpdateOperation(randomDataObject.getKey(), clientPast);
+    public Operation specificDoUpdate(DataObject dataObject) {
+        return new UpdateOperation(dataObject.getKey(), clientPast);
     }
 
     @Override
@@ -59,8 +57,8 @@ public class Client extends AbstractBaseClient {
         clientPast = new HRC(result.getHRC());
     }
 
-    public void migrationOver(HRC clientTransformedHRC) {
-        migrationOver();
+    public void migrationOver(long dcId, HRC clientTransformedHRC) {
+        migrationOver(dcId);
         this.clientPast = new HRC(clientTransformedHRC);
     }
 

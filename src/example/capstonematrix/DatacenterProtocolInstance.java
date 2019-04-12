@@ -415,7 +415,7 @@ public abstract class DatacenterProtocolInstance
     private void acceptClient(Client client, HRC transformedPast) {
         clients.add(client);
         idToClient.put(client.getId(), client);
-        client.migrationOver(transformedPast);
+        client.migrationOver(nodeId, transformedPast);
         receivedMigrations++;
         //System.out.println("Migration sucessful! " + key);
     }

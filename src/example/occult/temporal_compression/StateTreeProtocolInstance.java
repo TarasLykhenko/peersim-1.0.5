@@ -200,7 +200,7 @@ abstract class StateTreeProtocolInstance
         // System.out.println("DC " + nodeId + " accepted Client " + client.getId());
         clients.add(client);
         idToClient.put(client.getId(), client);
-        client.migrationOver();
+        client.migrationOver(nodeId);
         receivedMigrations++;
     }
 
