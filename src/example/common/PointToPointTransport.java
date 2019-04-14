@@ -216,17 +216,10 @@ public final class PointToPointTransport implements Transport {
      * distribution.
      */
     public void send(Node src, Node dest, Object msg, int pid) {
-        //System.out.println("Node " + src.getID() + " sending message");
         // Check if the senderDC is in a partition to a given target
         // avoid calling nextLong if possible
         Long srcId = src.getID();
         Long destId = dest.getID();
-        if (msg.getClass().getSimpleName().equals("MigrationMessage")) {
-            System.out.println(srcId + " sending to " + destId + " migrationMsg");
-        }
-        if (msg.getClass().getSimpleName().equals("MetadataMessage")) {
-            System.out.println(srcId + " sending to " + destId + " metadataMsg");
-        }
 
         int latency = latencies.get(src.getID()).get(dest.getID());
         if (latency != -1) {
@@ -244,11 +237,6 @@ public final class PointToPointTransport implements Transport {
             }
 
             lastWillBeReceived.get(srcId).put(destId, messageWillBeReceived);
-
-            if (msg.getClass().getSimpleName().equals("MigrationMessage")) {
-                System.out.println(srcId + " sending to " + destId + " migration");
-                System.out.println("Delay is " + delay);
-            }
 
             EDSimulator.add(delay, msg, dest, pid);
         }
@@ -271,7 +259,7 @@ public final class PointToPointTransport implements Transport {
             partitionOver -= currentTime;
             if (partitionOver > 0) {
                 if (Settings.PRINT_INFO) {
-                    //System.out.println("ADDING DELAY TO " + msg);
+                    System.out.println("ADDING DELAY TO " + msg);
                 }
                 delay += partitionOver;
             }

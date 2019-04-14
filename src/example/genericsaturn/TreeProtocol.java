@@ -71,9 +71,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
      */
     private void doDatabaseMethod(Node node, int pid, Linkable linkable) {
         for (Client client : clients) {
-           // System.out.println("(Server " + nodeId + ") Checking client " + client.getId());
-            if (client.getId() != 1) continue; // TODO TIRAR ISTO
-            System.out.println("(Node " + nodeId + ") Checking client " + client.getId());
+   //         if (client.getId() != 1) continue; // TODO TIRAR ISTO
             Operation operation = client.nextOperation();
             if (operation == null) {
                 continue;
@@ -125,7 +123,6 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 StateTreeProtocol peerDatacenter = (StateTreeProtocol) peern.getProtocol(tree);
                 if (peerDatacenter.isInterested(event.getOperation().getKey())) {
                     // Spread data
-                    System.out.println("(Node " + nodeId + " sending data to " + peerDatacenter.getNodeId());
                     sendMessage(node, peern, new DataMessage(eventToSend, "data", getEpoch()), pid);
                 }
             } else if (ntype.getType() == Type.BROKER) {
@@ -145,7 +142,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
             }
 
             List<EventUID> queueToSend = queue.get(peerNode.getID());
-            if (queueToSend != null) {
+            if (queueToSend != null && !queueToSend.isEmpty()) {
                 QueueMessage msg = new QueueMessage(
                         new ArrayList<>(queueToSend),
                         peerType.getType(),
@@ -173,53 +170,6 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 migrationLabel, client.getId(), originalDC.getID(), bestNode.getID(), epoch);
         client.migrationStart();
         sendMessage(originalDC, originalDC, req, pid);
-
-        /*
-        // Send client to target
-        TreeProtocol targetDCProtocol = (TreeProtocol) bestNode.getProtocol(tree);
-        targetDCProtocol.migrateClientQueue(client, migrationLabel);
-        client.migrationStart();
-        sentMigrations++;
-        // System.out.println("Client " + client.getId() + " is migrating to " + targetDCProtocol.getNodeId());
-
-
-        // Send label to broker network
-        sendToBrokerNetwork(originalDC, migrationLabel, linkable, pid);
-        */
-    }
-
-    private Node getLowestLatencyNode(Set<Node> interestedNodes) {
-        // Then select the datacenter that has the lowest latency to the client
-        int lowestLatency = Integer.MAX_VALUE;
-        Node bestNode = null;
-        for (Node interestedNode : interestedNodes) {
-            int nodeLatency = PointToPointTransport.staticGetLatency(this.nodeId, interestedNode.getID());
-            if (nodeLatency < lowestLatency) {
-                bestNode = interestedNode;
-            }
-        }
-        return bestNode;
-    }
-
-    private Set<Node> getInterestedNodes(EventUID event) {
-        Set<Node> interestedNodes = new HashSet<>();
-        // First get which datacenters replicate the data
-        for (int i = 0; i < Network.size(); i++) {
-            Node node = Network.get(i);
-
-            // Can't migrate to a broker
-            if (((TypeProtocol) node.getProtocol(typePid)).getType() == Type.BROKER) {
-                continue;
-            }
-
-            StateTreeProtocol datacenter = (StateTreeProtocol) node.getProtocol(tree);
-
-
-            if (datacenter.isInterested(event.getOperation().getKey())) {
-                interestedNodes.add(node);
-            }
-        }
-        return interestedNodes;
     }
 
     private void sendToBrokerNetwork(Node originalDC, EventUID migrationLabel, int pid) {
@@ -258,10 +208,6 @@ public class TreeProtocol extends StateTreeProtocolInstance
      */
     public void processEvent(Node node, int pid, Object event) {
 
-        if (Settings.PRINT_INFO) {
-        //    System.out.println("Node " + node.getID() + " received event" + event.getClass().getSimpleName());
-        }
-
         /* ************** DATACENTERS ****************** */
 
         if (event instanceof ReadMessage) {
@@ -298,7 +244,6 @@ public class TreeProtocol extends StateTreeProtocolInstance
             ClientMigrationRequest req = (ClientMigrationRequest) event;
 
             Client client = idToClient.get(req.clientId);
-            System.out.println("Removing client " + req.clientId + " from " + nodeId);
             clients.remove(client);
             idToClient.remove(client.getId());
 
@@ -308,8 +253,6 @@ public class TreeProtocol extends StateTreeProtocolInstance
             targetDCProtocol.migrateClientQueue(client, req.event);
             client.migrationStart();
             sentMigrations++;
-            System.out.println("Client " + client.getId() + " is migrating to " + targetDCProtocol.getNodeId());
-
 
             // Send label to broker network
             sendToBrokerNetwork(node, req.event, pid);

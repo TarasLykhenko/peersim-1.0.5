@@ -10,7 +10,7 @@ public class Settings {
     // How long it takes for a client to connect to other DC
     // CLIENT SETTINGS
 
-    public static final int CLIENTS_PER_DATACENTER = 1;
+    public static final int CLIENTS_PER_DATACENTER = 200;
     public static final int REST_TIME = 500;
     public static final int REST_TIME_INTERVAL = 50;
     public static final int CLIENT_READ_PERCENTAGE = 90;
@@ -32,7 +32,7 @@ public class Settings {
     public static final int TOTAL_OBJECTS_PER_DATACENTER = 50;
     public static final String LEVELS_PERCENTAGE = "[50,25,15,10]";
 
-    public static final float STATISTICS_WINDOW = 5;
+    public static final float STATISTICS_WINDOW = 1;
 
     public static final boolean SHOULD_PARTITION_DC = true;
     public static final boolean SHOULD_PARTITION_CLIENTS = false;
@@ -44,9 +44,9 @@ public class Settings {
     // Partition lvl 3: Each server can communicate with 3 servers
     public static final int PARTITION_LEVEL = 1;
     public static final double PARTITION_START_PERCENTAGE = 20;
-    public static final double PARTITION_STOP_PERCENTAGE = 60;
+    public static final double PARTITION_STOP_PERCENTAGE = 70;
 
-    public static final boolean PRINT_INFO = true;
+    public static final boolean PRINT_INFO = false;
     public static final boolean PRINT_VERBOSE = false;
 
 

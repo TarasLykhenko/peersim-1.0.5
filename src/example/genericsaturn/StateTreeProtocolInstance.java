@@ -316,7 +316,6 @@ public abstract class StateTreeProtocolInstance
     public void processQueue(List<EventUID> queue, long id) {
         for (EventUID event : queue) {
             if (event.isMigration() && id == event.getMigrationTarget()) {
-                System.out.println("Node " + id + " received migration");
                 acceptClient(event);
             } else if (isInterested(event.getOperation().getKey())) {
                 // System.out.println("Adding metadata!");
@@ -328,17 +327,11 @@ public abstract class StateTreeProtocolInstance
     public void acceptClient(EventUID event) {
         Client client = pendingClientsQueue.get(event.getIdentifier());
 
-        System.out.println("(Node " + nodeId + ") Adding client " + client.getId());
         clients.add(client);
         idToClient.put(client.getId(), client);
         receivedMigrations++;
         client.migrationOver(nodeId);
         pendingClientsQueue.remove(event.getIdentifier());
-
-        if (Settings.PRINT_INFO) {
-            System.out.println("Accepted Client " + client.getId() + " at " + nodeId);
-        }
-        System.out.println("Server " + nodeId + " has " + clients.size() + " clients");
     }
 
     public void addQueueToQueue(List<EventUID> queue, Long from) {
@@ -405,6 +398,10 @@ public abstract class StateTreeProtocolInstance
                 }
             }
         }
+    }
+
+    public Collection<Client> getQueuedClientsClients() {
+        return pendingClientsQueue.values();
     }
 
     @Override

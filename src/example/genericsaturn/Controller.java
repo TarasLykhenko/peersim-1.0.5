@@ -26,6 +26,7 @@ import peersim.core.Network;
 import peersim.util.IncrementalStats;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Set;
 
 /**
@@ -59,6 +60,13 @@ public class Controller extends AbstractController {
             for (BasicClientInterface client : v.getClients()) {
                 if (Settings.PRINT_INFO) {
                     System.out.println("Node " + v.getNodeId() + " has client " + client.getId());
+                }
+            }
+            StateTreeProtocolInstance s = (StateTreeProtocolInstance) v;
+            Collection<Client> queuedClientsClients = s.getQueuedClientsClients();
+            for (Client c : queuedClientsClients) {
+                if (Settings.PRINT_INFO) {
+                    System.out.println("Node " + v.getNodeId() + " has client " + c.getId() + " queued");
                 }
             }
         }

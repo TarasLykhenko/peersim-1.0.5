@@ -177,12 +177,10 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
     public Operation nextOperation() {
 
         if (isWaitingForResult) {
-            System.out.println("Waitign for result");
             return null;
         }
 
         if (!restTimeOver()) {
-            System.out.println("Resting");
             return null;
         }
 
@@ -191,13 +189,11 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
             justMigrated = false;
             isWaitingForResult = true;
             waitingSince = CommonState.getTime();
-            System.out.println("Migration over");
             return lastOperation;
         }
 
         boolean extraBehaviourResult = doExtraBehaviour();
         if (extraBehaviourResult) {
-            System.out.println("had extra behaviour");
             return lastOperation;
         }
 
