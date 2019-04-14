@@ -59,10 +59,10 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 continue;
             }
 
-            // If the datacenter does not have the object, migrate it
-            if (!this.isInterested(operation.getKey())) {
+            // If is remote operation, migrate
+            if (operation.getDatacenter() != nodeId) {
                 MigrationMessage msg = new MigrationMessage(this.getNodeId(), client.getId());
-                Node migrationDatacenter = getMigrationDatacenter(operation.getKey(), this);
+                Node migrationDatacenter = Network.get((int) operation.getDatacenter());
                 client.migrationStart();
                 sendMessage(node, migrationDatacenter, msg, pid);
                 sentMigrations++;

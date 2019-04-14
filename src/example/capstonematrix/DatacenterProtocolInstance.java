@@ -384,7 +384,9 @@ public abstract class DatacenterProtocolInstance
         if (transformedHRC.canAcceptHRC(originDatacenter, nodeId, lastReceived)) {
             acceptClient(client, transformedHRC);
         } else {
-          //  System.out.println("Could not accept client " + client.getId() + " from " + originDatacenter + " to " + nodeId);
+            if (Settings.PRINT_INFO) {
+                System.out.println("Could not accept client " + client.getId() + " from " + originDatacenter + " to " + nodeId);
+            }
           //  System.out.println("Original client HRC:");
           //  migrationClock.print();
           //  System.out.println("Transformed HRC:");

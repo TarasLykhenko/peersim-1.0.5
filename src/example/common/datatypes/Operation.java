@@ -9,6 +9,7 @@ public class Operation {
 
     private Type type;
     private int key;
+    private long datacenter;
 
     public Operation(Type type, int key) {
         this.type = type;
@@ -29,5 +30,13 @@ public class Operation {
 
     public void setKey(int key) {
         this.key = key;
+    }
+
+    public void setDatacenter(long datacenter) {
+        this.datacenter = datacenter;
+    }
+
+    public long getDatacenter() {
+        return this.datacenter;
     }
 }

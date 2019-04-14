@@ -33,7 +33,6 @@ import java.util.Calendar;
 import java.util.HashSet;
 import java.util.Set;
 
-import static example.common.Settings.PRINT_IMPORTANT;
 import static example.common.Settings.PRINT_VERBOSE;
 import static example.common.Settings.STATISTICS_WINDOW;
 
@@ -121,7 +120,7 @@ public abstract class AbstractController implements Control {
         this.name = name;
 
         pid = Configuration.getPid(name + "." + PAR_PROT);
-                outputFile = Configuration.getString(name + "." + PAR_OUTPUT);
+        outputFile = Configuration.getString(name + "." + PAR_OUTPUT);
 
 
         int endTime = Configuration.getInt("simulation.endtime");
@@ -138,12 +137,11 @@ public abstract class AbstractController implements Control {
             writer = new PrintWriter(br);
         }
 
-        if (PRINT_IMPORTANT) {
-            String importantPathfile = outputFile + system + ".txt";
-            FileWriter fr2 = new FileWriter(importantPathfile, false);
-            BufferedWriter br2 = new BufferedWriter(fr2);
-            importantWriter = new PrintWriter(br2);
-        }
+        String importantPathfile = outputFile + system + ".txt";
+        FileWriter fr2 = new FileWriter(importantPathfile, false);
+        BufferedWriter br2 = new BufferedWriter(fr2);
+        importantWriter = new PrintWriter(br2);
+
 
         takeStatisticsEvery = Math.round((STATISTICS_WINDOW / 100) * cycles);
     }
@@ -224,9 +222,7 @@ public abstract class AbstractController implements Control {
             if (PRINT_VERBOSE) {
                 writer.close();
             }
-            if (PRINT_IMPORTANT) {
-                importantWriter.close();
-            }
+            importantWriter.close();
             if (Settings.PRINT_INFO) {
                 doEndExecution(clients);
             }
@@ -281,7 +277,7 @@ public abstract class AbstractController implements Control {
                 extraString = " | waitingSince: " + client.getWaitingSince();
             }
             System.out.println("Client " + client.getId()
-                    + " locality: " + client.getLocality()
+                    + " total ops: " + (client.getNumberReads() + client.getNumberUpdates())
                     + " | reads: " + client.getNumberReads()
                     + " | avgReadLat: " + client.getAverageReadLatency()
                     + " | updates: " + client.getNumberUpdates()
@@ -316,9 +312,7 @@ public abstract class AbstractController implements Control {
     }
 
     protected void printImportant(String string) {
-        if (PRINT_IMPORTANT) {
-            importantWriter.println(string);
-        }
+        importantWriter.println(string);
     }
 
         /*

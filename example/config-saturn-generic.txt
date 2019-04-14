@@ -2,7 +2,7 @@
 SIZE 15
 
 # parameters of periodic execution
-CYCLES 100000
+CYCLES 4000
 CYCLE 1
 
 # random.seed 1234567890
@@ -10,7 +10,6 @@ network.size SIZE
 simulation.endtime CYCLES
 simulation.logtime 1
 
-partitions_datacenters example/partitions/eight_nodes_seven_brokers_partition_top.top
 partitions_clients example/partitions/four_nodes_all_connected_partition.top
 
 levels 4
@@ -20,7 +19,7 @@ levels 4
 
 
 
-
+overlaytype tree
 type type
 tree tree
 ##########################################

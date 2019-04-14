@@ -4,7 +4,6 @@ import example.capstonematrix.datatypes.HRC;
 import example.capstonematrix.datatypes.ReadResult;
 import example.capstonematrix.datatypes.UpdateMessage;
 import example.capstonematrix.datatypes.UpdateResult;
-import example.common.PointToPointTransport;
 import example.common.datatypes.Operation;
 import peersim.cdsim.CDProtocol;
 import peersim.config.Configuration;
@@ -52,9 +51,9 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
                 continue;
             }
 
-            // If the datacenter does not have the object, migrate it
-            if (!this.isInterested(operation.getKey())) {
-                migrateClientStart(client, operation.getKey(), node, pid);
+            // If is remote operation, migrate
+            if (operation.getDatacenter() != nodeId) {
+                migrateClientStart(client, node, operation.getDatacenter(), pid);
                 continue;
             }
 
@@ -77,7 +76,7 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
     }
 
     private long timeSinceLastHeartBeat = 0;
-    private long heartbeatPeriod = 150; //TODO TIRAR ESTE HARDCODED
+    private long heartbeatPeriod = 50; //TODO TIRAR ESTE HARDCODED
     private void heartbeat(Node node, int pid) {
         long currentTime = CommonState.getTime();
         if (currentTime - timeSinceLastHeartBeat > heartbeatPeriod) {
@@ -99,15 +98,11 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
     }
 
     private void migrateClientStart(Client client,
-                                    int key,
                                     Node originalDC,
+                                    long targetDC,
                                     int pid) {
 
-        // Get datacenters that have the key
-        Set<Node> interestedNodes = getInterestedDatacenters(key);
-
-        // Then select the datacenter that has the lowest latency to the client
-        Node migrationTarget = getLowestLatencyDatacenter(interestedNodes);
+        Node migrationTarget = Network.get((int) targetDC);
 
         MigrationMessage migrationMessage =
                 new MigrationMessage(originalDC.getID(), client.getId(), client.getClientHRC());
@@ -130,18 +125,6 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
             }
         }
         return interestedNodes;
-    }
-
-    private Node getLowestLatencyDatacenter(Set<Node> interestedNodes) {
-        int lowestLatency = Integer.MAX_VALUE;
-        Node bestNode = null;
-        for (Node interestedNode : interestedNodes) {
-            int nodeLatency = PointToPointTransport.staticGetLatency(this.nodeId, interestedNode.getID());
-            if (nodeLatency < lowestLatency) {
-                bestNode = interestedNode;
-            }
-        }
-        return bestNode;
     }
 
     private void sendMessage(Node src, Node dst, Object msg, int pid) {

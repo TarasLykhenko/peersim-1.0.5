@@ -1,6 +1,7 @@
 package example.genericsaturn;
 
 import example.common.PointToPointTransport;
+import example.common.Settings;
 import example.common.datatypes.Operation;
 import example.genericsaturn.datatypes.EventUID;
 import peersim.cdsim.CDProtocol;
@@ -70,6 +71,9 @@ public class TreeProtocol extends StateTreeProtocolInstance
      */
     private void doDatabaseMethod(Node node, int pid, Linkable linkable) {
         for (Client client : clients) {
+           // System.out.println("(Server " + nodeId + ") Checking client " + client.getId());
+            if (client.getId() != 1) continue; // TODO TIRAR ISTO
+            System.out.println("(Node " + nodeId + ") Checking client " + client.getId());
             Operation operation = client.nextOperation();
             if (operation == null) {
                 continue;
@@ -77,8 +81,8 @@ public class TreeProtocol extends StateTreeProtocolInstance
             // System.out.println("Client " + client.getId() + " wants " + operation.getKey());
             EventUID event = new EventUID(operation, client.timestamp(), getEpoch(), node.getID(), 0);
 
-            // If the datacenter does not have the object, migrate it
-            if (!this.isInterested(operation.getKey())) {
+            // If is remote operation, migrate
+            if (operation.getDatacenter() != nodeId) {
             //    System.out.println("Starting migration");
                 migrateClientStart(client, event, node, linkable, pid);
                 continue;
@@ -120,9 +124,12 @@ public class TreeProtocol extends StateTreeProtocolInstance
             if (ntype.getType() == Type.DATACENTER) {
                 StateTreeProtocol peerDatacenter = (StateTreeProtocol) peern.getProtocol(tree);
                 if (peerDatacenter.isInterested(event.getOperation().getKey())) {
+                    // Spread data
+                    System.out.println("(Node " + nodeId + " sending data to " + peerDatacenter.getNodeId());
                     sendMessage(node, peern, new DataMessage(eventToSend, "data", getEpoch()), pid);
                 }
             } else if (ntype.getType() == Type.BROKER) {
+                // Spread metadata
                 sendMessage(node, peern, new MetadataMessage(eventToSend, getEpoch(), node.getID()), pid);
             }
         }
@@ -156,8 +163,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
                                     Linkable linkable,
                                     int pid) {
 
-        Set<Node> interestedNodes = getInterestedNodes(event);
-        Node bestNode = getLowestLatencyNode(interestedNodes);
+        Node bestNode = Network.get((int) event.getOperation().getDatacenter());
 
         // Generate Migration Label;
         EventUID migrationLabel = event.clone();
@@ -252,6 +258,10 @@ public class TreeProtocol extends StateTreeProtocolInstance
      */
     public void processEvent(Node node, int pid, Object event) {
 
+        if (Settings.PRINT_INFO) {
+        //    System.out.println("Node " + node.getID() + " received event" + event.getClass().getSimpleName());
+        }
+
         /* ************** DATACENTERS ****************** */
 
         if (event instanceof ReadMessage) {
@@ -288,6 +298,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
             ClientMigrationRequest req = (ClientMigrationRequest) event;
 
             Client client = idToClient.get(req.clientId);
+            System.out.println("Removing client " + req.clientId + " from " + nodeId);
             clients.remove(client);
             idToClient.remove(client.getId());
 
@@ -297,7 +308,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
             targetDCProtocol.migrateClientQueue(client, req.event);
             client.migrationStart();
             sentMigrations++;
-            // System.out.println("Client " + client.getId() + " is migrating to " + targetDCProtocol.getNodeId());
+            System.out.println("Client " + client.getId() + " is migrating to " + targetDCProtocol.getNodeId());
 
 
             // Send label to broker network

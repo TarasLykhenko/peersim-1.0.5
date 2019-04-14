@@ -75,6 +75,7 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
     // "Static" content
     private static final ExtendedRandom randomGenerator = CommonState.r;
     private final Set<DataObject> possibleDataObjects;
+    private final Map<Integer, DataObject> keysToDataObjects;
     private final Map<Integer, Set<DataObject>> dataObjectsPerLevel;
 
     private final Map<Long, Map<Integer, Set<DataObject>>> datacentersToObjectsPerLevel;
@@ -99,9 +100,8 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
     protected long waitingSince;
     protected long lastResultReceivedTimestamp = 0;
 
-    private  long lastMigrationStart = 0;
+    private long lastMigrationStart = 0;
     private long totalMigrationTime = 0;
-
 
 
     public AbstractBaseClient(int id, boolean isEager,
@@ -112,6 +112,9 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
         this.dataObjectsPerLevel = new HashMap<>(dataObjectsPerLevel);
         this.possibleDataObjects = dataObjectsPerLevel
                 .values().stream().flatMap(Collection::stream).collect(Collectors.toSet());
+        this.keysToDataObjects = possibleDataObjects
+                .stream()
+                .collect(Collectors.toMap(DataObject::getKey, e -> e));
         this.isEager = isEager;
         this.originalDC = datacenter;
         this.currentDCId = datacenter.getNodeId();
@@ -172,11 +175,14 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
     }
 
     public Operation nextOperation() {
+
         if (isWaitingForResult) {
+            System.out.println("Waitign for result");
             return null;
         }
 
         if (!restTimeOver()) {
+            System.out.println("Resting");
             return null;
         }
 
@@ -185,11 +191,13 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
             justMigrated = false;
             isWaitingForResult = true;
             waitingSince = CommonState.getTime();
+            System.out.println("Migration over");
             return lastOperation;
         }
 
         boolean extraBehaviourResult = doExtraBehaviour();
         if (extraBehaviourResult) {
+            System.out.println("had extra behaviour");
             return lastOperation;
         }
 
@@ -202,11 +210,18 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
 
         int readOrUpdate = randomGenerator.nextInt(101);
 
-        if (isBetween(readOrUpdate, 0, CLIENT_READ_PERCENTAGE )) {
+        if (isBetween(readOrUpdate, 0, CLIENT_READ_PERCENTAGE)) {
             lastOperation = doRead(level, nextMigrationDC);
         } else {
             lastOperation = doUpdate(level, nextMigrationDC);
         }
+
+        if (Settings.PRINT_INFO) {
+            System.out.println("(" + lastOperation.getType() + ") (mlvl: " + level + " | Client " + id + " | originDC : " + originalDC.getNodeId() + " | currentDC: " + currentDCId
+                    + " | nextDC: " + nextMigrationDC + " | doing op on " + keysToDataObjects.get(lastOperation.getKey()).getDebugInfo());
+        }
+
+        lastOperation.setDatacenter(nextMigrationDC);
 
         return lastOperation;
     }
@@ -215,21 +230,21 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
      * Returns the DC to migrate to (can be the own server)
      */
     private long getMigrationDC(int level) {
-        if (exclusiveDCsPerLevel.get(level).contains(currentDCId)) {
-            return currentDCId;
-        } else {
-            Set<Long> dcIds = exclusiveDCsPerLevel.get(level);
-            int bound = dcIds.size();
-            if (bound == 0) {
-                bound = 1;
-            }
-            return dcIds.stream().skip(randomGenerator.nextInt(bound))
-                    .findFirst().get();
+        Set<Long> dcIds = exclusiveDCsPerLevel.get(level);
+        int bound = dcIds.size();
+        if (bound == 0) {
+            bound = 1;
         }
+        Long nextDC = dcIds.stream().skip(randomGenerator.nextInt(bound))
+                .findFirst().get();
+
+        return nextDC;
+
     }
 
     /**
      * Returns true if it should return the lastOperation.
+     *
      * @return
      */
     public abstract boolean doExtraBehaviour();
@@ -287,30 +302,6 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
     public abstract Operation specificDoRead(DataObject dataObject);
 
     public abstract Operation specificDoUpdate(DataObject dataObject);
-
-    /*
-    private Operation doRead() {
-        lastOperationTimestamp = CommonState.getTime();
-        lastOperationType = Type.READ;
-        numberReads++;
-
-        int randomLevel = getRandomLevel(READ_LEVEL_PERCENTAGE);
-        DataObject randomDataObject = chooseRandomDataObject(randomLevel);
-        operations.add(Type.READ);
-        return new ReadOperation(randomDataObject.getKey());
-    }
-
-    private Operation doUpdate() {
-        lastOperationTimestamp = CommonState.getTime();
-        lastOperationType = Type.UPDATE;
-        numberUpdates++;
-
-        int randomLevel = getRandomLevel(UPDATE_LEVEL_PERCENTAGE);
-        DataObject randomDataObject = chooseRandomDataObject(randomLevel);
-        operations.add(Type.UPDATE);
-        return new UpdateOperation(randomDataObject.getKey(), context);
-    }
-    */
 
     private boolean restTimeOver() {
         if (isEager) {
@@ -376,10 +367,11 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
                 return i;
             }
         }
-        throw new RuntimeException("The settinsg file must have a wrong percentage vector.");
+        throw new RuntimeException("The settings file must have a wrong percentage vector.");
     }
 
     static Map<Integer, Integer> levelsToCount = new HashMap<>();
+
     private void debugPercentages(int level) {
         levelsToCount.putIfAbsent(level, 0);
         Integer currentVal = levelsToCount.get(level);
@@ -393,7 +385,7 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
             bound = 1;
         }
 
-        return dataObjectsPerLevel.get(level).stream()
+        return datacentersToObjectsPerLevel.get(datacenter).get(level).stream()
                 .skip(randomGenerator.nextInt(bound))
                 .findFirst().get();
     }

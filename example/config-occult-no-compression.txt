@@ -10,10 +10,8 @@ network.size SIZE
 simulation.endtime CYCLES
 simulation.logtime CYCLE
 
-
 groups {[0],[0,1],[0,1,2,3],[0,1,2,3,4,5,6,7]}{[1],[0,1],[0,1,2,3],[0,1,2,3,4,5,6,7]}{[2],[2,3],[0,1,2,3],[0,1,2,3,4,5,6,7]}{[3],[2,3],[0,1,2,3],[0,1,2,3,4,5,6,7]}{[4],[4,5],[4,5,6,7],[0,1,2,3,4,5,6,7]}{[5],[4,5],[4,5,6,7],[0,1,2,3,4,5,6,7]}{[6],[6,7],[4,5,6,7],[0,1,2,3,4,5,6,7]}{[7],[6,7],[4,5,6,7],[0,1,2,3,4,5,6,7]}
 
-partitions_datacenters example/partitions/eight_nodes_partition_top.top
 partitions_clients example/client-partitions/four_nodes_all_connected_partition_between_countries.top
 
 
@@ -31,7 +29,7 @@ client_read_retry_interval 1000
 
 
 
-
+overlaytype direct
 outputname occult
 tree tree
 ##########################################

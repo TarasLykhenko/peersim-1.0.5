@@ -10,7 +10,6 @@ network.size SIZE
 simulation.endtime CYCLES
 simulation.logtime 1
 
-partitions_datacenters example/partitions/eight_nodes_seven_brokers_partition_top.top
 partitions_clients example/partitions/four_nodes_all_connected_partition.top
 
 levels 4
@@ -22,7 +21,7 @@ root 14
 
 
 
-
+overlaytype tree
 datacenter datacenter
 broker broker
 ################### protocols ===========================

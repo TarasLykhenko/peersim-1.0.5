@@ -53,9 +53,9 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
                 continue;
             }
 
-            // If the datacenter does not have the object, migrate it
-            if (!this.isInterested(operation.getKey())) {
-                migrateClientStart(client, operation.getKey(), node, pid);
+            // If is remote operation, migrate
+            if (operation.getDatacenter() != nodeId) {
+                migrateClientStart(client, node, operation.getDatacenter(), pid);
                 continue;
             }
 
@@ -78,15 +78,11 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
     }
 
     private void migrateClientStart(Client client,
-                                    int key,
                                     Node originalDC,
+                                    long targetDC,
                                     int pid) {
 
-        // Get datacenters that have the key
-        Set<Node> interestedNodes = getInterestedDatacenters(key);
-
-        // Then select the datacenter that has the lowest latency to the client
-        Node migrationTarget = getLowestLatencyDatacenter(interestedNodes);
+        Node migrationTarget = Network.get((int) targetDC);
 
         MigrationMessage migrationMessage =
                 new MigrationMessage(originalDC.getID(), client.getId(), client.getClientClock());
@@ -94,39 +90,6 @@ public class DatacenterProtocol extends DatacenterProtocolInstance
         client.migrationStart();
         sendMessage(originalDC, migrationTarget, migrationMessage, pid);
         sentMigrations++;
-    }
-
-    private Set<Node> getInterestedDatacenters(int key) {
-        Set<Node> interestedNodes = new HashSet<>();
-        // First get which datacenters replicate the data
-        for (int i = 0; i < Network.size(); i++) {
-            Node node = Network.get(i);
-
-            // Can't migrate to a broker
-            if (ProtocolMapperInit.nodeType.get(node.getID()) == BROKER) {
-                continue;
-
-            }
-
-            StateTreeProtocol dc = (StateTreeProtocol) node.getProtocol(this.datacenter);
-
-            if (dc.isInterested(key)) {
-                interestedNodes.add(node);
-            }
-        }
-        return interestedNodes;
-    }
-
-    private Node getLowestLatencyDatacenter(Set<Node> interestedNodes) {
-        int lowestLatency = Integer.MAX_VALUE;
-        Node bestNode = null;
-        for (Node interestedNode : interestedNodes) {
-            int nodeLatency = PointToPointTransport.staticGetLatency(this.nodeId, interestedNode.getID());
-            if (nodeLatency < lowestLatency) {
-                bestNode = interestedNode;
-            }
-        }
-        return bestNode;
     }
 
     private void sendMessage(Node src, Node dst, Object msg, int pid) {

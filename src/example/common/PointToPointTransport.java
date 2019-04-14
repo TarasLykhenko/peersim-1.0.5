@@ -26,6 +26,7 @@ import peersim.core.Node;
 import peersim.edsim.EDSimulator;
 import peersim.transport.Transport;
 
+import javax.management.RuntimeErrorException;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -55,7 +56,6 @@ public final class PointToPointTransport implements Transport {
 //---------------------------------------------------------------------
 
     private static final String PAR_DURATION = "CYCLES";
-    private static final String PAR_PARTITIONS_FILE = "partitions_datacenters";
     private static final String PAR_PARTITIONS_CLIENTS = "partitions_clients";
 
 //---------------------------------------------------------------------
@@ -89,7 +89,8 @@ public final class PointToPointTransport implements Transport {
         max = MAX_DELAY;
 
         int duration = Configuration.getInt(PAR_DURATION);
-        String partitionsDCFile = Configuration.getString(PAR_PARTITIONS_FILE);
+        String partitionsDCFile = getDCPartitionsFile();
+        System.out.println("Partitions file: " + partitionsDCFile);
         String partitionsClientsFile = Configuration.getString(PAR_PARTITIONS_CLIENTS);
 
         timePartitionStart = Math.round((float) (PARTITION_START_PERCENTAGE / 100) * duration);
@@ -122,6 +123,36 @@ public final class PointToPointTransport implements Transport {
             }
             partitionConnections(partitionsClientsFile, partitionClientTable, timePartitionOver);
         }
+    }
+
+    private String getDCPartitionsFile() {
+        String overlayType = Configuration.getString("overlaytype");
+        if (overlayType.equals("tree")) {
+            switch (Settings.PARTITION_LEVEL) {
+                case 1:
+                    return "example/partitions/eight_nodes_seven_brokers_partition_lvl_1.top";
+                case 2:
+                    return "example/partitions/eight_nodes_seven_brokers_partition_lvl_2.top";
+                case 3:
+                    return "example/partitions/eight_nodes_seven_brokers_partition_lvl_3.top";
+                default:
+                    return "example/partitions/eight_nodes_seven_brokers_partition_custom.top";
+            }
+        } else if (overlayType.equals("direct")) {
+            switch (Settings.PARTITION_LEVEL) {
+                case 1:
+                    return "example/partitions/eight_nodes_partition_lvl_1.top";
+                case 2:
+                    return "example/partitions/eight_nodes_partition_lvl_2.top";
+                case 3:
+                    return "example/partitions/eight_nodes_partition_lvl_3.top";
+                default:
+                    return "example/partitions/eight_nodes_partition_custom.top";
+            }
+        } else {
+            throw new RuntimeException("Unknown overlay type");
+        }
+
     }
 
 //---------------------------------------------------------------------
@@ -185,10 +216,17 @@ public final class PointToPointTransport implements Transport {
      * distribution.
      */
     public void send(Node src, Node dest, Object msg, int pid) {
+        //System.out.println("Node " + src.getID() + " sending message");
         // Check if the senderDC is in a partition to a given target
         // avoid calling nextLong if possible
         Long srcId = src.getID();
         Long destId = dest.getID();
+        if (msg.getClass().getSimpleName().equals("MigrationMessage")) {
+            System.out.println(srcId + " sending to " + destId + " migrationMsg");
+        }
+        if (msg.getClass().getSimpleName().equals("MetadataMessage")) {
+            System.out.println(srcId + " sending to " + destId + " metadataMsg");
+        }
 
         int latency = latencies.get(src.getID()).get(dest.getID());
         if (latency != -1) {
@@ -207,6 +245,10 @@ public final class PointToPointTransport implements Transport {
 
             lastWillBeReceived.get(srcId).put(destId, messageWillBeReceived);
 
+            if (msg.getClass().getSimpleName().equals("MigrationMessage")) {
+                System.out.println(srcId + " sending to " + destId + " migration");
+                System.out.println("Delay is " + delay);
+            }
 
             EDSimulator.add(delay, msg, dest, pid);
         }
@@ -229,7 +271,7 @@ public final class PointToPointTransport implements Transport {
             partitionOver -= currentTime;
             if (partitionOver > 0) {
                 if (Settings.PRINT_INFO) {
-                    System.out.println("ADDING DELAY TO " + msg.getClass().getSimpleName());
+                    //System.out.println("ADDING DELAY TO " + msg);
                 }
                 delay += partitionOver;
             }
