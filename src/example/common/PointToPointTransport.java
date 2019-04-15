@@ -157,13 +157,13 @@ public final class PointToPointTransport implements Transport {
     private String getClientPartitionsFile() {
         switch (Settings.CLIENTS_PARTITION_LEVEL) {
             case 1:
-                return "example/partitions/eight_nodes_partition_lvl_1.top";
+                return "example/client-partitions/eight_nodes_partition_lvl_1.top";
             case 2:
-                return "example/partitions/eight_nodes_partition_lvl_2.top";
+                return "example/client-partitions/eight_nodes_partition_lvl_2.top";
             case 3:
-                return "example/partitions/eight_nodes_partition_lvl_3.top";
+                return "example/client-partitions/eight_nodes_partition_lvl_3.top";
             default:
-                return "example/partitions/eight_nodes_partition_custom.top";
+                return "example/client-partitions/eight_nodes_partition_custom.top";
         }
     }
 

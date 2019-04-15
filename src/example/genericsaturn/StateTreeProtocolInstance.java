@@ -316,11 +316,25 @@ public abstract class StateTreeProtocolInstance
     public void processQueue(List<EventUID> queue, long id) {
         for (EventUID event : queue) {
             if (event.isMigration() && id == event.getMigrationTarget()) {
-                acceptClient(event);
+                if (pendingClientsQueue.containsKey(event.getIdentifier())) {
+                    acceptClient(event);
+                } else {
+                    migrationLabelQueue.add(event.getIdentifier());
+                }
             } else if (isInterested(event.getOperation().getKey())) {
                 // System.out.println("Adding metadata!");
                 addMetadata(event);
             }
+        }
+    }
+
+    private Set<UUID> migrationLabelQueue = new HashSet<>();
+
+    public void migrateClientQueue(Client client, EventUID label) {
+        pendingClientsQueue.put(label.getIdentifier(), client);
+        if (migrationLabelQueue.contains(label.getIdentifier())) {
+            migrationLabelQueue.remove(label.getIdentifier());
+            acceptClient(label);
         }
     }
 
@@ -374,9 +388,6 @@ public abstract class StateTreeProtocolInstance
         }
     }
 
-    public void migrateClientQueue(Client client, EventUID label) {
-        pendingClientsQueue.put(label.getIdentifier(), client);
-    }
 
     public void addQueueToPendingQueue(List<EventUID> queue2, int epoch, long senderId) {
         for (EventUID eventUID : queue2) {

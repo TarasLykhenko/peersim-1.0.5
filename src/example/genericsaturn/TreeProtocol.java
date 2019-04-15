@@ -1,7 +1,5 @@
 package example.genericsaturn;
 
-import example.common.PointToPointTransport;
-import example.common.Settings;
 import example.common.datatypes.Operation;
 import example.genericsaturn.datatypes.EventUID;
 import peersim.cdsim.CDProtocol;
@@ -15,9 +13,7 @@ import peersim.edsim.EDProtocol;
 import peersim.transport.Transport;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import static example.genericsaturn.TypeProtocol.Type;
 
@@ -71,8 +67,8 @@ public class TreeProtocol extends StateTreeProtocolInstance
      */
     private void doDatabaseMethod(Node node, int pid, Linkable linkable) {
         for (Client client : clients) {
-   //         if (client.getId() != 1) continue; // TODO TIRAR ISTO
             Operation operation = client.nextOperation();
+
             if (operation == null) {
                 continue;
             }
@@ -166,10 +162,13 @@ public class TreeProtocol extends StateTreeProtocolInstance
         EventUID migrationLabel = event.clone();
         migrationLabel.setMigration(true, bestNode.getID());
 
-        ClientMigrationRequest req = new ClientMigrationRequest(
-                migrationLabel, client.getId(), originalDC.getID(), bestNode.getID(), epoch);
         client.migrationStart();
-        sendMessage(originalDC, originalDC, req, pid);
+        MigrationMessage migrationMessage = new MigrationMessage(nodeId, client.getId(), migrationLabel);
+        sendMessage(originalDC, bestNode, migrationMessage, pid);
+        sentMigrations++;
+
+        // Send label to broker network
+        sendToBrokerNetwork(originalDC, migrationLabel, pid);
     }
 
     private void sendToBrokerNetwork(Node originalDC, EventUID migrationLabel, int pid) {
@@ -182,7 +181,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
             }
 
             if (ntype.getType() == Type.BROKER) {
-                sendMessage(originalDC, peer, new MigrationMessage(migrationLabel, originalDC.getID(), epoch), pid);
+                sendMessage(originalDC, peer, new BrokerMigrationMessage(migrationLabel, originalDC.getID(), epoch), pid);
             }
         }
     }
@@ -240,27 +239,23 @@ public class TreeProtocol extends StateTreeProtocolInstance
             }
         }
 
-        if (event instanceof ClientMigrationRequest) {
-            ClientMigrationRequest req = (ClientMigrationRequest) event;
+        if (event instanceof MigrationMessage) {
+            MigrationMessage msg = (MigrationMessage) event;
 
-            Client client = idToClient.get(req.clientId);
-            clients.remove(client);
-            idToClient.remove(client.getId());
+            StateTreeProtocolInstance originalDC = (StateTreeProtocolInstance)
+                    Network.get(Math.toIntExact(msg.senderDC)).getProtocol(tree);
 
-            TreeProtocol targetDCProtocol = (TreeProtocol) Network
-                    .get(Math.toIntExact(req.targetDC)).getProtocol(tree);
+            Client client = originalDC.idToClient.get(msg.clientId);
+            // Remove client from original DC
+            originalDC.clients.remove(client);
+            originalDC.idToClient.remove(msg.clientId);
 
-            targetDCProtocol.migrateClientQueue(client, req.event);
-            client.migrationStart();
-            sentMigrations++;
-
-            // Send label to broker network
-            sendToBrokerNetwork(node, req.event, pid);
+            this.migrateClientQueue(client, msg.eventUID);
         }
 
         /* ************** BROKERS ****************** */
-        if (event instanceof MigrationMessage) {
-            MigrationMessage msg = (MigrationMessage) event;
+        if (event instanceof BrokerMigrationMessage) {
+            BrokerMigrationMessage msg = (BrokerMigrationMessage) event;
 
             List<EventUID> vec = new ArrayList<>();
             vec.add(msg.event);
@@ -350,32 +345,30 @@ public class TreeProtocol extends StateTreeProtocolInstance
         }
     }
 
-    class ClientMigrationRequest {
+    class BrokerMigrationMessage {
+
         final EventUID event;
-        final int clientId;
         final long senderId;
-        final long targetDC;
         final int epoch;
 
-        ClientMigrationRequest(EventUID event, int clientId, long senderId, long targetDC, int epoch) {
+        BrokerMigrationMessage(EventUID event, long senderId, int epoch) {
             this.event = event;
-            this.clientId = clientId;
             this.senderId = senderId;
-            this.targetDC = targetDC;
             this.epoch = epoch;
         }
     }
 
     class MigrationMessage {
+        final long senderDC;
+        final int clientId;
+        final long timestamp;
+        final EventUID eventUID;
 
-        final EventUID event;
-        final long senderId;
-        final int epoch;
-
-        MigrationMessage(EventUID event, long senderId, int epoch) {
-            this.event = event;
-            this.senderId = senderId;
-            this.epoch = epoch;
+        public MigrationMessage(long senderDC, int clientId, EventUID event) {
+            this.senderDC = senderDC;
+            this.clientId = clientId;
+            this.timestamp = CommonState.getTime();
+            this.eventUID = event;
         }
     }
 

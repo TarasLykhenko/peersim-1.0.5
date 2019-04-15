@@ -25,8 +25,6 @@ import example.common.BasicClientInterface;
 import example.common.datatypes.DataObject;
 import peersim.core.Protocol;
 
-import java.security.acl.Group;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -58,7 +56,7 @@ public abstract class DatacenterProtocolInstance
     /**
      * Cloudlet clock
      */
-    private Map<Long, Integer> cloudletClock = new HashMap<>();
+    protected Map<Long, Integer> cloudletClock = new HashMap<>();
 
     /**
      * Migration Table:
@@ -309,6 +307,12 @@ public abstract class DatacenterProtocolInstance
             updateStorageTable(key);
         }
         checkMigrationTable(datacenterUpdateOrigin);
+    }
+
+    void processHeartbeat(long originDC,  Map<Long, Integer> updateClock) {
+        updateRemoteUpdateTable(originDC, updateClock);
+        updateOwnCloudletClock(updateClock);
+        checkMigrationTable(originDC);
     }
 
     void migrateClient(long originDatacenter,

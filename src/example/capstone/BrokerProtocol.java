@@ -27,34 +27,35 @@ public class BrokerProtocol implements EDProtocol {
     /**
      * There are two scenarios for a broker
      *
-     *  Scenario 1: Update is received from downstream:
-     *      1) First, update the broker's entry
-     *      2) Check if children brokers want the update
-     *      3) Check if the parent wants the update
+     * Scenario 1: Update is received from downstream:
+     * 1) First, update the broker's entry
+     * 2) Check if children brokers want the update
+     * 3) Check if the parent wants the update
      *
-     *  Scenario 2: Update is received from upstream:
-     *      1) Check which children want the update.
+     * Scenario 2: Update is received from upstream:
+     * 1) Check which children want the update.
      */
     @Override
     public void processEvent(Node node, int pid, Object event) {
         if (event instanceof UpdateMessage) {
             UpdateMessage updateMessage = (UpdateMessage) event;
-
             TreeOverlay treeOverlay = GroupsManager.getInstance().getTreeOverlay();
             if (treeOverlay.nodeIsParent((int) node.getID(), updateMessage.getLastSender())) {
                 handleMessageFromUpstream(node, updateMessage, pid);
             } else {
-                handleMessageFromDownstream(node, updateMessage, pid);
+                handleMessageFromDownstream(node, updateMessage, updateMessage.getLastSender(), pid);
             }
         } else {
             throw new RuntimeException("Unknown message type: " + event.getClass().getSimpleName());
         }
     }
 
-    private void handleMessageFromDownstream(Node src, UpdateMessage updateMessage, int pid) {
+    private void handleMessageFromDownstream(Node src, UpdateMessage updateMessage, long originBroker, int pid) {
         updateMessage.updateVectorClockEntry(nodeId, counter++);
-
         for (Node child : getInterestedChildren(src, updateMessage.getKey())) {
+            if (child.getID() == originBroker) {
+                continue;
+            }
             UpdateMessage clonedUpdateMessage = new UpdateMessage(updateMessage, this.nodeId);
             sendMessage(src, child, clonedUpdateMessage, pid);
         }

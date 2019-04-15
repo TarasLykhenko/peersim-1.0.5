@@ -23,7 +23,7 @@ public class Settings {
     // percentagem de clientes que nao usa restime
     public static final int CLIENT_EAGER_PERCENTAGE = 100;
 
-    public static final String CLIENT_MIGRATION_ODDS = "[0,0,0,100]";
+    public static final String CLIENT_MIGRATION_ODDS = "[50,50,0,0]";
 
     public static final String CLIENT_OBJECT_READ_LVL_0 = "[100,0,0,0]";
     public static final String CLIENT_OBJECT_READ_LVL_1 = "[100,0,0,0]";
