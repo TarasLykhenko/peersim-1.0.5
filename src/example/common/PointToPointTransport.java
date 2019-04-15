@@ -90,8 +90,8 @@ public final class PointToPointTransport implements Transport {
 
         int duration = Configuration.getInt(PAR_DURATION);
         String partitionsDCFile = getDCPartitionsFile();
+        String partitionsClientsFile = getClientPartitionsFile();
         System.out.println("Partitions file: " + partitionsDCFile);
-        String partitionsClientsFile = Configuration.getString(PAR_PARTITIONS_CLIENTS);
 
         timePartitionStart = Math.round((float) (PARTITION_START_PERCENTAGE / 100) * duration);
         timePartitionOver = Math.round((float) (PARTITION_STOP_PERCENTAGE / 100) * duration);
@@ -128,7 +128,7 @@ public final class PointToPointTransport implements Transport {
     private String getDCPartitionsFile() {
         String overlayType = Configuration.getString("overlaytype");
         if (overlayType.equals("tree")) {
-            switch (Settings.PARTITION_LEVEL) {
+            switch (Settings.DC_PARTITION_LEVEL) {
                 case 1:
                     return "example/partitions/eight_nodes_seven_brokers_partition_lvl_1.top";
                 case 2:
@@ -139,7 +139,7 @@ public final class PointToPointTransport implements Transport {
                     return "example/partitions/eight_nodes_seven_brokers_partition_custom.top";
             }
         } else if (overlayType.equals("direct")) {
-            switch (Settings.PARTITION_LEVEL) {
+            switch (Settings.DC_PARTITION_LEVEL) {
                 case 1:
                     return "example/partitions/eight_nodes_partition_lvl_1.top";
                 case 2:
@@ -152,7 +152,19 @@ public final class PointToPointTransport implements Transport {
         } else {
             throw new RuntimeException("Unknown overlay type");
         }
+    }
 
+    private String getClientPartitionsFile() {
+        switch (Settings.CLIENTS_PARTITION_LEVEL) {
+            case 1:
+                return "example/partitions/eight_nodes_partition_lvl_1.top";
+            case 2:
+                return "example/partitions/eight_nodes_partition_lvl_2.top";
+            case 3:
+                return "example/partitions/eight_nodes_partition_lvl_3.top";
+            default:
+                return "example/partitions/eight_nodes_partition_custom.top";
+        }
     }
 
 //---------------------------------------------------------------------
