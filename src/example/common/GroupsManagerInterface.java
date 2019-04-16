@@ -13,6 +13,10 @@ public interface GroupsManagerInterface {
 
     default int getLowestCommonLevel(long originId, long targetId) {
         Map<Integer, Set<Long>> originLevels = getExclusiveNodeToLevelNeighbourIds(originId);
+        if (originLevels == null) {
+            // Brokers
+            return -1;
+        }
         int level = 0;
         while (true) {
             if (originLevels.get(level) == null) {

@@ -2,4 +2,6 @@
 .idea
 out/
 #output
+src/example/common/Settings.java
+
 
