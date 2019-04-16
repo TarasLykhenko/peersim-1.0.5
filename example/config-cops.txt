@@ -27,7 +27,7 @@ partitions_clients example/client-partitions/four_nodes_all_connected_partition_
 
 
 
-
+transport urt
 overlaytype direct
 tree tree
 ##########################################

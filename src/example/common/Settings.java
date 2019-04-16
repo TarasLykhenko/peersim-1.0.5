@@ -58,6 +58,15 @@ public class Settings {
     public static final double PARTITION_START_PERCENTAGE = 20;
     public static final double PARTITION_STOP_PERCENTAGE = 70;
 
+    // Luis Configs
+    public static final boolean PARTITIONS_ARE_DELAYS = true;
+    public static final double PARTITION_STRETCH_L1_PERCENTAGE = 20;
+    public static final double PARTITION_STRETCH_L2_PERCENTAGE = 30;
+    public static final double PARTITION_STRETCH_L3_PERCENTAGE = 40;
+    public static final long PARTITION_MESSAGE_L1_AFFECTED_PERCENTAGE = 20;
+    public static final long PARTITION_MESSAGE_L2_AFFECTED_PERCENTAGE = 30;
+    public static final long PARTITION_MESSAGE_L3_AFFECTED_PERCENTAGE = 40;
+
     public static final boolean PRINT_INFO = false;
     public static final boolean PRINT_VERBOSE = false;
 

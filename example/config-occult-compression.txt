@@ -28,7 +28,7 @@ client_read_retry_interval 1000
 
 
 
-
+transport urt
 overlaytype direct
 outputname occult-compression
 tree tree

@@ -1,5 +1,6 @@
 package example.occult;
 
+import example.common.PointToPointTransport;
 import example.common.Settings;
 import example.common.datatypes.DataObject;
 import peersim.config.Configuration;
@@ -124,6 +125,8 @@ public class InitTreeProtocol implements Control {
             Node node = Network.get(i);
             StateTreeProtocol treeProtocol = (StateTreeProtocol) node.getProtocol(tree);
             treeProtocol.setNodeId(node.getID());
+            ((PointToPointTransport) node.getProtocol(Configuration.getPid("transport")))
+                    .setGroupsManager(GroupsManager.getInstance());
         }
     }
 

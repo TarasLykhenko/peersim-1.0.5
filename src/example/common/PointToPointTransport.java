@@ -26,7 +26,6 @@ import peersim.core.Node;
 import peersim.edsim.EDSimulator;
 import peersim.transport.Transport;
 
-import javax.management.RuntimeErrorException;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -39,6 +38,13 @@ import static example.common.Settings.PARTITION_START_PERCENTAGE;
 import static example.common.Settings.PARTITION_STOP_PERCENTAGE;
 import static example.common.Settings.SHOULD_PARTITION_CLIENTS;
 import static example.common.Settings.SHOULD_PARTITION_DC;
+import static example.common.Settings.PARTITIONS_ARE_DELAYS;
+import static example.common.Settings.PARTITION_STRETCH_L1_PERCENTAGE;
+import static example.common.Settings.PARTITION_STRETCH_L2_PERCENTAGE;
+import static example.common.Settings.PARTITION_STRETCH_L3_PERCENTAGE;
+import static example.common.Settings.PARTITION_MESSAGE_L1_AFFECTED_PERCENTAGE;
+import static example.common.Settings.PARTITION_MESSAGE_L2_AFFECTED_PERCENTAGE;
+import static example.common.Settings.PARTITION_MESSAGE_L3_AFFECTED_PERCENTAGE;
 
 
 /**
@@ -76,6 +82,7 @@ public final class PointToPointTransport implements Transport {
 
     private final int timePartitionStart;
     private final int timePartitionOver;
+    private GroupsManagerInterface groupsManager;
 
     //---------------------------------------------------------------------
 //Initialization
@@ -123,6 +130,10 @@ public final class PointToPointTransport implements Transport {
             }
             partitionConnections(partitionsClientsFile, partitionClientTable, timePartitionOver);
         }
+    }
+
+    public void setGroupsManager(GroupsManagerInterface groupsManager) {
+        this.groupsManager = groupsManager;
     }
 
     private String getDCPartitionsFile() {
@@ -256,6 +267,7 @@ public final class PointToPointTransport implements Transport {
 
     private long addPartitionDelay(Object msg, Long srcId, Long destId, long delay) {
         long currentTime = CommonState.getTime();
+
         if (currentTime < timePartitionStart || currentTime > timePartitionOver) {
             return delay;
         }
@@ -268,12 +280,39 @@ public final class PointToPointTransport implements Transport {
         }
 
         if (partitionOver != 0) {
-            partitionOver -= currentTime;
-            if (partitionOver > 0) {
-                if (Settings.PRINT_INFO) {
-                    System.out.println("ADDING DELAY TO " + msg);
+            if (PARTITIONS_ARE_DELAYS) {
+                float stretch;
+                float target_percentage;
+
+                switch (groupsManager.getLowestCommonLevel(srcId, destId)) {
+                    case 1:
+                        target_percentage = PARTITION_MESSAGE_L1_AFFECTED_PERCENTAGE;
+                        stretch =  1 + (float) (PARTITION_STRETCH_L1_PERCENTAGE / 100);
+                        break;
+                    case 2:
+                        target_percentage = PARTITION_MESSAGE_L2_AFFECTED_PERCENTAGE;
+                        stretch =  1 + (float) (PARTITION_STRETCH_L2_PERCENTAGE / 100);
+                        break;
+                    case 3:
+                        target_percentage = PARTITION_MESSAGE_L3_AFFECTED_PERCENTAGE;
+                        stretch =  1 + (float) (PARTITION_STRETCH_L3_PERCENTAGE / 100);
+                        break;
+                    default:
+                        target_percentage = 0;
+                        stretch = 1;
                 }
-                delay += partitionOver;
+                if (CommonState.r.nextLong(100) < target_percentage) {
+                    delay = Math.round(delay * stretch);
+                }
+            }
+            else {
+                partitionOver -= currentTime;
+                if (partitionOver > 0) {
+                    if (Settings.PRINT_INFO) {
+                        System.out.println("ADDING DELAY TO " + msg);
+                    }
+                    delay += partitionOver;
+                }
             }
         }
         return delay;

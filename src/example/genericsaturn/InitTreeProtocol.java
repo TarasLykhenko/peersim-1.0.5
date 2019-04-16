@@ -1,5 +1,6 @@
 package example.genericsaturn;
 
+import example.common.PointToPointTransport;
 import example.common.datatypes.DataObject;
 import peersim.config.Configuration;
 import peersim.core.Control;
@@ -205,6 +206,8 @@ public class InitTreeProtocol implements Control {
             Node node = Network.get(i);
             StateTreeProtocol treeProtocol = (StateTreeProtocol) node.getProtocol(tree);
             treeProtocol.initQueue(node);
+            ((PointToPointTransport) node.getProtocol(Configuration.getPid("transport")))
+                    .setGroupsManager(GroupsManager.getInstance());
         }
     }
 

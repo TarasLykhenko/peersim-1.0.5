@@ -1,5 +1,6 @@
 package example.capstone;
 
+import example.common.PointToPointTransport;
 import example.common.datatypes.DataObject;
 import peersim.config.Configuration;
 import peersim.core.Control;
@@ -202,6 +203,8 @@ public class InitTreeProtocol implements Control {
             BrokerProtocol bp = (BrokerProtocol) node.getProtocol(this.broker);
             bp.setNodeId(node.getID());
             dc.init(node.getID());
+            ((PointToPointTransport) node.getProtocol(Configuration.getPid("transport")))
+                    .setGroupsManager(GroupsManager.getInstance());
         }
     }
 
