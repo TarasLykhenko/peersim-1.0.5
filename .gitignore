@@ -2,6 +2,7 @@
 .idea
 out/
 #output
+
+output
+target/
 src/example/common/Settings.java
-
-
