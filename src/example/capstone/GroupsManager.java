@@ -8,6 +8,7 @@ import peersim.core.Network;
 import peersim.core.Node;
 import peersim.graph.Graph;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -206,7 +207,9 @@ public class GroupsManager implements GroupsManagerInterface {
         if (exclusiveNodeToLevelNeighbourIds == null) {
             exclusiveNodeToLevelNeighbourIds = new HashMap<>();
 
+            // Prepare for servers
             for (Long serverId : nodeToLevelNeighbours.keySet()) {
+                System.out.println("SERVER ID: " + serverId);
                 Map<Integer, Set<StateTreeProtocol>> levelsAndNodes = nodeToLevelNeighbours.get(serverId);
 
                 int level = 0;
@@ -232,6 +235,26 @@ public class GroupsManager implements GroupsManagerInterface {
 
                     level++;
                 }
+            }
+
+            // Prepare for brokers
+            int firstBroker = nodeToLevelNeighbours.size();
+            for (int i = firstBroker; i < Network.size(); i++) {
+                int currentLevel = levels;
+                // Children will be one level lower
+                Collection<Long> children = treeOverlay.getChildren(i);
+                Long parent = treeOverlay.getParent(i);
+                while (parent != null) {
+                    currentLevel--;
+                    parent = treeOverlay.getParent(parent);
+                }
+
+                exclusiveNodeToLevelNeighbourIds.computeIfAbsent((long) i, k -> new HashMap<>())
+                        .put(currentLevel - 1, new HashSet<>(children));
+                Set<Long> parentSet = new HashSet<>();
+                parentSet.add(treeOverlay.getParent(i));
+
+                exclusiveNodeToLevelNeighbourIds.get((long) i).put(currentLevel, parentSet);
             }
         }
 

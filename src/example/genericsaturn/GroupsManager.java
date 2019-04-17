@@ -178,6 +178,7 @@ public class GroupsManager implements GroupsManagerInterface {
                     level++;
                 }
             }
+
         }
 
         return exclusiveNodeToLevelNeighbourIds.get(nodeId);

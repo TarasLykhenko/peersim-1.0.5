@@ -1,49 +1,70 @@
 package example.common;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Properties;
+
 public class Settings {
 
-    public static final int CLIENT_REQUEST_LATENCY = 10;
-    public static final int CLIENT_MIGRATION_LATENCY = 10;
-    public static final int MIN_DELAY = 5;
-    public static final int MAX_DELAY = 10;
+    private Settings() {
+
+    }
+
+    private static Properties prop = new Properties();
+    static {
+        try (InputStream input = new FileInputStream("example/settings.txt")) {
+            // load a properties file
+            prop.load(input);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            System.exit(-2);
+        }
+    }
+
+
+    public static final int CLIENT_REQUEST_LATENCY = Integer.parseInt(prop.getProperty("CLIENT_REQUEST_LATENCY"));
+    public static final int CLIENT_MIGRATION_LATENCY = Integer.parseInt(prop.getProperty("CLIENT_MIGRATION_LATENCY"));
+    public static final int MIN_DELAY = Integer.parseInt(prop.getProperty("MIN_DELAY"));
+    public static final int MAX_DELAY = Integer.parseInt(prop.getProperty("MAX_DELAY"));
 
     // How long it takes for a client to connect to  other DC
     // CLIENT SETTINGS
 
-    public static final int CLIENTS_PER_DATACENTER = 200;
+    public static final int CLIENTS_PER_DATACENTER = Integer.parseInt(prop.getProperty("CLIENTS_PER_DATACENTER"));
 
     // REST_TIME = intervalo entre pedidos
     // REST_TIME_INTERVAL = variancia do intervalo
 
-    public static final int REST_TIME = 500;
-    public static final int REST_TIME_INTERVAL = 50;
-    public static final int CLIENT_READ_PERCENTAGE = 80;
-    public static final int CLIENT_UPDATE_PERCENTAGE = 20;
+    public static final int REST_TIME = Integer.parseInt(prop.getProperty("REST_TIME"));
+    public static final int REST_TIME_INTERVAL = Integer.parseInt(prop.getProperty("REST_TIME_INTERVAL"));
+    public static final int CLIENT_READ_PERCENTAGE = Integer.parseInt(prop.getProperty("CLIENT_READ_PERCENTAGE"));
+    public static final int CLIENT_UPDATE_PERCENTAGE = Integer.parseInt(prop.getProperty("CLIENT_UPDATE_PERCENTAGE"));
 
     // percentagem de clientes que nao usa restime
-    public static final int CLIENT_EAGER_PERCENTAGE = 100;
+    public static final int CLIENT_EAGER_PERCENTAGE = Integer.parseInt(prop.getProperty("CLIENT_EAGER_PERCENTAGE"));
 
-    public static final String CLIENT_MIGRATION_ODDS = "[50,30,15,5]";
+    public static final String CLIENT_MIGRATION_ODDS = prop.getProperty("CLIENT_MIGRATION_ODDS");
 
-    public static final String CLIENT_OBJECT_READ_LVL_0 = "[50,25,15,10]";
-    public static final String CLIENT_OBJECT_READ_LVL_1 = "[100,0,0,0]";
-    public static final String CLIENT_OBJECT_READ_LVL_2 = "[80,20,0,0]";
-    public static final String CLIENT_OBJECT_READ_LVL_3 = "[70,20,10,0]";
+    public static final String CLIENT_OBJECT_READ_LVL_0 = prop.getProperty("CLIENT_OBJECT_READ_LVL_0");
+    public static final String CLIENT_OBJECT_READ_LVL_1 = prop.getProperty("CLIENT_OBJECT_READ_LVL_1");
+    public static final String CLIENT_OBJECT_READ_LVL_2 = prop.getProperty("CLIENT_OBJECT_READ_LVL_2");
+    public static final String CLIENT_OBJECT_READ_LVL_3 = prop.getProperty("CLIENT_OBJECT_READ_LVL_3");
 
-    public static final String CLIENT_OBJECT_UPDATE_LVL_0 = "[50,25,15,10]";
-    public static final String CLIENT_OBJECT_UPDATE_LVL_1 = "[100,0,0,0]";
-    public static final String CLIENT_OBJECT_UPDATE_LVL_2 = "[80,20,0,0]";
-    public static final String CLIENT_OBJECT_UPDATE_LVL_3 = "[70,20,10,0]";
+    public static final String CLIENT_OBJECT_UPDATE_LVL_0 = prop.getProperty("CLIENT_OBJECT_UPDATE_LVL_0");
+    public static final String CLIENT_OBJECT_UPDATE_LVL_1 = prop.getProperty("CLIENT_OBJECT_UPDATE_LVL_1");
+    public static final String CLIENT_OBJECT_UPDATE_LVL_2 = prop.getProperty("CLIENT_OBJECT_UPDATE_LVL_2");
+    public static final String CLIENT_OBJECT_UPDATE_LVL_3 = prop.getProperty("CLIENT_OBJECT_UPDATE_LVL_3");
 
-    public static final int TOTAL_OBJECTS_PER_DATACENTER = 100;
+    public static final int TOTAL_OBJECTS_PER_DATACENTER = 1000;
 
     // Distribuicao dos objectos em cada datacenter
-    public static final String LEVELS_PERCENTAGE = "[50,25,15,10]";
+    public static final String LEVELS_PERCENTAGE = prop.getProperty("LEVELS_PERCENTAGE");
 
-    public static final float STATISTICS_WINDOW = 1;
+    public static final float STATISTICS_WINDOW = Float.parseFloat(prop.getProperty("STATISTICS_WINDOW"));
 
-    public static final boolean SHOULD_PARTITION_DC = true;
-    public static final boolean SHOULD_PARTITION_CLIENTS = false;
+    public static final boolean SHOULD_PARTITION_DC = Boolean.parseBoolean(prop.getProperty("SHOULD_PARTITION_DC"));
+    public static final boolean SHOULD_PARTITION_CLIENTS = Boolean.parseBoolean(prop.getProperty("SHOULD_PARTITION_CLIENTS"));
 
     // Partition lvl can be 1, 2, or 3. Any other value will load the file
     // eight_nodes_partition_custom (for projects without tree)
@@ -51,29 +72,29 @@ public class Settings {
     // Partition lvl 1: Servers cannot comunicate with other servers
     // Partition lvl 2: Each server can communicate with 1 server
     // Partition lvl 3: Each server can communicate with 3 servers
-    public static final int DC_PARTITION_LEVEL = 3;
-    public static final int CLIENTS_PARTITION_LEVEL = 3;
+    public static final int DC_PARTITION_LEVEL = Integer.parseInt(prop.getProperty("DC_PARTITION_LEVEL"));
+    public static final int CLIENTS_PARTITION_LEVEL = Integer.parseInt(prop.getProperty("CLIENTS_PARTITION_LEVEL"));
 
 
-    public static final double PARTITION_START_PERCENTAGE = 20;
-    public static final double PARTITION_STOP_PERCENTAGE = 70;
+    public static final double PARTITION_START_PERCENTAGE = Double.parseDouble(prop.getProperty("PARTITION_START_PERCENTAGE"));
+    public static final double PARTITION_STOP_PERCENTAGE = Double.parseDouble(prop.getProperty("PARTITION_STOP_PERCENTAGE"));
 
     // Luis Configs
-    public static final boolean PARTITIONS_ARE_DELAYS = true;
-    public static final double PARTITION_STRETCH_L1_PERCENTAGE = 20;
-    public static final double PARTITION_STRETCH_L2_PERCENTAGE = 30;
-    public static final double PARTITION_STRETCH_L3_PERCENTAGE = 40;
-    public static final long PARTITION_MESSAGE_L1_AFFECTED_PERCENTAGE = 20;
-    public static final long PARTITION_MESSAGE_L2_AFFECTED_PERCENTAGE = 30;
-    public static final long PARTITION_MESSAGE_L3_AFFECTED_PERCENTAGE = 40;
+    public static final boolean PARTITIONS_ARE_DELAYS = Boolean.parseBoolean(prop.getProperty("PARTITIONS_ARE_DELAYS"));
+    public static final double PARTITION_STRETCH_L1_PERCENTAGE = Double.parseDouble(prop.getProperty("PARTITION_STRETCH_L1_PERCENTAGE"));
+    public static final double PARTITION_STRETCH_L2_PERCENTAGE = Double.parseDouble(prop.getProperty("PARTITION_STRETCH_L2_PERCENTAGE"));
+    public static final double PARTITION_STRETCH_L3_PERCENTAGE = Double.parseDouble(prop.getProperty("PARTITION_STRETCH_L3_PERCENTAGE"));
+    public static final long PARTITION_MESSAGE_L1_AFFECTED_PERCENTAGE = Long.parseLong(prop.getProperty("PARTITION_MESSAGE_L1_AFFECTED_PERCENTAGE"));
+    public static final long PARTITION_MESSAGE_L2_AFFECTED_PERCENTAGE = Long.parseLong(prop.getProperty("PARTITION_MESSAGE_L2_AFFECTED_PERCENTAGE"));
+    public static final long PARTITION_MESSAGE_L3_AFFECTED_PERCENTAGE = Long.parseLong(prop.getProperty("PARTITION_MESSAGE_L3_AFFECTED_PERCENTAGE"));
 
 
+
+
+
+    // DEBUG
     public static final boolean PRINT_INFO = false;
     public static final boolean PRINT_VERBOSE = false;
-
-
-
-    // OLD SETTINGS - USED ONLY FOR OLD CLIENT - DO NOT TOUCH
     public static final String CLIENT_LOCALITY_PERCENTAGE = "[0,0,0,100]";
     public static final String CLIENT_READ_LEVEL_PERCENTAGE = "[50,25,15,10]";
     public static final String CLIENT_UPDATE_LEVEL_PERCENTAGE = "[50,25,15,10]";
