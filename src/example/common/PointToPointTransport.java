@@ -235,6 +235,10 @@ public final class PointToPointTransport implements Transport {
 
             delay = addPartitionDelay(msg, srcId, destId, delay);
 
+            if (messageIsFromClient(msg)) {
+                delay = Math.round(delay * Settings.CLIENT_NETWORK_STRETCH);
+            }
+
             // We only need "FIFO" between servers, not between clients and servers.
             if (!messageIsFromClient(msg)) {
                 long messageWillBeReceived = CommonState.getTime() + delay;
@@ -306,10 +310,6 @@ public final class PointToPointTransport implements Transport {
     private long addBellDelay(int latency, Object msg) {
         long delay = 0;
 
-        if (messageIsMigrationRequest(msg)) {
-            return Settings.CLIENT_MIGRATION_LATENCY;
-        }
-
         long extraDelay = CommonState.r.nextLong(max);
         if (extraDelay < min) {
             extraDelay = min;
@@ -331,10 +331,6 @@ public final class PointToPointTransport implements Transport {
         String msgName = msg.getClass().getSimpleName();
 
         return msgName.equals(read) || msgName.equals(update) || msgName.equals(migrate);
-    }
-
-    private boolean messageIsMigrationRequest(Object msg) {
-        return msg.getClass().getSimpleName().equals("MigrationMessage");
     }
 
     private void partitionConnections(String partitionsFile,

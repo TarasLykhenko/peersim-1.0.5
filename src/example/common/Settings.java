@@ -24,7 +24,7 @@ public class Settings {
 
 
     public static final int CLIENT_REQUEST_LATENCY = Integer.parseInt(prop.getProperty("CLIENT_REQUEST_LATENCY"));
-    public static final int CLIENT_MIGRATION_LATENCY = Integer.parseInt(prop.getProperty("CLIENT_MIGRATION_LATENCY"));
+    public static final float CLIENT_NETWORK_STRETCH = Float.parseFloat(prop.getProperty("CLIENT_NETWORK_STRETCH"));
     public static final int MIN_DELAY = Integer.parseInt(prop.getProperty("MIN_DELAY"));
     public static final int MAX_DELAY = Integer.parseInt(prop.getProperty("MAX_DELAY"));
 
