@@ -266,6 +266,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
             }
         }
 
+        // DC AND BROKERS
         if (event instanceof QueueMessage) {
             QueueMessage msg = (QueueMessage) event;
 

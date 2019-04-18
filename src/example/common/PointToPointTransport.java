@@ -231,19 +231,21 @@ public final class PointToPointTransport implements Transport {
         int latency = latencies.get(src.getID()).get(dest.getID());
         if (latency != -1) {
 
-            long delay = addBellDelay(latency);
+            long delay = addBellDelay(latency, msg);
 
             delay = addPartitionDelay(msg, srcId, destId, delay);
 
-            long messageWillBeReceived = CommonState.getTime() + delay;
+            // We only need "FIFO" between servers, not between clients and servers.
+            if (!messageIsFromClient(msg)) {
+                long messageWillBeReceived = CommonState.getTime() + delay;
+                long lastWillBeReceivedDest = lastWillBeReceived.get(srcId).get(destId);
+                if (messageWillBeReceived <= lastWillBeReceivedDest) {
+                    messageWillBeReceived = lastWillBeReceivedDest + 1;
+                    delay = messageWillBeReceived - CommonState.getTime();
+                }
 
-            long lastWillBeReceivedDest = lastWillBeReceived.get(srcId).get(destId);
-            if (messageWillBeReceived <= lastWillBeReceivedDest) {
-                messageWillBeReceived = lastWillBeReceivedDest + 1;
-                delay = messageWillBeReceived - CommonState.getTime();
+                lastWillBeReceived.get(srcId).put(destId, messageWillBeReceived);
             }
-
-            lastWillBeReceived.get(srcId).put(destId, messageWillBeReceived);
 
             EDSimulator.add(delay, msg, dest, pid);
         }
@@ -257,7 +259,7 @@ public final class PointToPointTransport implements Transport {
         }
 
         int partitionOver;
-        if (messageIsMigration(msg)) {
+        if (messageIsFromClient(msg)) {
             partitionOver = partitionClientTable.get(srcId).get(destId);
         } else {
             partitionOver = partitionDCTable.get(srcId).get(destId);
@@ -301,8 +303,12 @@ public final class PointToPointTransport implements Transport {
         return delay;
     }
 
-    private long addBellDelay(int latency) {
+    private long addBellDelay(int latency, Object msg) {
         long delay = 0;
+
+        if (messageIsMigrationRequest(msg)) {
+            return Settings.CLIENT_MIGRATION_LATENCY;
+        }
 
         long extraDelay = CommonState.r.nextLong(max);
         if (extraDelay < min) {
@@ -318,7 +324,16 @@ public final class PointToPointTransport implements Transport {
      *
      * This is not very typeSafe, but we need it to be like this because of Saturn
      */
-    private boolean messageIsMigration(Object msg) {
+    private boolean messageIsFromClient(Object msg) {
+        String read = "ReadMessage";
+        String update = "LocalUpdate";
+        String migrate = "MigrationMessage";
+        String msgName = msg.getClass().getSimpleName();
+
+        return msgName.equals(read) || msgName.equals(update) || msgName.equals(migrate);
+    }
+
+    private boolean messageIsMigrationRequest(Object msg) {
         return msg.getClass().getSimpleName().equals("MigrationMessage");
     }
 

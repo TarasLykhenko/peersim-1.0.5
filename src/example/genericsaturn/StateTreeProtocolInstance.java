@@ -19,14 +19,12 @@
 package example.genericsaturn;
 
 import example.common.BasicClientInterface;
-import example.common.Settings;
 import example.common.datatypes.DataObject;
 import example.genericsaturn.datatypes.EventUID;
 import example.genericsaturn.datatypes.PendingEventUID;
 import example.genericsaturn.datatypes.VersionVector;
 import peersim.config.Configuration;
 import peersim.core.Linkable;
-import peersim.core.Network;
 import peersim.core.Node;
 import peersim.core.Protocol;
 
@@ -296,7 +294,7 @@ public abstract class StateTreeProtocolInstance
         // System.out.println("Trying to add event");
         for (Long key : queue.keySet()) {
             if (!key.equals(from)) {
-            //    System.out.println("Adding to queue!");
+                //    System.out.println("Adding to queue!");
                 queue.get(key).add(event);
             }
         }
@@ -315,13 +313,8 @@ public abstract class StateTreeProtocolInstance
 
     public void processQueue(List<EventUID> queue, long id) {
         for (EventUID event : queue) {
-            if (event.isMigration() && id == event.getMigrationTarget()) {
-                if (pendingClientsQueue.containsKey(event.getIdentifier())) {
-                    acceptClient(event);
-                } else {
-                    migrationLabelQueue.add(event.getIdentifier());
-                }
-            } else if (isInterested(event.getOperation().getKey())) {
+            if (isInterested(event.getOperation().getKey()) ||
+                    (event.isMigration() && id == event.getMigrationTarget())) {
                 // System.out.println("Adding metadata!");
                 addMetadata(event);
             }
@@ -360,7 +353,7 @@ public abstract class StateTreeProtocolInstance
     //--------------------------------------------------------------------------
 
     public void addToPendingQueue(EventUID event, int epoch, long senderId) {
-    //    System.out.println("Adding event: "+event.toString()+" to node "+senderId+" pending queue");
+        //    System.out.println("Adding event: "+event.toString()+" to node "+senderId+" pending queue");
         if (pendingQueue.containsKey(epoch)) {
             pendingQueue.get(epoch).add(new PendingEventUID(event, senderId));
         } else {
@@ -449,12 +442,19 @@ public abstract class StateTreeProtocolInstance
         //System.out.println("PROCESSING EVENT!");
         //System.out.println("Processing event "+event.getKey()+","+event.getTimestamp()+" from: "+event.getSrc()+" to: "+event.getDst()+" with latency: "+event.getLatency()+
         //		" tool "+(getEpoch() - event.getEpoch())+" cycles");
-            if (!isAlreadyDelivered(event)) {
-                averageProcessing = (averageProcessing + (getEpoch() - event.getEpoch()));
-                countProcessed++;
-                this.processed.add(event);
+        if (event.isMigration() && nodeId == event.getMigrationTarget()) {
+            if (pendingClientsQueue.containsKey(event.getIdentifier())) {
+                acceptClient(event);
+            } else {
+                migrationLabelQueue.add(event.getIdentifier());
             }
-         else {
+        }
+
+        if (!isAlreadyDelivered(event)) {
+            averageProcessing = (averageProcessing + (getEpoch() - event.getEpoch()));
+            countProcessed++;
+            this.processed.add(event);
+        } else {
             averageProcessing = (averageProcessing + (getEpoch() - event.getEpoch()));
             countProcessed++;
             this.processed.add(event);
@@ -506,7 +506,9 @@ public abstract class StateTreeProtocolInstance
     @Override
     public void addMetadata(EventUID event) {
         if (metadataQueue.isEmpty()) {
-            if (data.seenEvent(event.getOperation().getKey(), event.getTimestamp())) {
+            if (event.isMigration()) {
+                addProcessedEvent(event);
+            } else if (data.seenEvent(event.getOperation().getKey(), event.getTimestamp())) {
                 addProcessedEvent(event);
             } else {
                 metadataQueue.add(event);
@@ -528,6 +530,10 @@ public abstract class StateTreeProtocolInstance
         boolean matches = true;
         while (!metadataQueue.isEmpty() && (matches)) {
             EventUID head = metadataQueue.peek();
+            if (head.isMigration()) {
+                metadataQueue.poll();
+                addProcessedEvent(head);
+            }
             if (data.seenEvent(head.getOperation().getKey(), head.getTimestamp())) {
                 metadataQueue.poll();
                 addProcessedEvent(event);

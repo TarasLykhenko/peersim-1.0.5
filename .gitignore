@@ -3,5 +3,6 @@
 out/
 #output
 
+example/settings.txt
 output
 target/
