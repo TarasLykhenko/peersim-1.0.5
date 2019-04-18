@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -97,6 +98,7 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
     protected long updatesTotalLatency = 0;
     protected long lastOperationTimestamp = 0;
     private int numberMigrations = 0;
+    private int numberInstantMigrationAccepts = 0;
     protected long waitingSince;
     protected long lastResultReceivedTimestamp = 0;
 
@@ -121,7 +123,18 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
         this.locality = locality;
 
         datacentersToObjectsPerLevel = groupsManager.getDataCenterIdsDataObjects();
-        exclusiveDCsPerLevel = groupsManager.getExclusiveNodeToLevelNeighbourIds(originalDC.getNodeId());
+        Map<Integer, Set<Long>> levelsToNeighbours = groupsManager.getExclusiveNodeToLevelNeighbourIds(originalDC.getNodeId());
+        exclusiveDCsPerLevel = new HashMap<>();
+        for (int level : levelsToNeighbours.keySet()) {
+            Set<Long> neighbours = levelsToNeighbours.get(level);
+            Set<Long> dcNeighbours = new HashSet<>();
+            for (long neighbour : neighbours) {
+                if (datacentersToObjectsPerLevel.containsKey(neighbour)) {
+                    dcNeighbours.add(neighbour);
+                }
+            }
+            exclusiveDCsPerLevel.put(level, dcNeighbours);
+        }
     }
 
     @Override
@@ -351,6 +364,16 @@ public abstract class AbstractBaseClient implements BasicClientInterface {
         isWaitingForResult = false;
         numberMigrations++;
         totalMigrationTime += (CommonState.getTime() - lastMigrationStart);
+    }
+
+    @Override
+    public void instantMigrationAccept() {
+        numberInstantMigrationAccepts++;
+    }
+
+    @Override
+    public int getInstantMigrationsAccept() {
+        return numberInstantMigrationAccepts;
     }
 
     private int getRandomLevel(int[] levelPercentages) {

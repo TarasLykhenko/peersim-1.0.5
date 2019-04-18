@@ -137,31 +137,15 @@ public final class PointToPointTransport implements Transport {
     }
 
     private String getDCPartitionsFile() {
-        String overlayType = Configuration.getString("overlaytype");
-        if (overlayType.equals("tree")) {
-            switch (Settings.DC_PARTITION_LEVEL) {
-                case 1:
-                    return "example/partitions/eight_nodes_seven_brokers_partition_lvl_1.top";
-                case 2:
-                    return "example/partitions/eight_nodes_seven_brokers_partition_lvl_2.top";
-                case 3:
-                    return "example/partitions/eight_nodes_seven_brokers_partition_lvl_3.top";
-                default:
-                    return "example/partitions/eight_nodes_seven_brokers_partition_custom.top";
-            }
-        } else if (overlayType.equals("direct")) {
-            switch (Settings.DC_PARTITION_LEVEL) {
-                case 1:
-                    return "example/partitions/eight_nodes_partition_lvl_1.top";
-                case 2:
-                    return "example/partitions/eight_nodes_partition_lvl_2.top";
-                case 3:
-                    return "example/partitions/eight_nodes_partition_lvl_3.top";
-                default:
-                    return "example/partitions/eight_nodes_partition_custom.top";
-            }
-        } else {
-            throw new RuntimeException("Unknown overlay type");
+        switch (Settings.DC_PARTITION_LEVEL) {
+            case 1:
+                return "example/partitions/eight_nodes_partition_lvl_1.top";
+            case 2:
+                return "example/partitions/eight_nodes_partition_lvl_2.top";
+            case 3:
+                return "example/partitions/eight_nodes_partition_lvl_3.top";
+            default:
+                return "example/partitions/eight_nodes_partition_custom.top";
         }
     }
 
@@ -287,15 +271,15 @@ public final class PointToPointTransport implements Transport {
                 switch (groupsManager.getLowestCommonLevel(srcId, destId)) {
                     case 1:
                         target_percentage = PARTITION_MESSAGE_L1_AFFECTED_PERCENTAGE;
-                        stretch =  1 + (float) (PARTITION_STRETCH_L1_PERCENTAGE / 100);
+                        stretch = 1 + (float) (PARTITION_STRETCH_L1_PERCENTAGE / 100);
                         break;
                     case 2:
                         target_percentage = PARTITION_MESSAGE_L2_AFFECTED_PERCENTAGE;
-                        stretch =  1 + (float) (PARTITION_STRETCH_L2_PERCENTAGE / 100);
+                        stretch = 1 + (float) (PARTITION_STRETCH_L2_PERCENTAGE / 100);
                         break;
                     case 3:
                         target_percentage = PARTITION_MESSAGE_L3_AFFECTED_PERCENTAGE;
-                        stretch =  1 + (float) (PARTITION_STRETCH_L3_PERCENTAGE / 100);
+                        stretch = 1 + (float) (PARTITION_STRETCH_L3_PERCENTAGE / 100);
                         break;
                     default:
                         target_percentage = 0;
@@ -304,8 +288,7 @@ public final class PointToPointTransport implements Transport {
                 if (CommonState.r.nextLong(100) < target_percentage) {
                     delay = Math.round(delay * stretch);
                 }
-            }
-            else {
+            } else {
                 partitionOver -= currentTime;
                 if (partitionOver > 0) {
                     if (Settings.PRINT_INFO) {

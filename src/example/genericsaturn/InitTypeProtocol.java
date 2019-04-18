@@ -45,7 +45,7 @@ public class InitTypeProtocol implements Control {
      */
     public InitTypeProtocol(String prefix) {
         pid = Configuration.getPid(prefix + "." + PAR_TYPE_PROT);
-        n_datanodes =  Configuration.getInt(prefix + "." + PAR_NDATANODES);
+        n_datanodes =  Configuration.getInt(PAR_NDATANODES);
     }
 
     // ------------------------------------------------------------------------

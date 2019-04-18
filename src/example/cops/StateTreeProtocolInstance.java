@@ -218,6 +218,7 @@ abstract class StateTreeProtocolInstance
         if (missingDeps.isEmpty()) {
             debug("Accept immediatly client " + client.getId());
             acceptClient(client);
+            client.instantMigrationAccept();
         } else {
             debug("Client " + client.getId() + " going to queue. deps:" + missingDeps + "|currentStatus:"+keyToDOVersion);
 

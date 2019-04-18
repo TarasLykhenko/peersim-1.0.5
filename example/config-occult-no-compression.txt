@@ -12,7 +12,6 @@ simulation.logtime CYCLE
 
 groups {[0],[0,1],[0,1,2,3],[0,1,2,3,4,5,6,7]}{[1],[0,1],[0,1,2,3],[0,1,2,3,4,5,6,7]}{[2],[2,3],[0,1,2,3],[0,1,2,3,4,5,6,7]}{[3],[2,3],[0,1,2,3],[0,1,2,3,4,5,6,7]}{[4],[4,5],[4,5,6,7],[0,1,2,3,4,5,6,7]}{[5],[4,5],[4,5,6,7],[0,1,2,3,4,5,6,7]}{[6],[6,7],[4,5,6,7],[0,1,2,3,4,5,6,7]}{[7],[6,7],[4,5,6,7],[0,1,2,3,4,5,6,7]}
 
-partitions_clients example/client-partitions/four_nodes_all_connected_partition_between_countries.top
 
 
 ########### OCCULT CONFIGS #############
@@ -29,7 +28,6 @@ client_read_retry_interval 1000
 
 
 transport urt
-overlaytype direct
 outputname occult
 tree tree
 ##########################################
@@ -55,8 +53,6 @@ protocol.tr.drop 0
 
 ### Creates graph and sets latencies
 init.1 example.common.WireTopology
-init.1.topology_path example/topologies
-init.1.topology_file eight_nodes_simple.top
 init.1.protocol link
 
 ### Inits queues based on graph

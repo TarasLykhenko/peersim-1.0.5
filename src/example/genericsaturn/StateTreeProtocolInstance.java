@@ -335,6 +335,7 @@ public abstract class StateTreeProtocolInstance
         if (migrationLabelQueue.contains(label.getIdentifier())) {
             migrationLabelQueue.remove(label.getIdentifier());
             acceptClient(label);
+            client.instantMigrationAccept();
         }
     }
 

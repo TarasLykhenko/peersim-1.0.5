@@ -17,34 +17,6 @@ import static example.common.Settings.CLIENT_REQUEST_LATENCY;
  */
 
 public class WireTopology extends WireGraph {
-    // ------------------------------------------------------------------------
-    // Parameters
-    // ------------------------------------------------------------------------
-
-    /**
-     * The coordinate protocol to look at.
-     *
-     * @config
-     */
-
-    private static final String PAR_PATH = "topology_path";
-    private static final String PAR_TOPOLOGY = "topology_file";
-
-    // --------------------------------------------------------------------------
-    // Fields
-    // --------------------------------------------------------------------------
-    /* A parameter that affects the distance importance. */
-
-    /**
-     * Coordinate protocol pid.
-     */
-
-    private final String path;
-    private final String topology;
-
-    // --------------------------------------------------------------------------
-    // Initialization
-    // --------------------------------------------------------------------------
 
     /**
      * Standard constructor that reads the configuration parameters. Normally
@@ -54,12 +26,10 @@ public class WireTopology extends WireGraph {
      */
     public WireTopology(String prefix) {
         super(prefix);
-        path = Configuration.getString(prefix + "." + PAR_PATH, "example/topologies");
-        topology = Configuration.getString(prefix + "." + PAR_TOPOLOGY, "default.top");
     }
 
     public void wire(Graph graph) {
-        try (BufferedReader br = new BufferedReader(new FileReader(path + "/" + topology))) {
+        try (BufferedReader br = new BufferedReader(new FileReader(Settings.TOPOLOGY_FILE))) {
             String line = br.readLine();
             int source = 0;
             while (line != null) {

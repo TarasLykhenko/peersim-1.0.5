@@ -20,7 +20,7 @@ public class ProtocolMapperInit implements Control {
     }
 
     public ProtocolMapperInit(String prefix) {
-        numberDatacenters =  Configuration.getInt(prefix + "." + "ndatanodes");
+        numberDatacenters =  Configuration.getInt("ndatanodes");
     }
 
     @Override

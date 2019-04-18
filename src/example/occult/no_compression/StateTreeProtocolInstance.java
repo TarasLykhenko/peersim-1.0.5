@@ -169,6 +169,7 @@ abstract class StateTreeProtocolInstance
     void migrateClientQueue(OccultClientInterface client) {
         incrementRemoteReads();
         acceptClient(client);
+        client.instantMigrationAccept();
     }
 
     private void acceptClient(OccultClientInterface client) {

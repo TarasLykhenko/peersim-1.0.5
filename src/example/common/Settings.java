@@ -89,8 +89,8 @@ public class Settings {
     public static final long PARTITION_MESSAGE_L3_AFFECTED_PERCENTAGE = Long.parseLong(prop.getProperty("PARTITION_MESSAGE_L3_AFFECTED_PERCENTAGE"));
 
 
-
-
+    public static final String TOPOLOGY_FILE = prop.getProperty("TOPOLOGY_FILE");
+    public static final String METRICS = prop.getProperty("METRICS");
 
     // DEBUG
     public static final boolean PRINT_INFO = false;

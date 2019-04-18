@@ -321,6 +321,7 @@ public abstract class DatacenterProtocolInstance
         Map<Long, Integer> latestDCClock = this.remoteUpdatesTable.get(originDatacenter);
         if (canAcceptClient(migrationClock, latestDCClock)) {
             acceptClient(client);
+            client.instantMigrationAccept();
         } else {
             migrationTable.get(originDatacenter).put(client, migrationClock);
         }

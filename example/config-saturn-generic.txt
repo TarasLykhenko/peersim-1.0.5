@@ -10,15 +10,12 @@ network.size SIZE
 simulation.endtime CYCLES
 simulation.logtime 1
 
-partitions_clients example/partitions/four_nodes_all_connected_partition.top
-
 levels 4
 
 
-
+ndatanodes 8
 
 transport urt
-overlaytype tree
 type type
 tree tree
 ##########################################
@@ -48,13 +45,10 @@ protocol.tr.drop 0
 ################### initialization ======================
 ### Set node type
 init.0 example.genericsaturn.InitTypeProtocol
-init.0.ndatanodes 8
 init.0.type_protocol type
 
 ### Creates graph and sets latencies
 init.1 example.genericsaturn.WireTopology
-init.1.topology_path example/topologies
-init.1.topology_file eight_nodes_seven_brokers_simple.top
 init.1.protocol link
 init.1.type_protocol type
 

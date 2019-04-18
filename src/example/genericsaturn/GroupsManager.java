@@ -2,6 +2,7 @@ package example.genericsaturn;
 
 import example.common.BasicStateTreeProtocol;
 import example.common.GroupsManagerInterface;
+import example.common.Settings;
 import example.common.datatypes.DataObject;
 import peersim.config.Configuration;
 import peersim.core.Network;
@@ -151,6 +152,7 @@ public class GroupsManager implements GroupsManagerInterface {
         if (exclusiveNodeToLevelNeighbourIds == null) {
             exclusiveNodeToLevelNeighbourIds = new HashMap<>();
 
+            // Prepare for servers
             for (Long serverId : nodeToLevelNeighbours.keySet()) {
                 Map<Integer, Set<StateTreeProtocol>> levelsAndNodes = nodeToLevelNeighbours.get(serverId);
 
@@ -170,6 +172,20 @@ public class GroupsManager implements GroupsManagerInterface {
                         levelNodes.removeAll(existingLongs);
                     }
 
+                    // Add relevant brokers to the level
+                    for (int broker : WireTopology.brokerSources.keySet()) {
+                        long brokerDC = WireTopology.brokerSources.get(broker);
+                        if (levelNodes.contains(brokerDC)) {
+                            // Add entry to server and add entry to broker
+                            levelNodes.add((long) broker);
+
+                            exclusiveNodeToLevelNeighbourIds
+                                    .computeIfAbsent((long) broker, k -> new HashMap<>())
+                                    .computeIfAbsent(level, k -> new HashSet<>())
+                                    .add(serverId);
+                        }
+                    }
+
                     // Add result
                     exclusiveNodeToLevelNeighbourIds
                             .computeIfAbsent(serverId, k -> new HashMap<>())
@@ -179,8 +195,47 @@ public class GroupsManager implements GroupsManagerInterface {
                 }
             }
 
+            // Add connections between brokers
+            for (int broker : WireTopology.brokerSources.keySet()) {
+                long originDC = WireTopology.brokerSources.get(broker);
+                for (int otherBroker : WireTopology.brokerSources.keySet()) {
+                    if (broker == otherBroker) {
+                        continue;
+                    }
+                    long otherDC = WireTopology.brokerSources.get(otherBroker);
+                    int commonLevel = getCommonLevel(originDC, otherDC);
+                    exclusiveNodeToLevelNeighbourIds
+                            .computeIfAbsent((long) broker, k -> new HashMap<>())
+                            .computeIfAbsent(commonLevel, k -> new HashSet<>())
+                            .add((long) otherBroker);
+                }
+            }
+
+
+            //DEBUG
+            if (Settings.PRINT_INFO) {
+                for (long origin : exclusiveNodeToLevelNeighbourIds.keySet()) {
+                    Map<Integer, Set<Long>> levelsMap = exclusiveNodeToLevelNeighbourIds.get(origin);
+                    System.out.println("ORIGIN: " + origin);
+                    for (int level : levelsMap.keySet()) {
+                        Set<Long> entriesOnLevel = levelsMap.get(level);
+                        System.out.println("   " + level + ": " + entriesOnLevel);
+                    }
+                }
+            }
         }
 
         return exclusiveNodeToLevelNeighbourIds.get(nodeId);
+    }
+
+    private int getCommonLevel(long originDC, long otherDC) {
+        Map<Integer, Set<Long>> integerSetMap = exclusiveNodeToLevelNeighbourIds.get(originDC);
+        for (int level : integerSetMap.keySet()) {
+            Set<Long> entries = integerSetMap.get(level);
+            if (entries.contains(otherDC)) {
+                return level;
+            }
+        }
+        throw new NullPointerException("?!");
     }
 }

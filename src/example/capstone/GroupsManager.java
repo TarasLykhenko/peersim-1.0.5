@@ -2,8 +2,11 @@ package example.capstone;
 
 import example.common.BasicStateTreeProtocol;
 import example.common.GroupsManagerInterface;
+import example.common.Settings;
 import example.common.datatypes.DataObject;
 import peersim.config.Configuration;
+import peersim.config.FastConfig;
+import peersim.core.Linkable;
 import peersim.core.Network;
 import peersim.core.Node;
 import peersim.graph.Graph;
@@ -76,7 +79,7 @@ public class GroupsManager implements GroupsManagerInterface {
         }
 
         // 2) Generate the tree overlay
-       treeOverlay = new TreeOverlay(graph, root);
+        treeOverlay = new TreeOverlay(graph, root);
     }
 
     void fillSRT() {
@@ -209,7 +212,6 @@ public class GroupsManager implements GroupsManagerInterface {
 
             // Prepare for servers
             for (Long serverId : nodeToLevelNeighbours.keySet()) {
-                System.out.println("SERVER ID: " + serverId);
                 Map<Integer, Set<StateTreeProtocol>> levelsAndNodes = nodeToLevelNeighbours.get(serverId);
 
                 int level = 0;
@@ -228,6 +230,20 @@ public class GroupsManager implements GroupsManagerInterface {
                         levelNodes.removeAll(existingLongs);
                     }
 
+                    // Add relevant brokers to the level
+                    for (int broker : WireTopology.brokerSources.keySet()) {
+                        long brokerDC = WireTopology.brokerSources.get(broker);
+                        if (levelNodes.contains(brokerDC)) {
+                            // Add entry to server and add entry to broker
+                            levelNodes.add((long) broker);
+
+                            exclusiveNodeToLevelNeighbourIds
+                                    .computeIfAbsent((long) broker, k -> new HashMap<>())
+                                    .computeIfAbsent(level, k -> new HashSet<>())
+                                    .add(serverId);
+                        }
+                    }
+
                     // Add result
                     exclusiveNodeToLevelNeighbourIds
                             .computeIfAbsent(serverId, k -> new HashMap<>())
@@ -237,27 +253,47 @@ public class GroupsManager implements GroupsManagerInterface {
                 }
             }
 
-            // Prepare for brokers
-            int firstBroker = nodeToLevelNeighbours.size();
-            for (int i = firstBroker; i < Network.size(); i++) {
-                int currentLevel = levels;
-                // Children will be one level lower
-                Collection<Long> children = treeOverlay.getChildren(i);
-                Long parent = treeOverlay.getParent(i);
-                while (parent != null) {
-                    currentLevel--;
-                    parent = treeOverlay.getParent(parent);
+            // Add connections between brokers
+            for (int broker : WireTopology.brokerSources.keySet()) {
+                long originDC = WireTopology.brokerSources.get(broker);
+                for (int otherBroker : WireTopology.brokerSources.keySet()) {
+                    if (broker == otherBroker) {
+                        continue;
+                    }
+                    long otherDC = WireTopology.brokerSources.get(otherBroker);
+                    int commonLevel = getCommonLevel(originDC, otherDC);
+                    exclusiveNodeToLevelNeighbourIds
+                            .computeIfAbsent((long) broker, k -> new HashMap<>())
+                            .computeIfAbsent(commonLevel, k -> new HashSet<>())
+                            .add((long) otherBroker);
                 }
+            }
 
-                exclusiveNodeToLevelNeighbourIds.computeIfAbsent((long) i, k -> new HashMap<>())
-                        .put(currentLevel - 1, new HashSet<>(children));
-                Set<Long> parentSet = new HashSet<>();
-                parentSet.add(treeOverlay.getParent(i));
 
-                exclusiveNodeToLevelNeighbourIds.get((long) i).put(currentLevel, parentSet);
+            //DEBUG
+            if (Settings.PRINT_INFO) {
+                for (long origin : exclusiveNodeToLevelNeighbourIds.keySet()) {
+                    Map<Integer, Set<Long>> levelsMap = exclusiveNodeToLevelNeighbourIds.get(origin);
+                    System.out.println("ORIGIN: " + origin);
+                    for (int level : levelsMap.keySet()) {
+                        Set<Long> entriesOnLevel = levelsMap.get(level);
+                        System.out.println("   " + level + ": " + entriesOnLevel);
+                    }
+                }
             }
         }
 
         return exclusiveNodeToLevelNeighbourIds.get(nodeId);
+    }
+
+    private int getCommonLevel(long originDC, long otherDC) {
+        Map<Integer, Set<Long>> integerSetMap = exclusiveNodeToLevelNeighbourIds.get(originDC);
+        for (int level : integerSetMap.keySet()) {
+            Set<Long> entries = integerSetMap.get(level);
+            if (entries.contains(otherDC)) {
+                return level;
+            }
+        }
+        throw new NullPointerException("?!");
     }
 }

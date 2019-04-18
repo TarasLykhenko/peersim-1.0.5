@@ -26,6 +26,8 @@ public interface BasicClientInterface {
 
     float getAverageMigrationTime();
 
+    int getInstantMigrationsAccept();
+
     //------------------------------------------
     // ------------ CLIENT STATUS --------------
     //------------------------------------------
@@ -35,4 +37,6 @@ public interface BasicClientInterface {
     void migrationStart();
 
     void migrationOver(long dcId);
+
+    void instantMigrationAccept();
 }

@@ -103,7 +103,9 @@ public abstract class AbstractController implements Control {
     private int iteration = 1;
     private int cycles;
     private int totalOpsPrevious;
+    private int totalInstantAcceptsPrevious;
     private long totalMigrationsPrevious;
+    private Metrics metrics;
 
 
 //--------------------------------------------------------------------------
@@ -142,8 +144,19 @@ public abstract class AbstractController implements Control {
         BufferedWriter br2 = new BufferedWriter(fr2);
         importantWriter = new PrintWriter(br2);
 
-
         takeStatisticsEvery = Math.round((STATISTICS_WINDOW / 100) * cycles);
+
+        String metricsType = Settings.METRICS;
+        if (metricsType.toLowerCase().equals("throughput")) {
+            this.metrics = Metrics.THROUGHPUT;
+        } else if (metricsType.toLowerCase().equals("accept")) {
+            this.metrics = Metrics.ACCEPTANCE;
+        }
+    }
+
+    enum Metrics {
+        THROUGHPUT,
+        ACCEPTANCE
     }
 
 
@@ -179,6 +192,7 @@ public abstract class AbstractController implements Control {
         int aggregateMigrations = 0;
         int aggregateWaitingClients = 0;
         int aggregateQueuedClients = 0;
+        int aggregateInstantAccepts = 0;
 
         long totalClients = 0;
 
@@ -190,6 +204,7 @@ public abstract class AbstractController implements Control {
                 aggregateReads += client.getNumberReads();
                 aggregateUpdates += client.getNumberUpdates();
                 aggregateMigrations += client.getNumberMigrations();
+                aggregateInstantAccepts += client.getInstantMigrationsAccept();
                 if (client.isWaiting()) {
                     aggregateWaitingClients++;
                 }
@@ -201,7 +216,15 @@ public abstract class AbstractController implements Control {
         int totalOps = aggregateUpdates + aggregateReads;
 
         printImportant("Observer init ======================");
-        printImportant(">> Total ops (%: " + currentPoint + ") - " + (totalOps - totalOpsPrevious));
+        if (metrics == Metrics.THROUGHPUT) {
+            printImportant(">> Total ops (%: " + currentPoint + ") - " + (totalOps - totalOpsPrevious));
+            printImportant("Total instant accepts (%: " + currentPoint + ") - " + (aggregateInstantAccepts - totalInstantAcceptsPrevious));
+        } else if (metrics == Metrics.ACCEPTANCE) {
+            printImportant("Total ops (%: " + currentPoint + ") - " + (totalOps - totalOpsPrevious));
+            printImportant(">> Total instant accepts (%: " + currentPoint + ") - " + (aggregateInstantAccepts - totalInstantAcceptsPrevious));
+        } else {
+            throw new NullPointerException("");
+        }
         printImportant("Total Migrations: " + (aggregateMigrations - totalMigrationsPrevious));
         printImportant("Waiting clients: " + aggregateWaitingClients);
         printImportant("Queued clients from migrations: " + aggregateQueuedClients);
@@ -211,6 +234,7 @@ public abstract class AbstractController implements Control {
 
         this.totalOpsPrevious = totalOps;
         this.totalMigrationsPrevious = aggregateMigrations;
+        this.totalInstantAcceptsPrevious = aggregateInstantAccepts;
 
 
         doAdditionalExecution(clients);
