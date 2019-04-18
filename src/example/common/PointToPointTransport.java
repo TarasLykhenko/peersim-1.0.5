@@ -237,10 +237,7 @@ public final class PointToPointTransport implements Transport {
 
             if (messageIsFromClient(msg)) {
                 delay = Math.round(delay * Settings.CLIENT_NETWORK_STRETCH);
-            }
-
-            // We only need "FIFO" between servers, not between clients and servers.
-            if (!messageIsFromClient(msg)) {
+            } else {
                 long messageWillBeReceived = CommonState.getTime() + delay;
                 long lastWillBeReceivedDest = lastWillBeReceived.get(srcId).get(destId);
                 if (messageWillBeReceived <= lastWillBeReceivedDest) {
