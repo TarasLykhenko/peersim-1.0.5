@@ -206,7 +206,9 @@ public class InitTreeProtocol implements Control {
             Node node = Network.get(i);
             StateTreeProtocol treeProtocol = (StateTreeProtocol) node.getProtocol(tree);
             treeProtocol.initQueue(node);
-            ((PointToPointTransport) node.getProtocol(Configuration.getPid("transport")))
+        }
+        for (int i = 0; i < Network.size(); i++) {
+            ((PointToPointTransport) Network.get(i).getProtocol(Configuration.getPid("transport")))
                     .setGroupsManager(GroupsManager.getInstance());
         }
     }

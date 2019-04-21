@@ -305,7 +305,7 @@ public final class PointToPointTransport implements Transport {
         int partitionOver = 0;
         if (messageIsFromClient(msg) && SHOULD_PARTITION_CLIENTS) {
             partitionOver = partitionClientTable.get(srcId).get(destId);
-        } else if (SHOULD_PARTITION_DC) {
+        } else if (!messageIsFromClient(msg) && SHOULD_PARTITION_DC) {
             partitionOver = partitionDCTable.get(srcId).get(destId);
         }
 

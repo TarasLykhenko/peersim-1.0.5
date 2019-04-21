@@ -2,7 +2,7 @@
 SIZE 15
 
 # parameters of periodic execution
-CYCLES 10000
+CYCLES 100000
 CYCLE 1
 
 # random.seed 1234567890
