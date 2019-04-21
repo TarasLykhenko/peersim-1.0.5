@@ -1,5 +1,6 @@
 package example.cops;
 
+import example.common.AbstractGroupsManager;
 import example.common.BasicStateTreeProtocol;
 import example.common.GroupsManagerInterface;
 import example.common.datatypes.DataObject;
@@ -12,7 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class GroupsManager implements GroupsManagerInterface {
+public class GroupsManager extends AbstractGroupsManager {
 
     private static final String PAR_TREE = "tree";
     private static final String PAR_GROUPS = "groups";
@@ -189,5 +190,10 @@ public class GroupsManager implements GroupsManagerInterface {
         }
 
         return exclusiveNodeToLevelNeighbourIds.get(nodeId);
+    }
+
+    @Override
+    public boolean hasBrokers() {
+        return false;
     }
 }

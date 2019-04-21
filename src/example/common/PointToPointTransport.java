@@ -31,11 +31,13 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import static example.common.Settings.MAX_DELAY;
 import static example.common.Settings.MIN_DELAY;
 import static example.common.Settings.PARTITION_START_PERCENTAGE;
 import static example.common.Settings.PARTITION_STOP_PERCENTAGE;
+import static example.common.Settings.PRINT_INFO;
 import static example.common.Settings.SHOULD_PARTITION_CLIENTS;
 import static example.common.Settings.SHOULD_PARTITION_DC;
 import static example.common.Settings.PARTITIONS_ARE_DELAYS;
@@ -96,9 +98,10 @@ public final class PointToPointTransport implements Transport {
         max = MAX_DELAY;
 
         int duration = Configuration.getInt(PAR_DURATION);
-        String partitionsDCFile = getDCPartitionsFile();
-        String partitionsClientsFile = getClientPartitionsFile();
-        System.out.println("Partitions file: " + partitionsDCFile);
+        String partitionsDCFile = getPartitionsFile(Settings.DC_PARTITION_LEVEL);
+        String partitionsClientFile = getPartitionsFile(Settings.CLIENTS_PARTITION_LEVEL);
+        System.out.println("DC Partitions file: " + partitionsDCFile);
+        System.out.println("Client Partitions file: " + partitionsClientFile);
 
         timePartitionStart = Math.round((float) (PARTITION_START_PERCENTAGE / 100) * duration);
         timePartitionOver = Math.round((float) (PARTITION_STOP_PERCENTAGE / 100) * duration);
@@ -126,18 +129,71 @@ public final class PointToPointTransport implements Transport {
         }
         if (SHOULD_PARTITION_CLIENTS) {
             if (Settings.PRINT_INFO) {
-                System.out.println("ADDInG PARTITION TO CLIENT");
+                System.out.println("ADDING PARTITION TO CLIENT");
             }
-            partitionConnections(partitionsClientsFile, partitionClientTable, timePartitionOver);
+            partitionConnections(partitionsClientFile, partitionClientTable, timePartitionOver);
         }
     }
 
     public void setGroupsManager(GroupsManagerInterface groupsManager) {
         this.groupsManager = groupsManager;
+
+        if (!groupsManager.hasBrokers()) {
+            return;
+        }
+
+        long firstBroker = Configuration.getLong("ndatanodes");
+        for (long i = firstBroker; i < Network.size(); i++) {
+            Set<Long> level0Nodes = groupsManager.getExclusiveNodeToLevelNeighbourIds(i).get(0);
+            Long finalBroker = i;
+            long dcNode = level0Nodes.stream().filter(l -> l < finalBroker).findFirst().get();
+
+            Map<Long, Integer> targetDCPartitions = partitionDCTable.get(dcNode);
+            partitionDCTable.put(i, new HashMap<>(targetDCPartitions));
+            for (long target : targetDCPartitions.keySet()) {
+                int originalValue = partitionDCTable.get(dcNode).get(target);
+                partitionDCTable.get(target).put(i, originalValue);
+            }
+
+            Map<Long, Integer> targetClientPartitions = partitionClientTable.get(dcNode);
+            partitionClientTable.put(i, new HashMap<>(targetClientPartitions));
+            for (long target : targetClientPartitions.keySet()) {
+                int originalValue = partitionClientTable.get(dcNode).get(target);
+                partitionClientTable.get(target).put(i, originalValue);
+            }
+        }
+
+        if (PRINT_INFO) {
+            System.out.println("DEBUG!");
+            for (long origin : partitionDCTable.keySet()) {
+                System.out.print("Ori: " + origin + " ");
+                for (long target : partitionDCTable.get(origin).keySet()) {
+                    int value = partitionDCTable.get(origin).get(target);
+                    if (value != 0) {
+                        value = 1;
+                    }
+                    System.out.print(target + "=" + value + ", ");
+                }
+                System.out.println();
+            }
+
+            System.out.println("Client partitions:");
+            for (long origin : partitionClientTable.keySet()) {
+                System.out.print("Ori: " + origin + " ");
+                for (long target : partitionClientTable.get(origin).keySet()) {
+                    int value = partitionClientTable.get(origin).get(target);
+                    if (value != 0) {
+                        value = 1;
+                    }
+                    System.out.print(target + "=" + value + ", ");
+                }
+                System.out.println();
+            }
+        }
     }
 
-    private String getDCPartitionsFile() {
-        switch (Settings.DC_PARTITION_LEVEL) {
+    private String getPartitionsFile(int level) {
+        switch (level) {
             case 1:
                 return "example/partitions/eight_nodes_partition_lvl_1.top";
             case 2:
@@ -146,19 +202,6 @@ public final class PointToPointTransport implements Transport {
                 return "example/partitions/eight_nodes_partition_lvl_3.top";
             default:
                 return "example/partitions/eight_nodes_partition_custom.top";
-        }
-    }
-
-    private String getClientPartitionsFile() {
-        switch (Settings.CLIENTS_PARTITION_LEVEL) {
-            case 1:
-                return "example/client-partitions/eight_nodes_partition_lvl_1.top";
-            case 2:
-                return "example/client-partitions/eight_nodes_partition_lvl_2.top";
-            case 3:
-                return "example/client-partitions/eight_nodes_partition_lvl_3.top";
-            default:
-                return "example/client-partitions/eight_nodes_partition_custom.top";
         }
     }
 
@@ -259,10 +302,10 @@ public final class PointToPointTransport implements Transport {
             return delay;
         }
 
-        int partitionOver;
-        if (messageIsFromClient(msg)) {
+        int partitionOver = 0;
+        if (messageIsFromClient(msg) && SHOULD_PARTITION_CLIENTS) {
             partitionOver = partitionClientTable.get(srcId).get(destId);
-        } else {
+        } else if (SHOULD_PARTITION_DC) {
             partitionOver = partitionDCTable.get(srcId).get(destId);
         }
 

@@ -203,7 +203,9 @@ public class InitTreeProtocol implements Control {
             BrokerProtocol bp = (BrokerProtocol) node.getProtocol(this.broker);
             bp.setNodeId(node.getID());
             dc.init(node.getID());
-            ((PointToPointTransport) node.getProtocol(Configuration.getPid("transport")))
+        }
+        for (int i = 0; i < Network.size(); i++) {
+            ((PointToPointTransport) Network.get(i).getProtocol(Configuration.getPid("transport")))
                     .setGroupsManager(GroupsManager.getInstance());
         }
     }

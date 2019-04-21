@@ -1,5 +1,6 @@
 package example.capstone;
 
+import example.common.AbstractGroupsManager;
 import example.common.BasicStateTreeProtocol;
 import example.common.GroupsManagerInterface;
 import example.common.Settings;
@@ -21,7 +22,7 @@ import java.util.stream.Collectors;
 import static example.capstone.ProtocolMapperInit.*;
 import static example.capstone.ProtocolMapperInit.nodeType;
 
-public class GroupsManager implements GroupsManagerInterface {
+public class GroupsManager extends AbstractGroupsManager {
 
     private static final String PAR_LEVELS = "levels";
     private static final String PAR_ROOT_NODE = "root";
@@ -214,12 +215,7 @@ public class GroupsManager implements GroupsManagerInterface {
             for (Long serverId : nodeToLevelNeighbours.keySet()) {
                 Map<Integer, Set<StateTreeProtocol>> levelsAndNodes = nodeToLevelNeighbours.get(serverId);
 
-                int level = 0;
-                while (true) {
-                    if (!levelsAndNodes.containsKey(level)) {
-                        break;
-                    }
-
+                for (int level = 0; levelsAndNodes.containsKey(level); level++) {
                     Set<Long> levelNodes = levelsAndNodes.get(level).stream()
                             .map(BasicStateTreeProtocol::getNodeId)
                             .collect(Collectors.toSet());
@@ -249,17 +245,14 @@ public class GroupsManager implements GroupsManagerInterface {
                             .computeIfAbsent(serverId, k -> new HashMap<>())
                             .put(level, levelNodes);
 
-                    level++;
                 }
             }
+
 
             // Add connections between brokers
             for (int broker : WireTopology.brokerSources.keySet()) {
                 long originDC = WireTopology.brokerSources.get(broker);
                 for (int otherBroker : WireTopology.brokerSources.keySet()) {
-                    if (broker == otherBroker) {
-                        continue;
-                    }
                     long otherDC = WireTopology.brokerSources.get(otherBroker);
                     int commonLevel = getCommonLevel(originDC, otherDC);
                     exclusiveNodeToLevelNeighbourIds
@@ -280,6 +273,15 @@ public class GroupsManager implements GroupsManagerInterface {
                         System.out.println("   " + level + ": " + entriesOnLevel);
                     }
                 }
+
+                for (long origin : exclusiveNodeToLevelNeighbourIds.keySet()) {
+                    int originCount = 0;
+                    Map<Integer, Set<Long>> levelsMap = exclusiveNodeToLevelNeighbourIds.get(origin);
+                    for (int level : levelsMap.keySet()) {
+                        originCount += levelsMap.get(level).size();
+                    }
+                    System.out.println("Origin " + origin + " has " + originCount + " connections");
+                }
             }
         }
 
@@ -295,5 +297,10 @@ public class GroupsManager implements GroupsManagerInterface {
             }
         }
         throw new NullPointerException("?!");
+    }
+
+    @Override
+    public boolean hasBrokers() {
+        return true;
     }
 }

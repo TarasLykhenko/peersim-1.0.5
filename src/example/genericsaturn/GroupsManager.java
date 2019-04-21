@@ -1,5 +1,6 @@
 package example.genericsaturn;
 
+import example.common.AbstractGroupsManager;
 import example.common.BasicStateTreeProtocol;
 import example.common.GroupsManagerInterface;
 import example.common.Settings;
@@ -15,7 +16,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class GroupsManager implements GroupsManagerInterface {
+public class GroupsManager extends AbstractGroupsManager {
 
     private static final String PAR_TYPE = "type";
     private static final String PAR_TREE = "tree";
@@ -237,5 +238,10 @@ public class GroupsManager implements GroupsManagerInterface {
             }
         }
         throw new NullPointerException("?!");
+    }
+
+    @Override
+    public boolean hasBrokers() {
+        return true;
     }
 }

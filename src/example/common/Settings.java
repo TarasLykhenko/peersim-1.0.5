@@ -93,7 +93,7 @@ public class Settings {
     public static final String METRICS = prop.getProperty("METRICS");
 
     // DEBUG
-    public static final boolean PRINT_INFO = true;
+    public static final boolean PRINT_INFO = false;
     public static final boolean PRINT_VERBOSE = false;
     public static final String CLIENT_LOCALITY_PERCENTAGE = "[0,0,0,100]";
     public static final String CLIENT_READ_LEVEL_PERCENTAGE = "[50,25,15,10]";
