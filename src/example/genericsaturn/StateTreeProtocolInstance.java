@@ -533,8 +533,7 @@ public abstract class StateTreeProtocolInstance
             if (head.isMigration()) {
                 metadataQueue.poll();
                 addProcessedEvent(head);
-            }
-            if (data.seenEvent(head.getOperation().getKey(), head.getTimestamp())) {
+            } else if (data.seenEvent(head.getOperation().getKey(), head.getTimestamp())) {
                 metadataQueue.poll();
                 addProcessedEvent(event);
             } else {
