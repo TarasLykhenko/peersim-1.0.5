@@ -6,7 +6,7 @@ public class TreeHelper {
         dc = new Node(0l,)
     }
 
-    public void createTreeHelper(Node ){
+    public void createTreeHelper(Node depth){
         dc = new Node(0l,)
     }
 }
