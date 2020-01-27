@@ -2,6 +2,8 @@ package example.saturn;
 
 import example.common.PointToPointTransport;
 import example.common.datatypes.DataObject;
+import example.saturn.components.TreeHelper;
+import javafx.util.Pair;
 import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.core.Network;
@@ -99,13 +101,18 @@ public class InitTreeProtocol implements Control {
     }
 
     private void initStateTreeProtocol() {
-        for (int i = 0; i < Network.size(); i++) {
+
+        TreeHelper treeHelper = new TreeHelper();
+        Pair<Integer, Integer> range = new Pair<>(2, 20);
+        treeHelper.createTree(5, range);
+
+       /* for (int i = 0; i < Network.size(); i++) {
             Node node = Network.get(i);
             StateTreeProtocol treeProtocol = (StateTreeProtocol) node.getProtocol(tree);
             treeProtocol.setNodeId(node.getID());
             ((PointToPointTransport) node.getProtocol(Configuration.getPid("transport")))
                     .setGroupsManager(GroupsManager.getInstance());
-        }
+        }*/
     }
 
     private void generateClients(Set<StateTreeProtocol> datacenters) {

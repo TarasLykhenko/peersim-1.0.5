@@ -1,0 +1,68 @@
+# network size
+SIZE 8
+
+# parameters of periodic execution
+CYCLES 100000
+CYCLE 1
+
+# random.seed 1234567890
+network.size SIZE
+simulation.endtime CYCLES
+simulation.logtime CYCLE
+
+groups {[0],[0,1],[0,1,2,3],[0,1,2,3,4,5,6,7]}{[1],[0,1],[0,1,2,3],[0,1,2,3,4,5,6,7]}{[2],[2,3],[0,1,2,3],[0,1,2,3,4,5,6,7]}{[3],[2,3],[0,1,2,3],[0,1,2,3,4,5,6,7]}{[4],[4,5],[4,5,6,7],[0,1,2,3,4,5,6,7]}{[5],[4,5],[4,5,6,7],[0,1,2,3,4,5,6,7]}{[6],[6,7],[4,5,6,7],[0,1,2,3,4,5,6,7]}{[7],[6,7],[4,5,6,7],[0,1,2,3,4,5,6,7]}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+transport urt
+tree tree
+##########################################
+
+################### protocols ===========================
+
+protocol.link peersim.core.IdleProtocol
+
+protocol.tree example.cops.TreeProtocol
+protocol.tree.step CYCLE
+protocol.tree.transport tr
+protocol.tree.tree_protocol tree
+protocol.tree.linkable link
+
+
+protocol.urt example.common.PointToPointTransport
+
+protocol.tr UnreliableTransport
+protocol.tr.transport urt
+protocol.tr.drop 0
+
+################### initialization ======================
+
+### Creates graph and sets latencies
+init.1 example.common.WireTopology
+init.1.protocol link
+
+init.2 example.saturn.InitTreeProtocol
+init.2.tree_protocol tree
+init.2.clients_cycle 1
+
+init.sch CDScheduler
+init.sch.protocol tree
+init.sch.randstart
+
+################ control ==============================
+
+control.0 example.saturn.Controller
+control.0.protocol tree
+control.0.step CYCLE
+control.0.output_file output/

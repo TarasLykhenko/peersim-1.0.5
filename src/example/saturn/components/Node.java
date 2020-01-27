@@ -3,16 +3,19 @@ package example.saturn.components;
 import java.util.HashMap;
 
 public class Node {
+
     Long nodeID;
     Node parent;
-    HashMap<Long, Node> leafs;
+    HashMap<Long, Node> children = new HashMap<>();
 
-    public Node(nodeID){
+    public Node(Long _nodeID, Node _parent){
+        nodeID = _nodeID;
+        parent = _parent;
 
     }
-    public Node(nodeID,parent,leafs){
 
+    public void addChild(Node child){
+        children.put(child.nodeID, child);
     }
-
 
 }
