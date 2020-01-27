@@ -21,6 +21,8 @@ public class InitTreeProtocol implements Control {
     // ------------------------------------------------------------------------
 
     private static final String PAR_TREE_PROT = "tree_protocol";
+    private static final String N_CLIENTS = "n_clients";
+
 
     // ------------------------------------------------------------------------
     // Fields
@@ -143,36 +145,16 @@ public class InitTreeProtocol implements Control {
 
     private void generateClients(Set<StateTreeProtocol> datacenters) {
         int totalClients = 0;
-        for (int localityDistance = 0; localityDistance < clientsLocalityPercentages.length;
-             localityDistance++) {
-
-            int amountLocalityClients =
-                    Math.round((float) ((double) clientsLocalityPercentages[localityDistance] / 100) * CLIENTS_PER_DATACENTER);
-            int amountEagerClients =
-                    Math.round((float) ((double) CLIENT_EAGER_PERCENTAGE / 100) * amountLocalityClients);
-
-            for (StateTreeProtocol datacenter : datacenters) {
-
-
-                Map<Integer, Set<StateTreeProtocol>> neighboursOfDatacenter =
-                        GroupsManager.getInstance()
-                                .getNeighboursOfDatacenter(datacenter.getNodeId());
-                Map<Integer, Set<StateTreeProtocol>> localityNeighboursOfDatacenter =
-                        getNeighboursInsideRadius(localityDistance, neighboursOfDatacenter);
-                Map<Integer, Set<DataObject>> allDataObjectsOfNeighbours =
-                        getDataObjectsOfNeighbours(localityNeighboursOfDatacenter);
-
-                Set<Client> clients = new HashSet<>();
-                for (int i = 0; i < amountLocalityClients; i++) {
-                    totalClients++;
-                    if (i < amountEagerClients) {
-                        clients.add(new Client(totalClients, true, allDataObjectsOfNeighbours, datacenter, localityDistance, GroupsManager.getInstance()));
-                    } else {
-                        clients.add(new Client(totalClients, false, allDataObjectsOfNeighbours, datacenter, localityDistance, GroupsManager.getInstance()));
-                    }
-                }
-                datacenter.addClients(clients);
+        int totalNumberClients = Integer.parseInt(Configuration.getString(N_CLIENTS));
+        int numberOfClient = totalNumberClients / datacenters.size();
+        for (StateTreeProtocol datacenter : datacenters) {
+            Set<Client> clients = new HashSet<>();
+            for (int i = 0; i < numberOfClient; i++) {
+                totalClients++;
+                Client c = new Client(totalClients, (StateTreeProtocolInstance) datacenter);
+                clients.add(c);
             }
+            datacenter.addClients(clients);
         }
     }
 
@@ -236,7 +218,7 @@ public class InitTreeProtocol implements Control {
     private Set<StateTreeProtocol> getDatacenters() {
         Set<StateTreeProtocol> result = new HashSet<>();
 
-        for (int i = 0; i < Network.size(); i++) {
+        for (int i = 0; i < ID.get(); i++) {
             Node node = Network.get(i);
             result.add((StateTreeProtocol) node.getProtocol(tree));
         }
