@@ -31,4 +31,8 @@ public class TreeHelper {
         }
 
     }
+
+    public Long getTreeSize(){
+        return ID.get();
+    }
 }

@@ -19,6 +19,7 @@
 package example.saturn;
 
 import example.common.datatypes.DataObject;
+import example.saturn.components.Node;
 import javafx.util.Pair;
 import peersim.core.Protocol;
 
@@ -87,6 +88,12 @@ abstract class StateTreeProtocolInstance
     List<Pair<Integer, Integer>> remoteWrites = new ArrayList<>();
     PrintWriter writer;
 
+    StateTreeProtocol parent;
+    HashMap<Long, StateTreeProtocol> children = new HashMap<>();
+
+    public void addChild(StateTreeProtocol child){
+        children.put(child.getNodeId(), child);
+    }
 
     //--------------------------------------------------------------------------
     //Initialization
@@ -319,30 +326,6 @@ abstract class StateTreeProtocolInstance
     @Override
     public long getNodeId() {
         return nodeId;
-    }
-
-    @Override
-    public void setLevelsToNodes(Map<Integer, Set<StateTreeProtocol>> levelsToNodes) {
-        this.levelsToNodes = levelsToNodes;
-    }
-
-    @Override
-    public Set<StateTreeProtocol> getLevelsToNodes(Integer level) {
-        return levelsToNodes.get(level);
-    }
-
-    @Override
-    public void addDataObjectsToLevel(Set<DataObject> dataObjects, int level) {
-        levelToDataObjects.put(level, dataObjects);
-        for (DataObject dataObject : dataObjects) {
-            keyToDataObject.put(dataObject.getKey(), dataObject);
-            keyToDOVersion.put(dataObject.getKey(), 0);
-        }
-    }
-
-    @Override
-    public Set<DataObject> getDataObjectsFromLevel(int level) {
-        return levelToDataObjects.get(level);
     }
 
     @Override

@@ -18,6 +18,7 @@
 
 package example.saturn;
 
+import com.sun.jdi.Value;
 import example.common.BasicStateTreeProtocol;
 import example.common.datatypes.DataObject;
 
@@ -49,23 +50,11 @@ public interface StateTreeProtocol extends BasicStateTreeProtocol {
     //Delivered remote methods
     //--------------------------------------------------------------------------
 
-    void setLevelsToNodes(Map<Integer, Set<StateTreeProtocol>> levelsToNodes);
-
-    Set<StateTreeProtocol> getLevelsToNodes(Integer level);
-
-    void addDataObjectsToLevel(Set<DataObject> dataObjects, int level);
-
-    Set<DataObject> getDataObjectsFromLevel(int level);
-
-    Set<DataObject> getAllDataObjects();
-
-    Map<Integer, Set<DataObject>> getAllDataObjectsPerLevel();
-
     // COPS Methods
 
-    int copsGet(Integer key);
+    int get(Integer key);
 
-    int copsPut(Integer key);
+    int put(Integer key, Value value);
 
-    void copsPutRemote(Integer key, Map<Integer, Integer> context, Integer version);
+    void putRemote(Integer key, Integer version);
 }

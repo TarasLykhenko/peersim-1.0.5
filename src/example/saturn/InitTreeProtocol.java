@@ -10,6 +10,7 @@ import peersim.core.Network;
 import peersim.core.Node;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static example.common.Settings.*;
@@ -29,6 +30,10 @@ public class InitTreeProtocol implements Control {
 
     private final int[] levelsPercentage;
     private final int[] clientsLocalityPercentages;
+    private Random rand = new Random();
+    static AtomicLong ID = new AtomicLong(0);
+
+
 
 
     // ------------------------------------------------------------------------
@@ -92,7 +97,7 @@ public class InitTreeProtocol implements Control {
 
                 Set<StateTreeProtocol> datacenterGroup = new HashSet<>();
                 datacenterGroup.add(datacenter);
-                datacenterGroup.addAll(datacenter.getLevelsToNodes(level));
+                //datacenterGroup.addAll(datacenter.getLevelsToNodes(level));
                 seenDatacenters.addAll(datacenterGroup);
 
                 counter = generateDataObjectsForGroup(datacenterGroup, level, levelsPercentage[level], counter);
@@ -102,17 +107,38 @@ public class InitTreeProtocol implements Control {
 
     private void initStateTreeProtocol() {
 
-        TreeHelper treeHelper = new TreeHelper();
-        Pair<Integer, Integer> range = new Pair<>(2, 20);
-        treeHelper.createTree(5, range);
+        Pair<Integer, Integer> range = new Pair<>(2, 2);
 
-       /* for (int i = 0; i < Network.size(); i++) {
-            Node node = Network.get(i);
-            StateTreeProtocol treeProtocol = (StateTreeProtocol) node.getProtocol(tree);
+        Node node = Network.get((int)ID.getAndIncrement());
+        StateTreeProtocolInstance treeProtocol = (StateTreeProtocolInstance) node.getProtocol(tree);
+        treeProtocol.setNodeId(node.getID());
+       createTreeHelper(treeProtocol, 5, range);
+
+       ((PointToPointTransport) node.getProtocol(Configuration.getPid("transport")))
+                .setGroupsManager(GroupsManager.getInstance());
+
+    }
+
+
+    //range <min, max>
+    public void createTreeHelper(StateTreeProtocolInstance parent, int depth, Pair<Integer,Integer> range){
+
+        if (depth <= 0) return;
+
+        depth--;
+        int leafsRange = rand.nextInt((range.getValue() - range.getKey()) + 1) + range.getKey();
+
+        for (int i = 0; i < leafsRange; i++ ){
+            Node node = Network.get((int)ID.getAndIncrement());
+            StateTreeProtocolInstance treeProtocol = (StateTreeProtocolInstance) node.getProtocol(tree);
             treeProtocol.setNodeId(node.getID());
+
             ((PointToPointTransport) node.getProtocol(Configuration.getPid("transport")))
                     .setGroupsManager(GroupsManager.getInstance());
-        }*/
+            parent.addChild(treeProtocol);
+            createTreeHelper(treeProtocol, depth, range);
+        }
+
     }
 
     private void generateClients(Set<StateTreeProtocol> datacenters) {
@@ -158,11 +184,11 @@ public class InitTreeProtocol implements Control {
                 .flatMap(Collection::stream)
                 .collect(Collectors.toSet());
         for (StateTreeProtocol datacenter : allNeighbours) {
-            Map<Integer, Set<DataObject>> allDataObjectsPerLevel = datacenter.getAllDataObjectsPerLevel();
-            for (Integer level : allDataObjectsPerLevel.keySet()) {
+            //Map<Integer, Set<DataObject>> allDataObjectsPerLevel = datacenter.getAllDataObjectsPerLevel();
+           /* for (Integer level : allDataObjectsPerLevel.keySet()) {
                 result.computeIfAbsent(level, k -> new HashSet<>())
                         .addAll(allDataObjectsPerLevel.get(level));
-            }
+            }*/
         }
 
         return result;
@@ -184,7 +210,7 @@ public class InitTreeProtocol implements Control {
         for (StateTreeProtocol datacenter : datacenters) {
             Map<Integer, Set<StateTreeProtocol>> levelsToNodes =
                     GroupsManager.getInstance().getNeighboursOfDatacenter(datacenter.getNodeId());
-            datacenter.setLevelsToNodes(levelsToNodes);
+           // datacenter.setLevelsToNodes(levelsToNodes);
         }
     }
 
@@ -200,7 +226,7 @@ public class InitTreeProtocol implements Control {
             result.add(new DataObject(level, nodesGroupIds, i, counter++));
         }
         for (StateTreeProtocol datacenter : datacentersGroup) {
-            datacenter.addDataObjectsToLevel(result, level);
+            //datacenter.addDataObjectsToLevel(result, level);
             GroupsManager.getInstance().addDataObjects(datacenter, result, level);
         }
 
@@ -223,15 +249,15 @@ public class InitTreeProtocol implements Control {
         for (StateTreeProtocol datacenter : datacenters) {
             System.out.println("Printing info for node " + datacenter.getNodeId());
             for (int level = 0; level < levelsPercentage.length; level++) {
-                Set<StateTreeProtocol> levelsToNodes = datacenter.getLevelsToNodes(level);
-                System.out.println("Level " + level + ": " + levelsToNodes.stream()
+                //Set<StateTreeProtocol> levelsToNodes = datacenter.getLevelsToNodes(level);
+               /* System.out.println("Level " + level + ": " + levelsToNodes.stream()
                         .map(StateTreeProtocol::getNodeId)
                         .map(Object::toString)
                         .sorted()
                         .collect(Collectors.joining("-")));
-                for (DataObject dataObject : datacenter.getDataObjectsFromLevel(level)) {
+               /* for (DataObject dataObject : datacenter.getDataObjectsFromLevel(level)) {
                     System.out.println("dataobject: " + dataObject.getDebugInfo());
-                }
+                }*/
             }
             System.out.println();
         }
