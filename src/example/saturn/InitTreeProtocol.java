@@ -71,19 +71,17 @@ public class InitTreeProtocol implements Control {
      */
     public boolean execute() {
 
-        StateTreeProtocolInstance root = initStateTreeProtocol(10, 2, 2);
+        StateTreeProtocolInstance root = initStateTreeProtocol(4, 2, 2);
         TreeHelper.printTree(root);
 
         int[][] latencies =  generateLatencies();
-       // TreeHelper.printLatencies(latencies);
+        TreeHelper.printLatencies(latencies);
 
 
         // Generate first 1 level (local) data objects, then 2 levels (regional)
         // then 3 levels (country) ...
         Set<StateTreeProtocol> datacenters = getDatacenters();
-        return false;
 
-        /*
         populateDatacenterLevelsToDatacenters(datacenters);
 
         generateDataObjects(datacenters);
@@ -93,7 +91,7 @@ public class InitTreeProtocol implements Control {
             debugPrintStatus(datacenters);
         }
 
-        return false;*/
+        return false;
     }
 
     private int[][] generateLatencies(){
@@ -106,6 +104,7 @@ public class InitTreeProtocol implements Control {
             StateTreeProtocolInstance treeProtocol = (StateTreeProtocolInstance) node.getProtocol(tree);
             TreeHelper.generateLatencies(treeProtocol, latencies);
         }
+
 
         return latencies;
     }
