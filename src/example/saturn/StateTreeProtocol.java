@@ -18,7 +18,6 @@
 
 package example.saturn;
 
-import com.sun.jdi.Value;
 import example.common.BasicStateTreeProtocol;
 import example.common.datatypes.DataObject;
 
@@ -54,7 +53,7 @@ public interface StateTreeProtocol extends BasicStateTreeProtocol {
 
     int get(Integer key);
 
-    int put(Integer key, Value value);
+    int put(Integer key, Long value);
 
     void putRemote(Integer key, Integer version);
 

@@ -18,7 +18,6 @@
 
 package example.saturn;
 
-import com.sun.jdi.Value;
 import example.common.datatypes.DataObject;
 import javafx.util.Pair;
 import org.apache.commons.math3.distribution.ZipfDistribution;
@@ -504,7 +503,7 @@ public abstract class StateTreeProtocolInstance
         return 0;
     }
 
-    public int put(Integer key, Value value) {
+    public int put(Integer key, Long value) {
         return 0;
     }
 

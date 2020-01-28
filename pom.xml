@@ -19,7 +19,7 @@
             <version>1.7.1</version>
         </dependency>
 
-       <dependency>
+        <dependency>
             <groupId>com</groupId>
             <artifactId>djep</artifactId>
             <version>1.0.0</version>
