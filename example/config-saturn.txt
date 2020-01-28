@@ -1,9 +1,12 @@
 # network size
-SIZE 8
+SIZE 4700
 
 # parameters of periodic execution
 CYCLES 100000
 CYCLE 1
+n_objects 100
+n_clients 100
+p_reads 50
 
 # random.seed 1234567890
 network.size SIZE
@@ -33,7 +36,7 @@ tree tree
 
 protocol.link peersim.core.IdleProtocol
 
-protocol.tree example.cops.TreeProtocol
+protocol.tree example.saturn.TreeProtocol
 protocol.tree.step CYCLE
 protocol.tree.transport tr
 protocol.tree.tree_protocol tree

@@ -154,12 +154,19 @@ public class Client implements BasicClientInterface {
 
 
     public Operation nextOperation() {
-        return null; //TODO
+        int key = getRandomKey();
+        int readOrUpdate = randomGenerator.nextInt(101);
+
+        if(isBetween(readOrUpdate, 0, CLIENT_READ_PERCENTAGE)){
+            return new Operation(Operation.Type.READ, key);
+        }else {
+            return new Operation(Operation.Type.UPDATE, key);
+        }
     }
 
-
-
-
+    private int getRandomKey() {
+        return originalDC.chooseRandomDataObject();
+    }
 
 
     //------------------------------------------

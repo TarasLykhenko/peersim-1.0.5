@@ -18,9 +18,10 @@
 
 package example.saturn;
 
+import com.sun.jdi.Value;
 import example.common.datatypes.DataObject;
-import example.saturn.components.Node;
 import javafx.util.Pair;
+import org.apache.commons.math3.distribution.ZipfDistribution;
 import peersim.core.Protocol;
 
 import java.io.BufferedWriter;
@@ -30,7 +31,7 @@ import java.io.PrintWriter;
 import java.util.*;
 import java.util.stream.Collectors;
 
-abstract class StateTreeProtocolInstance
+public abstract class StateTreeProtocolInstance
         implements StateTreeProtocol, Protocol {
 
     //--------------------------------------------------------------------------
@@ -44,6 +45,7 @@ abstract class StateTreeProtocolInstance
     private long totalReadLatency = 0;
     private int remoteReads = 0;
     private int updates = 0;
+    private ZipfDistribution zp;
 
     protected int counter = 0;
 
@@ -65,7 +67,7 @@ abstract class StateTreeProtocolInstance
     private Map<Integer, Set<DataObject>> levelToDataObjects = new HashMap<>();
     private Set<DataObject> allDataObjects = new HashSet<>();
 
-    private Map<Integer, DataObject> keyToDataObject = new HashMap<>();
+    private Map<Integer, Long> keyToDataObject = new HashMap<>();
 
     /**
      * We map
@@ -88,13 +90,24 @@ abstract class StateTreeProtocolInstance
     List<Pair<Integer, Integer>> remoteWrites = new ArrayList<>();
     PrintWriter writer;
 
-    StateTreeProtocol parent;
-    HashMap<Long, StateTreeProtocol> children = new HashMap<>();
+    StateTreeProtocolInstance parent;
+    HashMap<Long, StateTreeProtocolInstance> children = new HashMap<>();
 
-    public void addChild(StateTreeProtocol child){
+    public void addChild(StateTreeProtocolInstance child){
         children.put(child.getNodeId(), child);
     }
 
+    public HashMap<Long, StateTreeProtocolInstance> getChildren(){
+        return children;
+    }
+
+    public StateTreeProtocolInstance getParent(){
+        return parent;
+    }
+
+    public void setParent(StateTreeProtocolInstance _parent){
+        parent = _parent;
+    }
     //--------------------------------------------------------------------------
     //Initialization
     //--------------------------------------------------------------------------
@@ -484,6 +497,34 @@ abstract class StateTreeProtocolInstance
         @Override
         public int hashCode() {
             return Objects.hash(key, version);
+        }
+    }
+
+    public int get(Integer key) {
+        return 0;
+    }
+
+    public int put(Integer key, Value value) {
+        return 0;
+    }
+
+    public void putRemote(Integer key, Integer version) {
+
+    }
+
+    public int chooseRandomDataObject() {
+
+        if(zp == null){
+            zp = new ZipfDistribution(keyToDataObject.size(), 0.99);
+        }
+        return zp.sample() - 1;
+
+    }
+
+    public void generateKeys(int totalDataObjects) {
+
+        for (int i = 0; i < totalDataObjects; i++){
+            keyToDataObject.put(i,0L);
         }
     }
 }

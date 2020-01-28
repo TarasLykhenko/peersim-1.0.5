@@ -57,4 +57,6 @@ public interface StateTreeProtocol extends BasicStateTreeProtocol {
     int put(Integer key, Value value);
 
     void putRemote(Integer key, Integer version);
+
+    void generateKeys(int totalDataObjects);
 }

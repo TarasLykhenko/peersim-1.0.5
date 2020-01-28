@@ -2,7 +2,7 @@ package example.saturn;
 
 import example.common.PointToPointTransport;
 import example.common.datatypes.DataObject;
-import example.saturn.components.TreeHelper;
+import example.saturn.auxiliar.TreeHelper;
 import javafx.util.Pair;
 import peersim.config.Configuration;
 import peersim.core.Control;
@@ -22,6 +22,7 @@ public class InitTreeProtocol implements Control {
 
     private static final String PAR_TREE_PROT = "tree_protocol";
     private static final String N_CLIENTS = "n_clients";
+    private static final String N_OBJECTS = "n_objects";
 
 
     // ------------------------------------------------------------------------
@@ -69,11 +70,20 @@ public class InitTreeProtocol implements Control {
      * Datacenters in a deterministic way
      */
     public boolean execute() {
-        initStateTreeProtocol();
+
+        StateTreeProtocolInstance root = initStateTreeProtocol(10, 2, 2);
+        TreeHelper.printTree(root);
+
+        int[][] latencies =  generateLatencies();
+       // TreeHelper.printLatencies(latencies);
+
+
         // Generate first 1 level (local) data objects, then 2 levels (regional)
         // then 3 levels (country) ...
         Set<StateTreeProtocol> datacenters = getDatacenters();
+        return false;
 
+        /*
         populateDatacenterLevelsToDatacenters(datacenters);
 
         generateDataObjects(datacenters);
@@ -83,41 +93,46 @@ public class InitTreeProtocol implements Control {
             debugPrintStatus(datacenters);
         }
 
-        return false;
+        return false;*/
+    }
+
+    private int[][] generateLatencies(){
+
+        int numberOfNodes = (int)ID.get();
+        int[][] latencies = new int [numberOfNodes][numberOfNodes];
+
+        for (int i = 0; i < numberOfNodes; i++) {
+            Node node = Network.get(i);
+            StateTreeProtocolInstance treeProtocol = (StateTreeProtocolInstance) node.getProtocol(tree);
+            TreeHelper.generateLatencies(treeProtocol, latencies);
+        }
+
+        return latencies;
     }
 
     private void generateDataObjects(Set<StateTreeProtocol> datacenters) {
-        int counter = 0;
 
-        for (int level = 0; level < levelsPercentage.length; level++) {
-            Set<StateTreeProtocol> seenDatacenters = new HashSet<>();
+        int totalDataObjects = Integer.parseInt(Configuration.getString(N_OBJECTS));
 
-            for (StateTreeProtocol datacenter : datacenters) {
-                if (seenDatacenters.contains(datacenter)) {
-                    continue;
-                }
-
-                Set<StateTreeProtocol> datacenterGroup = new HashSet<>();
-                datacenterGroup.add(datacenter);
-                //datacenterGroup.addAll(datacenter.getLevelsToNodes(level));
-                seenDatacenters.addAll(datacenterGroup);
-
-                counter = generateDataObjectsForGroup(datacenterGroup, level, levelsPercentage[level], counter);
-            }
+        for (StateTreeProtocol datacenter : datacenters) {
+            datacenter.generateKeys(totalDataObjects);
         }
+
     }
 
-    private void initStateTreeProtocol() {
+    private StateTreeProtocolInstance initStateTreeProtocol(int depth, int rangeMin, int rangeMax) {
 
-        Pair<Integer, Integer> range = new Pair<>(2, 2);
+        Pair<Integer, Integer> range = new Pair<>(rangeMin, rangeMax);
 
         Node node = Network.get((int)ID.getAndIncrement());
         StateTreeProtocolInstance treeProtocol = (StateTreeProtocolInstance) node.getProtocol(tree);
         treeProtocol.setNodeId(node.getID());
-       createTreeHelper(treeProtocol, 5, range);
+        createTreeHelper(treeProtocol, depth, range);
 
-       ((PointToPointTransport) node.getProtocol(Configuration.getPid("transport")))
+        ((PointToPointTransport) node.getProtocol(Configuration.getPid("transport")))
                 .setGroupsManager(GroupsManager.getInstance());
+
+        return treeProtocol;
 
     }
 
@@ -134,6 +149,7 @@ public class InitTreeProtocol implements Control {
             Node node = Network.get((int)ID.getAndIncrement());
             StateTreeProtocolInstance treeProtocol = (StateTreeProtocolInstance) node.getProtocol(tree);
             treeProtocol.setNodeId(node.getID());
+            treeProtocol.setParent(parent);
 
             ((PointToPointTransport) node.getProtocol(Configuration.getPid("transport")))
                     .setGroupsManager(GroupsManager.getInstance());

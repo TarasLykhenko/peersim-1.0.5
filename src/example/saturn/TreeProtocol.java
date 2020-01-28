@@ -1,5 +1,6 @@
 package example.saturn;
 
+import com.sun.jdi.Value;
 import example.common.MigrationMessage;
 import example.common.PointToPointTransport;
 import example.common.datatypes.Operation;
@@ -59,15 +60,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
                 continue;
             }
 
-            // If is remote operation, migrate
-            if (operation.getDatacenter() != nodeId) {
-                MigrationMessage msg = new MigrationMessage(this.getNodeId(), client.getId());
-                Node migrationDatacenter = Network.get((int) operation.getDatacenter());
-                client.migrationStart();
-                sendMessage(node, migrationDatacenter, msg, pid);
-                sentMigrations++;
-                continue;
-            }
+
 
             // If is Local Read
             if (eventIsRead(operation)) {
@@ -138,66 +131,8 @@ public class TreeProtocol extends StateTreeProtocolInstance
      */
     public void processEvent(Node node, int pid, Object event) {
 
-        if (event instanceof LocalUpdate) {
-            LocalUpdate localUpdate = (LocalUpdate) event;
 
-            int newVersion = this.copsPut(localUpdate.key);
-            Client client = idToClient.get(localUpdate.clientId);
 
-            Set<Node> interestedDatacenters = getInterestedDatacenters(localUpdate.key);
-            // Remove self from remote update list
-            interestedDatacenters.remove(Network.get(Math.toIntExact(this.getNodeId())));
-            for (Node interestedNode : interestedDatacenters) {
-
-                RemoteUpdateMessage remoteMsg = new RemoteUpdateMessage(
-                        this.getNodeId(),
-                        client.getId(),
-                        localUpdate.key,
-                        client.getCopyOfContext(),
-                        newVersion);
-
-                sendMessage(node, interestedNode, remoteMsg, pid);
-            }
-
-            client.receiveUpdateResult(localUpdate.key, newVersion);
-        }
-
-        if (event instanceof RemoteUpdateMessage) {
-            RemoteUpdateMessage msg = (RemoteUpdateMessage) event;
-
-            if (msg.senderDC == nodeId) {
-                throw new RuntimeException("Remote LOCAL update?");
-            }
-
-            // Remote update
-            this.copsPutRemote(msg.key,
-                    msg.context,
-                    msg.version);
-
-        }
-
-        if (event instanceof MigrationMessage) {
-            MigrationMessage msg = (MigrationMessage) event;
-            StateTreeProtocolInstance originalDC = (StateTreeProtocolInstance)
-                    Network.get(Math.toIntExact(msg.senderDC)).getProtocol(tree);
-
-            Client client = originalDC.idToClient.get(msg.clientId);
-            // Remove client from original DC
-            originalDC.clients.remove(client);
-            originalDC.idToClient.remove(msg.clientId);
-
-            // Put client on Queue
-            this.migrateClientQueue(client, client.getCopyOfContext());
-        }
-
-        if (event instanceof ReadMessage) {
-            ReadMessage msg = (ReadMessage) event;
-            if (msg.senderDC != nodeId) {
-                throw new RuntimeException("Reads must ALWAYS be local.");
-            }
-            int keyVersion = copsGet(msg.key);
-            this.idToClient.get(msg.clientId).receiveReadResult(msg.key, keyVersion);
-        }
     }
 
     //--------------------------------------------------------------------------
@@ -216,6 +151,8 @@ public class TreeProtocol extends StateTreeProtocolInstance
     private boolean eventIsUpdate(Operation operation) {
         return operation.getType() == Operation.Type.UPDATE;
     }
+
+
 
     /*
     private void debugCheckIfNodeIsPartitioned(Node bestNode) {
