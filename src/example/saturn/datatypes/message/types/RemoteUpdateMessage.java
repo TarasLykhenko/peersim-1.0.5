@@ -8,7 +8,7 @@ public class RemoteUpdateMessage extends Message{
 	long value; //key value
 
 	public RemoteUpdateMessage(int key, long _value, long _updateID) {
-		super(Type.REMOTEUPDATE, key);
+		super(Type.REMOTEUPDATE, key, ChannelType.UDP);
 		value = _value;
 		updateID = _updateID;
 	}

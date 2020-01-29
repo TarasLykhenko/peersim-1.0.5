@@ -5,7 +5,7 @@ public class MetadataMessage extends Message{
 	long updateID;
 
 	public MetadataMessage(long updateID) {
-		super(Type.METADATA, 0);
+		super(Type.METADATA, 0,ChannelType.TCP);
 		this.updateID = updateID;
 	}
 

@@ -5,7 +5,7 @@ public class ReadMessage extends Message{
 	int clientId;
 
 	public ReadMessage(int key, int clientId) {
-		super(Type.READ, key);
+		super(Type.READ, key, ChannelType.TCP);
 		this.clientId = clientId;
 	}
 

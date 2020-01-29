@@ -278,12 +278,18 @@ public final class PointToPointTransport implements Transport {
             long delay = addBellDelay(latency, msg);
 
             delay = addPartitionDelay(msg, srcId, destId, delay);
+            boolean fifo = true;
+            if(msg instanceof Message){
+
+                Message.ChannelType ct = ((Message) msg).getChannelType();
+                fifo = (ct.equals(Message.ChannelType.TCP));
+            }
 
             if (messageIsFromClient(msg)) {
                 delay = Math.round(delay * Settings.CLIENT_NETWORK_STRETCH);
             } else {
                 long messageWillBeReceived = CommonState.getTime() + delay;
-                if(msg instanceof Message) {
+                if(fifo) {
                     long lastWillBeReceivedDest = lastWillBeReceived.get(srcId).get(destId);
                     if (messageWillBeReceived <= lastWillBeReceivedDest) {
                         messageWillBeReceived = lastWillBeReceivedDest + 1;
@@ -293,6 +299,7 @@ public final class PointToPointTransport implements Transport {
                     lastWillBeReceived.get(srcId).put(destId, messageWillBeReceived);
                 }
             }
+
 
             EDSimulator.add(delay, msg, dest, pid);
         }
