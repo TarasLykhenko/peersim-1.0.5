@@ -163,7 +163,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
 
         if (event instanceof LocalUpdateMessage) {
             LocalUpdateMessage localUpdateMessage = (LocalUpdateMessage) event;
-            long value = treeNode.localUpdateMessage( localUpdateMessage);
+            long value = treeNode.localUpdateMessage(localUpdateMessage);
             Client client = idToClient.get(localUpdateMessage.getClientId());
             client.receiveUpdateResult(localUpdateMessage.getKey(),value);
 
@@ -204,16 +204,6 @@ public class TreeProtocol extends StateTreeProtocolInstance
 
 
 
-    /*
-    private void debugCheckIfNodeIsPartitioned(Node bestNode) {
-        Map<Long, Integer> longIntegerMap = PointToPointTransport.partitionTable.get(bestNode.getID());
-        for (Long dstNode : longIntegerMap.keySet()) {
-            if (longIntegerMap.get(dstNode) > CommonState.getTime()) {
-                System.out.println("MIGRATING TO PARTITIONED NODE!" + longIntegerMap.get(dstNode) + " | " + CommonState.getTime());
-            }
-        }
-    }
-    */
 
 
 //--------------------------------------------------------------------------
