@@ -154,6 +154,7 @@ public abstract class StateTreeProtocolInstance
         broker = new Broker(getNodeId());
         replicationManager = new ReplicationManager(broker);
         storage = new Storage(replicationManager);
+        broker.setStorage(storage);
     }
 
     //--------------------------------------------------------------------------
@@ -553,7 +554,7 @@ public abstract class StateTreeProtocolInstance
     public int chooseRandomDataObject() {
 
         if(zp == null){
-            zp = new ZipfDistribution(keyToDataObject.size(), 0.99);
+            zp = new ZipfDistribution(storage.kvStore.size(), 0.99);
         }
         return zp.sample() - 1;
 

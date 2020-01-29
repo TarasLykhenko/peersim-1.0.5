@@ -83,4 +83,6 @@ public class Broker {
     public void setParent(StateTreeProtocolInstance _parent){
         parent = _parent;
     }
+
+    public void setStorage(Storage storage){this.storage = storage;}
 }
