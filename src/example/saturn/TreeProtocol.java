@@ -89,24 +89,21 @@ public class TreeProtocol extends StateTreeProtocolInstance
         StateTreeProtocolInstance treeNode = (StateTreeProtocolInstance) node.getProtocol(tree);
 
         //send data in parallel
-        Message message = treeNode.getParallelMessage();
-        while (message != null){
+        Message message;
+        while ((message = treeNode.getParallelMessage()) != null){
             //TODO send message remoteUpdate TARAS
             Node destinationNode = Network.get((int)message.getNodeDestinationID());
             message.setNodeOriginID(node.getID());
             sendMessage(node, destinationNode, message, pid);
-            message = treeNode.getParallelMessage();
 
         }
 
         //send metadata in fifo
-        message = treeNode.getFIFOMessage();
-        while (message != null){
+        while ((message = treeNode.getFIFOMessage()) != null){
             //TODO send message to brokers TARAS tem que ser em canais diferentes
             Node destinationNode = Network.get((int)message.getNodeDestinationID());
             message.setNodeOriginID(node.getID());
             sendMessage(node, destinationNode, message, pid);
-            message = treeNode.getFIFOMessage();
 
         }
     }

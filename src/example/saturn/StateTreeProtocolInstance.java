@@ -543,7 +543,11 @@ public abstract class StateTreeProtocolInstance
     public void generateKeys(int totalDataObjects) {
 
         for (int i = 0; i < totalDataObjects; i++){
-            keyToDataObject.put(i,0L);
+            if(!GlobalContext.keysToDcs.containsKey(i)){
+                GlobalContext.keysToDcs.put(i,new ArrayList<>());
+            }
+            GlobalContext.keysToDcs.get(i).add(nodeId);
+            storage.put(i,0L);
         }
     }
 }

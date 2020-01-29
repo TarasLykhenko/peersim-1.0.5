@@ -82,7 +82,6 @@ public class InitTreeProtocol implements Control {
         // then 3 levels (country) ...
         Set<StateTreeProtocol> datacenters = getDatacenters();
 
-        populateDatacenterLevelsToDatacenters(datacenters);
 
         generateDataObjects(datacenters);
         generateClients(datacenters);

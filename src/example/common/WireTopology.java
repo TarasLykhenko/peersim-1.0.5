@@ -39,7 +39,6 @@ public class WireTopology extends WireGraph {
 
                     if (latency >= 0) {
                         graph.setEdge(source, target);
-
                         PointToPointTransport.addLatency((long) source, (long) target, latency);
                     } else if (latency == -1) {
                         PointToPointTransport.addLatency( (long) source, (long) target, CLIENT_REQUEST_LATENCY);

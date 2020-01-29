@@ -18,6 +18,7 @@
 
 package example.common;
 
+import example.saturn.datatypes.message.types.Message;
 import peersim.config.Configuration;
 import peersim.config.IllegalParameterException;
 import peersim.core.CommonState;
@@ -282,13 +283,15 @@ public final class PointToPointTransport implements Transport {
                 delay = Math.round(delay * Settings.CLIENT_NETWORK_STRETCH);
             } else {
                 long messageWillBeReceived = CommonState.getTime() + delay;
-                long lastWillBeReceivedDest = lastWillBeReceived.get(srcId).get(destId);
-                if (messageWillBeReceived <= lastWillBeReceivedDest) {
-                    messageWillBeReceived = lastWillBeReceivedDest + 1;
-                    delay = messageWillBeReceived - CommonState.getTime();
-                }
+                if(msg instanceof Message) {
+                    long lastWillBeReceivedDest = lastWillBeReceived.get(srcId).get(destId);
+                    if (messageWillBeReceived <= lastWillBeReceivedDest) {
+                        messageWillBeReceived = lastWillBeReceivedDest + 1;
+                        delay = messageWillBeReceived - CommonState.getTime();
+                    }
 
-                lastWillBeReceived.get(srcId).put(destId, messageWillBeReceived);
+                    lastWillBeReceived.get(srcId).put(destId, messageWillBeReceived);
+                }
             }
 
             EDSimulator.add(delay, msg, dest, pid);
