@@ -248,7 +248,11 @@ public abstract class AbstractController implements Control {
             }
             importantWriter.close();
             if (Settings.PRINT_INFO) {
-                doEndExecution(clients);
+                try {
+                    doEndExecution(clients);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
             return true;
         }
@@ -257,7 +261,7 @@ public abstract class AbstractController implements Control {
 
     public abstract void doAdditionalExecution(Set<BasicClientInterface> clients);
 
-    public void doEndExecution(Set<BasicClientInterface> clients) {
+    public void doEndExecution(Set<BasicClientInterface> clients) throws IOException {
         int totalReads = 0;
         int totalUpdates = 0;
         int totalMigrations = 0;

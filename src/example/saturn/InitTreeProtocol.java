@@ -72,10 +72,8 @@ public class InitTreeProtocol implements Control {
     public boolean execute() {
 
         StateTreeProtocolInstance root = initStateTreeProtocol(2, 2, 2);
-        TreeHelper.printTree(root);
 
         int[][] latencies =  generateLatencies();
-        TreeHelper.printLatencies(latencies);
 
 
         // Generate first 1 level (local) data objects, then 2 levels (regional)

@@ -4,6 +4,7 @@ import example.common.BasicClientInterface;
 import example.common.datatypes.Operation;
 import example.saturn.StateTreeProtocolInstance;
 import example.saturn.StateTreeProtocol;
+import example.saturn.datatypes.ReadOperation;
 import example.saturn.datatypes.UpdateOperation;
 import javafx.util.Pair;
 import peersim.core.CommonState;
@@ -155,14 +156,22 @@ public class Client implements BasicClientInterface {
 
 
     public Operation nextOperation() {
+        if(lastOperation != null){
+            return null;
+        }
         int key = getRandomKey();
         int readOrUpdate = randomGenerator.nextInt(101);
-
         if(isBetween(readOrUpdate, 0, CLIENT_READ_PERCENTAGE)){
-            return new Operation(Operation.Type.READ, key);
+            this.numberReads++;
+            this.lastOperationTimestamp = CommonState.getTime();
+            this.lastOperation = new ReadOperation(key);
+            return this.lastOperation;
         }else {
-            UpdateOperation operation = new UpdateOperation(key, 0); //o cliente nao esta a 0 sempre
-            return operation;
+            this.numberUpdates++;
+            this.lastOperationTimestamp = CommonState.getTime();
+
+            this.lastOperation =  new UpdateOperation(key, 0); //o cliente nao esta a 0 sempre
+            return this.lastOperation;
         }
     }
 
@@ -177,20 +186,15 @@ public class Client implements BasicClientInterface {
 
     // My inner OOP is too weak for this abstraction :^(
     public final void receiveReadResult(int key, Object readResult) {
-        //TODO o cliente devia de fazer alguma coisa com os resultados? o codigo abaixo era do valter
-        /*handleReadResult(key, readResult);
-
-        lastResultReceivedTimestamp = CommonState.getTime();
-        readsTotalLatency += (lastResultReceivedTimestamp - lastOperationTimestamp);*/
+        this.readsTotalLatency += (CommonState.getTime() -this.lastOperationTimestamp);
+        this.lastOperation = null;
     }
 
 
     public final void receiveUpdateResult(int key, Object updateResult) {
-        //TODO o cliente devia de fazer alguma coisa com os resultados? o codigo abaixo era do valter
-        /*handleUpdateResult(key, updateResult);
+        this.updatesTotalLatency += (CommonState.getTime() -this.lastOperationTimestamp);
+        this.lastOperation = null;
 
-        lastResultReceivedTimestamp = CommonState.getTime();
-        updatesTotalLatency += (lastResultReceivedTimestamp - lastOperationTimestamp);*/
     }
 
 

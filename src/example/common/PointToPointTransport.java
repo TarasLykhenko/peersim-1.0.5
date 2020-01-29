@@ -319,41 +319,7 @@ public final class PointToPointTransport implements Transport {
             partitionOver = partitionDCTable.get(srcId).get(destId);
         }
 
-        if (partitionOver != 0) {
-            if (PARTITIONS_ARE_DELAYS) {
-                float stretch;
-                float target_percentage;
-
-                switch (groupsManager.getLowestCommonLevel(srcId, destId)) {
-                    case 1:
-                        target_percentage = PARTITION_MESSAGE_L1_AFFECTED_PERCENTAGE;
-                        stretch = 1 + (float) (PARTITION_STRETCH_L1_PERCENTAGE / 100);
-                        break;
-                    case 2:
-                        target_percentage = PARTITION_MESSAGE_L2_AFFECTED_PERCENTAGE;
-                        stretch = 1 + (float) (PARTITION_STRETCH_L2_PERCENTAGE / 100);
-                        break;
-                    case 3:
-                        target_percentage = PARTITION_MESSAGE_L3_AFFECTED_PERCENTAGE;
-                        stretch = 1 + (float) (PARTITION_STRETCH_L3_PERCENTAGE / 100);
-                        break;
-                    default:
-                        target_percentage = 0;
-                        stretch = 1;
-                }
-                if (CommonState.r.nextLong(100) < target_percentage) {
-                    delay = Math.round(delay * stretch);
-                }
-            } else {
-                partitionOver -= currentTime;
-                if (partitionOver > 0) {
-                    if (Settings.PRINT_INFO) {
-                        System.out.println("ADDING DELAY TO " + msg);
-                    }
-                    delay += partitionOver;
-                }
-            }
-        }
+        delay += partitionOver;
         return delay;
     }
 
