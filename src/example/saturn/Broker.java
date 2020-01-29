@@ -59,7 +59,7 @@ public class Broker {
     public List<Long> getRemoteBrokersID(){
         List<Long> remoteBrokers = new ArrayList<>();
 
-        remoteBrokers.add(parent.getNodeId());
+        if(parent != null){ remoteBrokers.add(parent.getNodeId()); }
 
         for (StateTreeProtocolInstance value : getChildren().values()) {
             remoteBrokers.add(value.getNodeId());
