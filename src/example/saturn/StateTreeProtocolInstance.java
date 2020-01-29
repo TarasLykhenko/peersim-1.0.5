@@ -109,7 +109,7 @@ public abstract class StateTreeProtocolInstance
     }
 
     public void metadataMessage(MetadataMessage message){
-
+        broker.newRemoteMetadataUpdate(message);
     }
 
     public void remoteUpdateMessage(RemoteUpdateMessage message){
@@ -151,7 +151,7 @@ public abstract class StateTreeProtocolInstance
      * Does nothing.
      */
     public StateTreeProtocolInstance() {
-        broker = new Broker();
+        broker = new Broker(getNodeId());
         replicationManager = new ReplicationManager(broker);
         storage = new Storage();
     }

@@ -13,10 +13,17 @@ public class Broker {
     HashMap<Long, StateTreeProtocolInstance> children = new HashMap<>();
 
     Storage storage;
+    long nodeID;
     Queue<MetadataMessage> metaQueue = new LinkedList<>();
 
+    public Broker(long nodeID){
+        this.nodeID = nodeID;
+    }
+
     public void newRemoteMetadataUpdate(MetadataMessage MetadataMessage) {
-        storage.remoteMetadata(MetadataMessage.getUpdateID());
+
+        long updateID = MetadataMessage.getUpdateID();
+        storage.remoteMetadata(updateID);
 
         //propagate metadata expect to message origin
         List<Long> remoteBrokers = getRemoteBrokersID();
@@ -24,8 +31,9 @@ public class Broker {
 
             if(remoteReplicaID == MetadataMessage.getNodeOriginID()) continue;;
 
-            MetadataMessage message = new MetadataMessage(newUpdateId);
+            MetadataMessage message = new MetadataMessage(updateID);
             message.setNodeDestinationID(remoteReplicaID);
+            message.setNodeOriginID(this.nodeID);
             metaQueue.add(message);
 
         }
@@ -38,7 +46,7 @@ public class Broker {
 
             MetadataMessage message = new MetadataMessage(newUpdateId);
             message.setNodeDestinationID(remoteReplicaID);
-            message.setNodeOriginID(this.);
+            message.setNodeOriginID(this.nodeID);
             metaQueue.add(message);
 
         }
