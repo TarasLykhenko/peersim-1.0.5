@@ -19,8 +19,7 @@
 package example.saturn;
 
 import example.common.datatypes.DataObject;
-import example.saturn.datatypes.message.types.Message;
-import example.saturn.datatypes.message.types.RemoteUpdateMessage;
+import example.saturn.datatypes.message.types.*;
 import javafx.util.Pair;
 import org.apache.commons.math3.distribution.ZipfDistribution;
 import peersim.core.Network;
@@ -96,6 +95,26 @@ public abstract class StateTreeProtocolInstance
     Broker broker;
     ReplicationManager replicationManager;
     Storage storage;
+
+
+    public long localUpdateMessage(LocalUpdateMessage message){
+        long value = storage.get(message.getKey());
+        long newVersion = value++;
+        storage.put(message.getKey(), newVersion);
+        return newVersion;
+    }
+
+    public long readMessage(ReadMessage message){
+        return storage.get(message.getKey());
+    }
+
+    public void metadataMessage(MetadataMessage message){
+
+    }
+
+    public void remoteUpdateMessage(RemoteUpdateMessage message){
+
+    }
 
 
     public void addChild(StateTreeProtocolInstance child){

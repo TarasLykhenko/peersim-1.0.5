@@ -4,6 +4,7 @@ import example.common.BasicClientInterface;
 import example.common.datatypes.Operation;
 import example.saturn.StateTreeProtocolInstance;
 import example.saturn.StateTreeProtocol;
+import example.saturn.datatypes.UpdateOperation;
 import javafx.util.Pair;
 import peersim.core.CommonState;
 import peersim.util.ExtendedRandom;
@@ -160,7 +161,8 @@ public class Client implements BasicClientInterface {
         if(isBetween(readOrUpdate, 0, CLIENT_READ_PERCENTAGE)){
             return new Operation(Operation.Type.READ, key);
         }else {
-            return new Operation(Operation.Type.UPDATE, key);
+            UpdateOperation operation = new UpdateOperation(key, 0); //o cliente nao esta a 0 sempre
+            return operation;
         }
     }
 
@@ -175,18 +177,20 @@ public class Client implements BasicClientInterface {
 
     // My inner OOP is too weak for this abstraction :^(
     public final void receiveReadResult(int key, Object readResult) {
-        handleReadResult(key, readResult);
+        //TODO o cliente devia de fazer alguma coisa com os resultados? o codigo abaixo era do valter
+        /*handleReadResult(key, readResult);
 
         lastResultReceivedTimestamp = CommonState.getTime();
-        readsTotalLatency += (lastResultReceivedTimestamp - lastOperationTimestamp);
+        readsTotalLatency += (lastResultReceivedTimestamp - lastOperationTimestamp);*/
     }
 
 
     public final void receiveUpdateResult(int key, Object updateResult) {
-        handleUpdateResult(key, updateResult);
+        //TODO o cliente devia de fazer alguma coisa com os resultados? o codigo abaixo era do valter
+        /*handleUpdateResult(key, updateResult);
 
         lastResultReceivedTimestamp = CommonState.getTime();
-        updatesTotalLatency += (lastResultReceivedTimestamp - lastOperationTimestamp);
+        updatesTotalLatency += (lastResultReceivedTimestamp - lastOperationTimestamp);*/
     }
 
 

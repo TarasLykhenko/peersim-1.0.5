@@ -18,21 +18,21 @@ public class Storage {
         replicationManager = _replicationManager;
     }
 
-    public Long get(Integer key){
+    public long get(int key){
         return kvStore.get(key);
     }
 
-    public void put(Integer key, Long value){
+    public void put(int key, long value){
         kvStore.put(key, value);
         replicationManager.propagateUpdate(key, value);
     }
 
-    public void remotePut(Long updateID, Integer key, Long value){
+    public void remotePut(long updateID, int key, long value){
         pendingRemoteUpdates.put(updateID,new Pair<>(key, value));
         applyRemoteUpdates();
     }
 
-    public void remoteMetadata(Long updateID){
+    public void remoteMetadata(long updateID){
         metaQueue.add(updateID);
         applyRemoteUpdates();
     }
@@ -41,7 +41,7 @@ public class Storage {
 
         while(!metaQueue.isEmpty()){
             if(pendingRemoteUpdates.containsKey(metaQueue.peek())){
-                Long updateID = metaQueue.poll();
+                long updateID = metaQueue.poll();
                 Pair<Integer,Long> update = pendingRemoteUpdates.get(updateID);
                 pendingRemoteUpdates.remove(updateID);
                 put(update.getKey(), update.getValue());

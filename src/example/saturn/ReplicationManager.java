@@ -23,6 +23,7 @@ public class ReplicationManager {
         broker.newUpdate(newUpdateId);
 
         List<Long> remoteReplicas = getRemoeReplicasID(key);
+
         for (long remoteReplicaID : remoteReplicas) {
             RemoteUpdateMessage message = new RemoteUpdateMessage(key,value,newUpdateId);
             message.setNodeDestinationID(remoteReplicaID);
