@@ -7,7 +7,7 @@ public class LocalUpdateMessage extends Message{
 
 
 	public LocalUpdateMessage(int key, int clientId, long value) {
-		super(Type.LOCALUPDATE, key);
+		super(Type.LOCALUPDATE, key,ChannelType.TCP);
 		this.clientId = clientId;
 		this.value = value;
 	}
