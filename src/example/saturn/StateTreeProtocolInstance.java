@@ -19,8 +19,12 @@
 package example.saturn;
 
 import example.common.datatypes.DataObject;
+import example.saturn.datatypes.message.types.Message;
+import example.saturn.datatypes.message.types.RemoteUpdateMessage;
 import javafx.util.Pair;
 import org.apache.commons.math3.distribution.ZipfDistribution;
+import peersim.core.Network;
+import peersim.core.Node;
 import peersim.core.Protocol;
 
 import java.io.BufferedWriter;
@@ -89,24 +93,37 @@ public abstract class StateTreeProtocolInstance
     List<Pair<Integer, Integer>> remoteWrites = new ArrayList<>();
     PrintWriter writer;
 
-    StateTreeProtocolInstance parent;
-    HashMap<Long, StateTreeProtocolInstance> children = new HashMap<>();
+    Broker broker;
+    ReplicationManager replicationManager;
+    Storage storage;
+
 
     public void addChild(StateTreeProtocolInstance child){
-        children.put(child.getNodeId(), child);
+        broker.addChild(child);
     }
 
     public HashMap<Long, StateTreeProtocolInstance> getChildren(){
-        return children;
+        return broker.getChildren();
     }
 
     public StateTreeProtocolInstance getParent(){
-        return parent;
+        return broker.getParent();
     }
 
-    public void setParent(StateTreeProtocolInstance _parent){
-        parent = _parent;
+    public void setParent(StateTreeProtocolInstance parent){
+        broker.setParent(parent);
     }
+
+    public Message getParallelMessage(){
+        return replicationManager.getMessage();
+    }
+
+    public Message getFIFOMessage(){
+        return broker.getMessage();
+    }
+
+
+
     //--------------------------------------------------------------------------
     //Initialization
     //--------------------------------------------------------------------------
@@ -115,6 +132,9 @@ public abstract class StateTreeProtocolInstance
      * Does nothing.
      */
     public StateTreeProtocolInstance() {
+        broker = new Broker();
+        replicationManager = new ReplicationManager(broker);
+        storage = new Storage();
     }
 
     //--------------------------------------------------------------------------

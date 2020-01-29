@@ -1,13 +1,15 @@
 package example.saturn;
 
-import javafx.util.Pair;
+import example.saturn.datatypes.message.types.Message;
+import example.saturn.datatypes.message.types.RemoteUpdateMessage;
 
-import java.util.HashMap;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class ReplicationManager {
 
-    HashMap<Long, Pair<Integer,Long>> pendingSendUpdates = new HashMap<>();
+    Queue<RemoteUpdateMessage> pendingSendUpdates = new LinkedList<>();
+
     AtomicLong logicClock = new AtomicLong(0);
     Broker broker;
 
@@ -16,10 +18,31 @@ public class ReplicationManager {
     }
 
     public void propagateUpdate(Integer key, Long value){
+
         Long newUpdateId = logicClock.getAndIncrement();
         broker.newUpdate(newUpdateId);
-        pendingSendUpdates.put(newUpdateId, new Pair<>(key, value));
+
+        List<Long> remoteReplicas = getRemoeReplicasID(newUpdateId);
+        for (long remoteReplicaID : remoteReplicas) {
+
+            RemoteUpdateMessage message = new RemoteUpdateMessage(key,value,newUpdateId);
+            message.setNodeDestinationID(remoteReplicaID);
+            pendingSendUpdates.add(message);
+
+        }
+
     }
 
-    public HashMap<Long, Pair<Integer,Long>> get
+    public Message getMessage(){
+        return pendingSendUpdates.poll();
+    }
+
+    public List<Long> getRemoeReplicasID(long key){
+        //TODO saber quais a replicas que replicam esta chave TARAS
+        List<Long> list = new ArrayList<>();
+        list.add(1L);
+        list.add(2L);
+        list.add(3L);
+        return list;
+    }
 }

@@ -3,6 +3,7 @@ package example.saturn;
 import example.common.MigrationMessage;
 import example.common.PointToPointTransport;
 import example.common.datatypes.Operation;
+import example.saturn.datatypes.message.types.Message;
 import peersim.cdsim.CDProtocol;
 import peersim.config.Configuration;
 import peersim.config.FastConfig;
@@ -78,7 +79,38 @@ public class TreeProtocol extends StateTreeProtocolInstance
         }
 
         this.checkIfCanAcceptMigratedClients();
+
+        processTreeNodeCycle(node, pid);
+
     }
+
+    private void processTreeNodeCycle(Node node, int pid){
+
+        StateTreeProtocolInstance treeNode = (StateTreeProtocolInstance) node.getProtocol(tree);
+
+        //send data in parallel
+        Message message = treeNode.getParallelMessage();
+        while (message != null){
+            //TODO send message remoteUpdate TARAS
+            Node destinationNode = Network.get((int)message.getNodeDestinationID());
+            message.setNodeOriginID(node.getID());
+            sendMessage(node, destinationNode, message, pid);
+            message = treeNode.getParallelMessage();
+
+        }
+
+        //send metadata in fifo
+        message = treeNode.getFIFOMessage();
+        while (message != null){
+            //TODO send message to brokers TARAS tem que ser em canais diferentes
+            Node destinationNode = Network.get((int)message.getNodeDestinationID());
+            message.setNodeOriginID(node.getID());
+            sendMessage(node, destinationNode, message, pid);
+            message = treeNode.getFIFOMessage();
+
+        }
+    }
+
 
     private Node getMigrationDatacenter(int key,
                                         StateTreeProtocol originalDC) {

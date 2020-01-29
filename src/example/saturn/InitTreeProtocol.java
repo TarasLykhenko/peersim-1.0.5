@@ -71,7 +71,7 @@ public class InitTreeProtocol implements Control {
      */
     public boolean execute() {
 
-        StateTreeProtocolInstance root = initStateTreeProtocol(4, 2, 2);
+        StateTreeProtocolInstance root = initStateTreeProtocol(2, 2, 2);
         TreeHelper.printTree(root);
 
         int[][] latencies =  generateLatencies();

@@ -1,14 +1,60 @@
 package example.saturn;
 
-import java.util.LinkedList;
-import java.util.Queue;
+import example.saturn.datatypes.message.types.Message;
+import example.saturn.datatypes.message.types.MetadataMessage;
+import example.saturn.datatypes.message.types.RemoteUpdateMessage;
+
+import java.util.*;
 
 public class Broker {
 
-    Queue<Long> metaQueue = new LinkedList<>();
+    //tree logic
+    StateTreeProtocolInstance parent;
+    HashMap<Long, StateTreeProtocolInstance> children = new HashMap<>();
 
-    public void newUpdate(Long newUpdateId) {
-        metaQueue.add(newUpdateId);
+    Queue<MetadataMessage> metaQueue = new LinkedList<>();
+
+    public void newUpdate(long newUpdateId) {
+
+        List<Long> remoteBrokers = getRemoteBrokersID();
+        for (long remoteReplicaID : remoteBrokers) {
+
+            MetadataMessage message = new MetadataMessage(newUpdateId);
+            message.setNodeDestinationID(remoteReplicaID);
+            metaQueue.add(message);
+
+        }
     }
 
+    public Message getMessage(){
+        return metaQueue.poll();
+    }
+
+    public List<Long> getRemoteBrokersID(){
+        List<Long> remoteBrokers = new ArrayList<>();
+
+        remoteBrokers.add(parent.getNodeId());
+
+        for (StateTreeProtocolInstance value : getChildren().values()) {
+            remoteBrokers.add(value.getNodeId());
+        }
+
+        return remoteBrokers;
+    }
+
+    public void addChild(StateTreeProtocolInstance child){
+        children.put(child.getNodeId(), child);
+    }
+
+    public HashMap<Long, StateTreeProtocolInstance> getChildren(){
+        return children;
+    }
+
+    public StateTreeProtocolInstance getParent(){
+        return parent;
+    }
+
+    public void setParent(StateTreeProtocolInstance _parent){
+        parent = _parent;
+    }
 }
