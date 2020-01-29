@@ -22,7 +22,7 @@ public class ReplicationManager {
         Long newUpdateId = logicClock.getAndIncrement();
         broker.newUpdate(newUpdateId);
 
-        List<Long> remoteReplicas = getRemoeReplicasID(newUpdateId);
+        List<Long> remoteReplicas = getRemoteReplicasID(newUpdateId);
         for (long remoteReplicaID : remoteReplicas) {
 
             RemoteUpdateMessage message = new RemoteUpdateMessage(key,value,newUpdateId);
@@ -37,7 +37,7 @@ public class ReplicationManager {
         return pendingSendUpdates.poll();
     }
 
-    public List<Long> getRemoeReplicasID(long key){
+    public List<Long> getRemoteReplicasID(long key){
         //TODO saber quais a replicas que replicam esta chave TARAS
         List<Long> list = new ArrayList<>();
         list.add(1L);

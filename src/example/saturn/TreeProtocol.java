@@ -3,7 +3,8 @@ package example.saturn;
 import example.common.MigrationMessage;
 import example.common.PointToPointTransport;
 import example.common.datatypes.Operation;
-import example.saturn.datatypes.message.types.Message;
+import example.saturn.datatypes.UpdateOperation;
+import example.saturn.datatypes.message.types.*;
 import peersim.cdsim.CDProtocol;
 import peersim.config.Configuration;
 import peersim.config.FastConfig;
@@ -45,13 +46,17 @@ public class TreeProtocol extends StateTreeProtocolInstance
      * {@link peersim.edsim.CDScheduler} component in the configuration.
      */
     public void nextCycle(Node node, int pid) {
-        doDatabaseMethod(node, pid);
+
+        processClientsNodeCycle(node, pid);
+        processTreeNodeCycle(node, pid);
+
     }
 
     /**
      * Every client attempts to do something.
      */
-    private void doDatabaseMethod(Node node, int pid) {
+    private void processClientsNodeCycle(Node node, int pid) {
+
         for (Client client : clients) {
             Operation operation = client.nextOperation();
             // Client is waiting for result;
@@ -61,26 +66,25 @@ public class TreeProtocol extends StateTreeProtocolInstance
             }
 
 
-
             // If is Local Read
             if (eventIsRead(operation)) {
-                ReadMessage readMessage = new ReadMessage(this.getNodeId(), client.getId(), operation.getKey());
+                ReadMessage readMessage = new ReadMessage(operation.getKey(), client.getId());
+                readMessage.setNodeOriginID(this.getNodeId());
                 sendMessage(node, node, readMessage, pid);
                 continue;
             }
 
             // If is local update
             if (eventIsUpdate(operation)) {
-                LocalUpdate localUpdate = new LocalUpdate(client.getId(), operation.getKey());
+                UpdateOperation updateOperation = (UpdateOperation) operation;
+                LocalUpdateMessage localUpdate = new LocalUpdateMessage(operation.getKey(), client.getId(), updateOperation.getValue());
                 sendMessage(node, node, localUpdate, pid);
             } else {
                 System.out.println("Unknown scenario!");
             }
         }
 
-        this.checkIfCanAcceptMigratedClients();
-
-        processTreeNodeCycle(node, pid);
+      //  this.checkIfCanAcceptMigratedClients();
 
     }
 
@@ -111,10 +115,8 @@ public class TreeProtocol extends StateTreeProtocolInstance
         }
     }
 
-
     private Node getMigrationDatacenter(int key,
                                         StateTreeProtocol originalDC) {
-
         // Get datacenters that have the key
         Set<Node> interestedNodes = getInterestedDatacenters(key);
 
@@ -162,8 +164,30 @@ public class TreeProtocol extends StateTreeProtocolInstance
      */
     public void processEvent(Node node, int pid, Object event) {
 
+        StateTreeProtocolInstance treeNode = (StateTreeProtocolInstance) node.getProtocol(tree);
 
+        if (event instanceof LocalUpdateMessage) {
+            LocalUpdateMessage localUpdateMessage = (LocalUpdateMessage) event;
+            long value = treeNode.localUpdateMessage( localUpdateMessage);
+            Client client = idToClient.get(localUpdateMessage.getClientId());
+            client.receiveUpdateResult(localUpdateMessage.getKey(),value);
 
+        }
+
+        else if(event instanceof ReadMessage){
+            ReadMessage readMessage = (ReadMessage) event;
+            long value = treeNode.readMessage( readMessage);
+            Client client = idToClient.get(readMessage.getClientId());
+            client.receiveReadResult(readMessage.getKey(),value);
+        }
+
+        else if(event instanceof MetadataMessage){
+            treeNode.metadataMessage( (MetadataMessage) event);
+        }
+
+        else if(event instanceof RemoteUpdateMessage){
+            treeNode.remoteUpdateMessage( (RemoteUpdateMessage) event);
+        }
     }
 
     //--------------------------------------------------------------------------
@@ -200,59 +224,6 @@ public class TreeProtocol extends StateTreeProtocolInstance
 //--------------------------------------------------------------------------
 //--------------------------------------------------------------------------
 
-    class ReadMessage {
-
-        final long senderDC;
-        final int clientId;
-        final int key;
-        final long timestamp;
-
-        public ReadMessage(long senderDC, int clientId, int key) {
-            this.senderDC = senderDC;
-            this.clientId = clientId;
-            this.key = key;
-            timestamp = CommonState.getTime();
-        }
-    }
-
-    class LocalUpdate {
-
-        final int clientId;
-        final int key;
-        final long timestamp;
-
-        public LocalUpdate(int clientId, int key) {
-            this.clientId = clientId;
-            this.key = key;
-            timestamp = CommonState.getTime();
-        }
-    }
-
-    class RemoteUpdateMessage {
-
-        final long senderDC;
-        final int clientId;
-        // final EventUID event;
-        final int key;
-        final Map<Integer, Integer> context;
-        final Integer version;
-        final long timestamp;
-
-        RemoteUpdateMessage(long sender,
-                            int clientId,
-                            int key,
-                            // EventUID event,
-                            Map<Integer, Integer> context,
-                            Integer version) {
-            this.senderDC = sender;
-            this.clientId = clientId;
-            this.key = key;
-            //this.event = event;
-            this.context = context;
-            this.version = version;
-            timestamp = CommonState.getTime();
-        }
-    }
 }
 
 

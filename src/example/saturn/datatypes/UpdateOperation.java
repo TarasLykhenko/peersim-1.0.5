@@ -12,6 +12,8 @@ public class UpdateOperation extends Operation {
 	 */
 	Map<Integer, Integer> updateContext = new HashMap<>();
 
+	long value;
+
 	/**
 	 * We don't really write anything, since it's not necessary.
 	 * @param key Key of the DataObject
@@ -22,8 +24,22 @@ public class UpdateOperation extends Operation {
 		updateContext = new HashMap<>(clientContext);
 	}
 
+	public UpdateOperation(Integer key, long value) {
+		super(Type.UPDATE, key);
+		this.value = value;
+	}
+
+
 	public Map<Integer, Integer> getUpdateContext() {
 		return updateContext;
+	}
+
+	public long getValue() {
+		return value;
+	}
+
+	public void setValue(long value) {
+		this.value = value;
 	}
 
 }
