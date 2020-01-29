@@ -14,7 +14,7 @@ public class Storage {
     HashMap<Integer, Long> kvStore = new HashMap<Integer, Long>();
     ReplicationManager replicationManager;
 
-    public void Storage(ReplicationManager _replicationManager){
+    public Storage(ReplicationManager _replicationManager){
         replicationManager = _replicationManager;
     }
 

@@ -113,7 +113,7 @@ public abstract class StateTreeProtocolInstance
     }
 
     public void remoteUpdateMessage(RemoteUpdateMessage message){
-            storage.remotePut(message.getUpdateID(), message.getKey(), message.getValue());
+        storage.remotePut(message.getUpdateID(), message.getKey(), message.getValue());
     }
 
 
@@ -153,7 +153,7 @@ public abstract class StateTreeProtocolInstance
     public StateTreeProtocolInstance() {
         broker = new Broker(getNodeId());
         replicationManager = new ReplicationManager(broker);
-        storage = new Storage();
+        storage = new Storage(replicationManager);
     }
 
     //--------------------------------------------------------------------------
