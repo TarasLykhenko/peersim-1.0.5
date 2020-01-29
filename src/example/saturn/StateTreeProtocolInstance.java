@@ -113,7 +113,7 @@ public abstract class StateTreeProtocolInstance
     }
 
     public void remoteUpdateMessage(RemoteUpdateMessage message){
-
+            storage.remotePut(message.getUpdateID(), message.getKey(), message.getValue());
     }
 
 
