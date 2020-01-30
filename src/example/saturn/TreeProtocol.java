@@ -51,6 +51,27 @@ public class TreeProtocol extends StateTreeProtocolInstance
         processClientsNodeCycle(node, pid);
         processTreeNodeCycle(node, pid);
 
+        if(node.getID() == 0)//simula o fim dum ciclo
+            processDataStatistics();
+    }
+
+    private void processDataStatistics() {
+
+        long cycle = CommonState.getTime();
+        int networkSize = Network.size();
+
+        for (int nodeID = 0; nodeID < networkSize; nodeID++) {
+            Node node = Network.get(nodeID);
+            StateTreeProtocolInstance treeNode = (StateTreeProtocolInstance) node.getProtocol(tree);
+            int brokerQueueSize = treeNode.broker.metaQueue.size();
+            int dataQueueSize = treeNode.storage.pendingRemoteUpdates.size();
+
+            GlobalContext.addValueToQueueStatistics(cycle, nodeID, brokerQueueSize, dataQueueSize);
+        }
+
+
+
+
     }
 
     /**

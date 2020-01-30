@@ -100,6 +100,7 @@ public class StatisticsController extends AbstractController {
         System.out.println("Total time migrating: " + totalMigrationTime);
 
         GlobalContext.printLog();
+        //GlobalContext.printQueueSize();
 
 
     }
