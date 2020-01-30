@@ -67,28 +67,21 @@ public class Client implements BasicClientInterface {
     public long lastResultReceivedTimestamp = 0;
 
 
-    private  long lastMigrationStart = 0;
+    private long lastMigrationStart = 0;
     private long totalMigrationTime = 0;
 
 
-    private HashMap<Integer,Integer> readValues = new HashMap<>();
+    private HashMap<Integer, Integer> readValues = new HashMap<>();
     public Integer numberReadsTx = 0;
-    public Integer number2Reads= 0;
-    public long totalReadTxLatency= 0;
-    public Integer numberUpdatesTx= 0;
-    public long totalUpdateTxLatency= 0;
+    public Integer number2Reads = 0;
+    public long totalReadTxLatency = 0;
+    public Integer numberUpdatesTx = 0;
+    public long totalUpdateTxLatency = 0;
     public long lastTxTimestamp = 0;
     public long lastTxEndTimestamp = 0;
 
 
-
     public HashMap<Long, Long> context = new HashMap<>();
-
-
-
-
-
-
 
 
     public Client(int id, StateTreeProtocolInstance datacenter) {
@@ -153,25 +146,26 @@ public class Client implements BasicClientInterface {
         return isWaitingForResult;
     }
 
-
     public Operation nextOperation() {
-        if(lastOperation != null){
+        if (lastOperation != null) {
             return null;
         }
         int key = getRandomKey();
         int readOrUpdate = randomGenerator.nextInt(101);
-        if(isBetween(readOrUpdate, 0, CLIENT_READ_PERCENTAGE)){
+        if (isBetween(readOrUpdate, 0, CLIENT_READ_PERCENTAGE)) {
             this.numberReads++;
             this.lastOperationTimestamp = CommonState.getTime();
             this.lastOperation = new ReadOperation(key);
             return this.lastOperation;
-        }else {
+        } else {
             this.numberUpdates++;
             this.lastOperationTimestamp = CommonState.getTime();
-            this.lastOperation =  new UpdateOperation(key, 0); //o cliente nao esta a 0 sempre
+            this.lastOperation = new UpdateOperation(key, 0); //o cliente nao esta a 0 sempre
 
-            GlobalContext.newClientLogEntry(getId(), "  update to node " +  this.originalDC.getNodeId() + " update number " + this.numberUpdates); //LOG
+            GlobalContext.newClientLogEntry(getId(), "  update to node " + this.originalDC.getNodeId() + " update number " + this.numberUpdates); //LOG
+
             return this.lastOperation;
+
         }
     }
 
@@ -186,13 +180,13 @@ public class Client implements BasicClientInterface {
 
     // My inner OOP is too weak for this abstraction :^(
     public final void receiveReadResult(int key, Object readResult) {
-        this.readsTotalLatency += (CommonState.getTime() -this.lastOperationTimestamp);
+        this.readsTotalLatency += (CommonState.getTime() - this.lastOperationTimestamp);
         this.lastOperation = null;
     }
 
 
     public final void receiveUpdateResult(int key, Object updateResult) {
-        this.updatesTotalLatency += (CommonState.getTime() -this.lastOperationTimestamp);
+        this.updatesTotalLatency += (CommonState.getTime() - this.lastOperationTimestamp);
         this.lastOperation = null;
 
     }
@@ -222,9 +216,8 @@ public class Client implements BasicClientInterface {
     }
 
 
-
-
     static Map<Integer, Integer> levelsToCount = new HashMap<>();
+
     private void debugPercentages(int level) {
         levelsToCount.putIfAbsent(level, 0);
         Integer currentVal = levelsToCount.get(level);
@@ -236,7 +229,6 @@ public class Client implements BasicClientInterface {
     protected static boolean isBetween(int x, int lower, int upper) {
         return lower < x && x <= upper;
     }
-
 
 
     public int timestamp() {
@@ -280,7 +272,7 @@ public class Client implements BasicClientInterface {
     }
 
     public float getAverageReadTxLatency() {
-        return (float)totalReadTxLatency/numberReadsTx;
+        return (float) totalReadTxLatency / numberReadsTx;
     }
 
     public Integer getNumberUpdatesTx() {
@@ -288,14 +280,14 @@ public class Client implements BasicClientInterface {
     }
 
     public float getAverageUpdateTxLatency() {
-        return (float) totalUpdateTxLatency/numberUpdatesTx;
+        return (float) totalUpdateTxLatency / numberUpdatesTx;
     }
 
-    public Map<Long,Long> getCopyOfContext() {
+    public Map<Long, Long> getCopyOfContext() {
         return new HashMap<>(this.context);
     }
 
     public float getAverageTxLatency() {
-        return ((float) totalReadTxLatency + totalUpdateTxLatency) / (numberReadsTx+numberUpdatesTx);
+        return ((float) totalReadTxLatency + totalUpdateTxLatency) / (numberReadsTx + numberUpdatesTx);
     }
 }

@@ -269,7 +269,7 @@ public final class PointToPointTransport implements Transport {
 
             long delay = addBellDelay(latency, msg);
 
-            delay = addPartitionDelay(msg, srcId, destId, delay);
+            //delay = addPartitionDelay(msg, srcId, destId, delay);
             boolean fifo = true;
             if(msg instanceof Message){
 
@@ -277,6 +277,7 @@ public final class PointToPointTransport implements Transport {
                 StateTreeProtocolInstance srcNode = (StateTreeProtocolInstance) src.getProtocol(TreeProtocol.tree);
                 StateTreeProtocolInstance dstNode = (StateTreeProtocolInstance) src.getProtocol(TreeProtocol.tree);
                 fifo = (ct.equals(Message.ChannelType.TCP));
+
 
                 delay += (((Message) msg).getMessageSize() + srcNode.getUsedBandwidthUp() + dstNode.getUsedBandwidthDown()) / BANDWIDTH;
 
@@ -288,13 +289,15 @@ public final class PointToPointTransport implements Transport {
                 if(msg instanceof LocalUpdateMessage){
                     srcNode.useBandwidthDown(-VALUE_SIZE);
                 }
-            }
 
+                 
+            }
+            delay = delay * CICLES_TO_ONE_MILLI_SECOND;
             if (messageIsFromClient(msg)) {
                 delay = delay * 1;
             } else {
-                long messageWillBeReceived = CommonState.getTime() + delay;
                 if(fifo) {
+                    long messageWillBeReceived = CommonState.getTime() + delay;
                     long lastWillBeReceivedDest = lastWillBeReceived.get(srcId).get(destId);
                     if (messageWillBeReceived <= lastWillBeReceivedDest) {
                         messageWillBeReceived = lastWillBeReceivedDest + 1;

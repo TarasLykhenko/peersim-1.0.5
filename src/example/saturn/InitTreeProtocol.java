@@ -37,8 +37,6 @@ public class InitTreeProtocol implements Control {
     static AtomicLong ID = new AtomicLong(0);
 
 
-
-
     // ------------------------------------------------------------------------
     // Constructor
     // ------------------------------------------------------------------------
@@ -75,7 +73,7 @@ public class InitTreeProtocol implements Control {
 
         TreeHelper.printTree(root);
 
-        int[][] latencies =  generateLatencies();
+        int[][] latencies = generateLatencies();
 
 
         // Generate first 1 level (local) data objects, then 2 levels (regional)
@@ -93,10 +91,10 @@ public class InitTreeProtocol implements Control {
         return false;
     }
 
-    private int[][] generateLatencies(){
+    private int[][] generateLatencies() {
 
-        int numberOfNodes = (int)ID.get();
-        int[][] latencies = new int [numberOfNodes][numberOfNodes];
+        int numberOfNodes = (int) ID.get();
+        int[][] latencies = new int[numberOfNodes][numberOfNodes];
 
         for (int i = 0; i < numberOfNodes; i++) {
             Node node = Network.get(i);
@@ -122,7 +120,7 @@ public class InitTreeProtocol implements Control {
 
         Pair<Integer, Integer> range = new Pair<>(rangeMin, rangeMax);
 
-        Node node = Network.get((int)ID.getAndIncrement());
+        Node node = Network.get((int) ID.getAndIncrement());
         StateTreeProtocolInstance treeProtocol = (StateTreeProtocolInstance) node.getProtocol(tree);
         treeProtocol.setNodeId(node.getID());
         createTreeHelper(treeProtocol, depth, range);
@@ -136,15 +134,15 @@ public class InitTreeProtocol implements Control {
 
 
     //range <min, max>
-    public void createTreeHelper(StateTreeProtocolInstance parent, int depth, Pair<Integer,Integer> range){
+    public void createTreeHelper(StateTreeProtocolInstance parent, int depth, Pair<Integer, Integer> range) {
 
         if (depth <= 0) return;
 
         depth--;
         int leafsRange = rand.nextInt((range.getValue() - range.getKey()) + 1) + range.getKey();
 
-        for (int i = 0; i < leafsRange; i++ ){
-            Node node = Network.get((int)ID.getAndIncrement());
+        for (int i = 0; i < leafsRange; i++) {
+            Node node = Network.get((int) ID.getAndIncrement());
             StateTreeProtocolInstance treeProtocol = (StateTreeProtocolInstance) node.getProtocol(tree);
             treeProtocol.setNodeId(node.getID());
             treeProtocol.setParent(parent);
@@ -158,7 +156,6 @@ public class InitTreeProtocol implements Control {
     }
 
     private void generateClients(Set<StateTreeProtocol> datacenters) {
-
         int totalClients = 0;
         int totalNumberClients = Integer.parseInt(Configuration.getString(N_CLIENTS));
         int numberOfClient = totalNumberClients / datacenters.size();
