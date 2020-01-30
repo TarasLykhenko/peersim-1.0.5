@@ -147,7 +147,7 @@ public class Client implements BasicClientInterface {
     }
 
     public Operation nextOperation() {
-        if (lastOperation != null) {
+        if (lastOperation != null || CommonState.getTime() > 600) {
             return null;
         }
         int key = getRandomKey();

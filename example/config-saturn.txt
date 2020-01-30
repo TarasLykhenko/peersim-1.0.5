@@ -2,10 +2,10 @@
 SIZE 500
 
 # parameters of periodic execution
-CYCLES 1000
+CYCLES 100000
 CYCLE 1
 n_objects 100
-n_clients 100
+n_clients 1000
 p_reads 100
 
 # random.seed 1234567890

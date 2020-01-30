@@ -99,6 +99,8 @@ public  class GlobalContext {
     public static void printQueueSize(){
 
         int nodeSize = Network.size();
+        int maxBrokerMedian = 0;
+        int maxDataMedian = 0;
 
         for (long i = 0L; i < CommonState.getTime(); i++) {
             HashMap<Integer, Integer> brokerMap = brokerQueue.get(i);
@@ -112,9 +114,16 @@ public  class GlobalContext {
                 dataMedian += dataMap.get(j);
             }
 
+            maxBrokerMedian = Math.max(maxBrokerMedian, brokerMedian);
+            maxDataMedian = Math.max(maxDataMedian, dataMedian);
+
+
             System.out.println("cycle: " + i + " median broker queue: "+ brokerMedian+ " median data queue: "+ dataMedian);
 
         }
+
+        System.out.println("max Broker Median:  "+ maxBrokerMedian+ " max Data Median: "+ maxDataMedian);
+
     }
 
 }

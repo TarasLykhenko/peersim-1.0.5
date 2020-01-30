@@ -99,8 +99,8 @@ public class StatisticsController extends AbstractController {
         System.out.println("Average migration time: " + (( totalMigrationTime / totalMigrations)));
         System.out.println("Total time migrating: " + totalMigrationTime);
 
-        GlobalContext.printLog();
-        //GlobalContext.printQueueSize();
+        //GlobalContext.printLog();
+        GlobalContext.printQueueSize();
 
 
     }
