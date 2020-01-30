@@ -96,10 +96,10 @@ public abstract class StateTreeProtocolInstance
 
 
     public long localUpdateMessage(LocalUpdateMessage message){
+        GlobalContext.newNodeLogEntry((int)getNodeId(), " local update from client " + message.getClientId() ); //Log
         long value = storage.get(message.getKey());
         long newVersion = value++;
         storage.put(message.getKey(), newVersion);
-        GlobalContext.newNodeLogEntry((int)getNodeId(), " local update from client " + message.getClientId() ); //Log
         return newVersion;
     }
 
@@ -108,14 +108,14 @@ public abstract class StateTreeProtocolInstance
     }
 
     public void metadataMessage(MetadataMessage message){
-        broker.newRemoteMetadataUpdate(message);
         GlobalContext.newNodeLogEntry((int)getNodeId(), " i receive  MetadataID " + message.getUpdateID() + " from " + message.getNodeOriginID()  ); //Log
+        broker.newRemoteMetadataUpdate(message);
 
     }
 
     public void remoteUpdateMessage(RemoteUpdateMessage message){
-        storage.remotePut(message.getUpdateID(), message.getKey(), message.getValue());
         GlobalContext.newNodeLogEntry((int)getNodeId(), " i receive  DataID " + message.getUpdateID() + " from " + message.getNodeOriginID()  ); //Log
+        storage.remotePut(message.getUpdateID(), message.getKey(), message.getValue());
 
     }
 

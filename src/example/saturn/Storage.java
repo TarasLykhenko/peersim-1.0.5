@@ -44,7 +44,9 @@ public class Storage {
                 long updateID = metaQueue.poll();
                 Pair<Integer,Long> update = pendingRemoteUpdates.get(updateID);
                 pendingRemoteUpdates.remove(updateID);
-                put(update.getKey(), update.getValue());
+                kvStore.put(update.getKey(), update.getValue());
+                GlobalContext.newNodeLogEntry((int)replicationManager.nodeID, " applying remote update  " + updateID  ); //Log
+
             }
             else{
                 return;
