@@ -99,6 +99,7 @@ public abstract class StateTreeProtocolInstance
         long value = storage.get(message.getKey());
         long newVersion = value++;
         storage.put(message.getKey(), newVersion);
+        GlobalContext.newNodeLogEntry((int)getNodeId(), " local update from client " + message.getClientId() ); //Log
         return newVersion;
     }
 
@@ -108,10 +109,14 @@ public abstract class StateTreeProtocolInstance
 
     public void metadataMessage(MetadataMessage message){
         broker.newRemoteMetadataUpdate(message);
+        GlobalContext.newNodeLogEntry((int)getNodeId(), " i receive  MetadataID " + message.getUpdateID() + " from " + message.getNodeOriginID()  ); //Log
+
     }
 
     public void remoteUpdateMessage(RemoteUpdateMessage message){
         storage.remotePut(message.getUpdateID(), message.getKey(), message.getValue());
+        GlobalContext.newNodeLogEntry((int)getNodeId(), " i receive  DataID " + message.getUpdateID() + " from " + message.getNodeOriginID()  ); //Log
+
     }
 
 
@@ -149,7 +154,7 @@ public abstract class StateTreeProtocolInstance
      * Does nothing.
      */
     public StateTreeProtocolInstance() {
-        broker = new Broker(getNodeId());
+        broker = new Broker();
         replicationManager = new ReplicationManager(broker);
         storage = new Storage(replicationManager);
         broker.setStorage(storage);
@@ -278,6 +283,10 @@ public abstract class StateTreeProtocolInstance
         }
         BufferedWriter br = new BufferedWriter(fr);
         writer = new PrintWriter(br);
+
+        broker.setNodeID(this.nodeId);
+        replicationManager.setNodeID(this.nodeId);
+
     }
 
     //--------------------------------------------------------------------------
@@ -361,7 +370,7 @@ public abstract class StateTreeProtocolInstance
                 GlobalContext.keysToDcs.put(i,new ArrayList<>());
             }
             GlobalContext.keysToDcs.get(i).add(nodeId);
-            storage.put(i,0L);
+            storage.addKey(i,0L);
         }
     }
 }

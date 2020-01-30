@@ -265,7 +265,7 @@ private static boolean executeNext() {
 	long time = ev.time;
 	if (time >= nextlog)
 	{
-		if (Settings.PRINT_INFO) {
+		if (Settings.PRINT_CYCLE) {
 			System.err.println("Current time: " + time);
 		}
 		// seemingly complicated: to prevent overflow

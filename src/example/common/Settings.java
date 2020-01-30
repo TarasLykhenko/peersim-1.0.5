@@ -94,6 +94,8 @@ public class Settings {
 
     // DEBUG
     public static final boolean PRINT_INFO = true;
+    public static final boolean PRINT_CYCLE = false;
+
     public static final boolean PRINT_VERBOSE = true;
     public static final String CLIENT_LOCALITY_PERCENTAGE = "[0,0,0,100]";
     public static final String CLIENT_READ_LEVEL_PERCENTAGE = "[50,25,15,10]";

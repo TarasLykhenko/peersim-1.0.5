@@ -52,5 +52,9 @@ public class Storage {
         }
     }
 
+    public void addKey(int key, long value){
+        kvStore.put(key, value);
+    }
+
 
 }
