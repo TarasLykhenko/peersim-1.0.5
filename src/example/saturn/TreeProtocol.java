@@ -115,22 +115,24 @@ public class TreeProtocol extends StateTreeProtocolInstance
         StateTreeProtocolInstance treeNode = (StateTreeProtocolInstance) node.getProtocol(tree);
         treeNode.updateUsedBandwidth();
         //send data in parallel
-        Message message;
-        while ((message = treeNode.getParallelMessage()) != null){
-            Node destinationNode = Network.get((int)message.getNodeDestinationID());
-            message.setNodeOriginID(node.getID());
-            sendMessage(node, destinationNode, message, pid);
+        Message fifoMessage = null;
+        Message parallelMessage = null;
+        while ((fifoMessage = treeNode.getFIFOMessage()) != null || (parallelMessage = treeNode.getParallelMessage()) != null){
+            if(fifoMessage != null) {
+                Node destinationNode = Network.get((int) fifoMessage.getNodeDestinationID());
+                fifoMessage.setNodeOriginID(node.getID());
+                sendMessage(node, destinationNode, fifoMessage, pid);
+            }
+            if(parallelMessage != null) {
+                Node destinationNode = Network.get((int) parallelMessage.getNodeDestinationID());
+                parallelMessage.setNodeOriginID(node.getID());
+                sendMessage(node, destinationNode, parallelMessage, pid);
+            }
 
         }
 
-        //send metadata in fifo
-        while ((message = treeNode.getFIFOMessage()) != null){
-            Node destinationNode = Network.get((int)message.getNodeDestinationID());
-            message.setNodeOriginID(node.getID());
-            sendMessage(node, destinationNode, message, pid);
-
-        }
     }
+
 
     private Node getMigrationDatacenter(int key,
                                         StateTreeProtocol originalDC) {

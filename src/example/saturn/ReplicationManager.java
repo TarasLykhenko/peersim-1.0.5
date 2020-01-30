@@ -25,7 +25,7 @@ public class ReplicationManager {
 
     public void propagateUpdate(Integer key, Long value){
 
-        Long newUpdateId = logicClock.getAndIncrement();
+        long newUpdateId = logicClock.getAndIncrement();
         broker.newUpdate(newUpdateId);
 
         List<Long> remoteReplicas = getRemoteReplicasID(key);

@@ -32,6 +32,8 @@ public class Settings {
 
     public static final int BANDWIDTH = Integer.parseInt(prop.getProperty("BANDWIDTH"));
 
+    public static final int CICLES_TO_ONE_MILLI_SECOND= Integer.parseInt(prop.getProperty("CICLES_TO_ONE_MILLI_SECOND"));
+
 
 
     // How long it takes for a client to connect to  other DC
