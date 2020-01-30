@@ -44,7 +44,7 @@ import static example.common.Settings.CLIENT_READ_PERCENTAGE;
  *
  * @see IncrementalStats
  */
-public class Controller extends AbstractController {
+public class StatisticsController extends AbstractController {
 
 
     /**
@@ -53,11 +53,11 @@ public class Controller extends AbstractController {
      *
      * @param name the configuration prefix for this class
      */
-    public Controller(String name) throws IOException {
+    public StatisticsController(String name) throws IOException {
         super(name, "saturn");
     }
 
-    public Controller(String name, String system) throws IOException {
+    public StatisticsController(String name, String system) throws IOException {
         super(name, system);
     }
 

@@ -65,7 +65,7 @@ init.sch.randstart
 
 ################ control ==============================
 
-control.0 example.saturn.Controller
+control.0 example.saturn.StatisticsController
 control.0.protocol tree
 control.0.step CYCLE
 control.0.output_file output/
