@@ -16,7 +16,7 @@ public class Broker {
     long nodeID;
     Queue<MetadataMessage> metaQueue = new LinkedList<>();
 
-    public Broker(long nodeID){
+    public void setNodeID(long nodeID){
         this.nodeID = nodeID;
     }
 
@@ -25,7 +25,7 @@ public class Broker {
         long updateID = MetadataMessage.getUpdateID();
         storage.remoteMetadata(updateID);
 
-        //propagate metadata expect to message origin
+        //propagate metadata exclude the message origin
         List<Long> remoteBrokers = getRemoteBrokersID();
         for (long remoteReplicaID : remoteBrokers) {
 

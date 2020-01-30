@@ -154,7 +154,7 @@ public class Client implements BasicClientInterface {
     }
 
 
-
+    public boolean test = false;
     public Operation nextOperation() {
         if(lastOperation != null){
             return null;
@@ -167,10 +167,13 @@ public class Client implements BasicClientInterface {
             this.lastOperation = new ReadOperation(key);
             return this.lastOperation;
         }else {
+            if(test) return null;
             this.numberUpdates++;
             this.lastOperationTimestamp = CommonState.getTime();
-
             this.lastOperation =  new UpdateOperation(key, 0); //o cliente nao esta a 0 sempre
+
+            GlobalContext.newClientLogEntry(getId(), "  update to node " +  this.originalDC.getNodeId() + " update number " + this.numberUpdates); //LOG
+            test = true;
             return this.lastOperation;
         }
     }
