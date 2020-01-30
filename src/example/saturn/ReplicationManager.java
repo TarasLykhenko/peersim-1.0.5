@@ -10,7 +10,7 @@ public class ReplicationManager {
 
     Queue<RemoteUpdateMessage> pendingSendUpdates = new LinkedList<>();
 
-    AtomicLong logicClock = new AtomicLong(0);
+    static AtomicLong logicClock = new AtomicLong(0);
     Broker broker;
     long nodeID;
 
