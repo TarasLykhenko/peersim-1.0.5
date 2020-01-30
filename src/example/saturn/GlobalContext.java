@@ -30,7 +30,6 @@ public  class GlobalContext {
 
         //by cycle
         addToQueue(cycleLogger, (int) CommonState.getTime(),"c: " + CommonState.getTime() +" clientID: " + nodeID + " " + message );
-        System.out.println("c: " + CommonState.getTime() +" clientID: " + nodeID + " " + message );
 
     }
 

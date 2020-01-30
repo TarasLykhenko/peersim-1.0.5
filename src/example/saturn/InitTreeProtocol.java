@@ -158,17 +158,6 @@ public class InitTreeProtocol implements Control {
     }
 
     private void generateClients(Set<StateTreeProtocol> datacenters) {
-        //To delete
-        for (StateTreeProtocol datacenter : datacenters) {
-            Set<Client> clients = new HashSet<>();
-            Client c = new Client(1, (StateTreeProtocolInstance) datacenter);
-            clients.add(c);
-            datacenter.addClients(clients);
-            return;
-        }
-        //To delete end
-
-
 
         int totalClients = 0;
         int totalNumberClients = Integer.parseInt(Configuration.getString(N_CLIENTS));
