@@ -31,6 +31,8 @@ import java.io.PrintWriter;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static example.common.Settings.BANDWIDTH;
+
 public abstract class StateTreeProtocolInstance
         implements StateTreeProtocol, Protocol {
 
@@ -93,6 +95,9 @@ public abstract class StateTreeProtocolInstance
     Broker broker;
     ReplicationManager replicationManager;
     Storage storage;
+    int usedBandwidthUp = 0;
+    int usedBandwidthDown = 0;
+
 
 
     public long localUpdateMessage(LocalUpdateMessage message){
@@ -362,6 +367,32 @@ public abstract class StateTreeProtocolInstance
             }
             GlobalContext.keysToDcs.get(i).add(nodeId);
             storage.put(i,0L);
+        }
+    }
+
+    public int getUsedBandwidthUp(){
+        return usedBandwidthUp;
+    }
+
+    public int getUsedBandwidthDown(){
+        return usedBandwidthDown;
+    }
+
+    public void useBandwidthUp(int messageSize){
+        usedBandwidthUp += messageSize;
+    }
+
+    public void useBandwidthDown(int messageSize){
+        usedBandwidthDown += messageSize;
+
+    }
+
+    public void updateUsedBandwidth(){
+        if((usedBandwidthUp -= BANDWIDTH) < 0){
+            usedBandwidthUp = 0;
+        }
+        if((usedBandwidthDown -= BANDWIDTH) < 0){
+            usedBandwidthDown = 0;
         }
     }
 }

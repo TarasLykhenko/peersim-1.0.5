@@ -28,6 +28,12 @@ public class Settings {
     public static final int MIN_DELAY = Integer.parseInt(prop.getProperty("MIN_DELAY"));
     public static final int MAX_DELAY = Integer.parseInt(prop.getProperty("MAX_DELAY"));
 
+    public static final int VALUE_SIZE = Integer.parseInt(prop.getProperty("VALUE_SIZE"));
+
+    public static final int BANDWIDTH = Integer.parseInt(prop.getProperty("BANDWIDTH"));
+
+
+
     // How long it takes for a client to connect to  other DC
     // CLIENT SETTINGS
 

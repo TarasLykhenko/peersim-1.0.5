@@ -23,7 +23,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
         implements CDProtocol, EDProtocol {
 
     private static final String PAR_TREE_PROT = "tree_protocol";
-    private final int tree;
+    static public int tree;
     private final String prefix;
 
 
@@ -46,7 +46,8 @@ public class TreeProtocol extends StateTreeProtocolInstance
      * {@link peersim.edsim.CDScheduler} component in the configuration.
      */
     public void nextCycle(Node node, int pid) {
-
+        StateTreeProtocolInstance treeNode = (StateTreeProtocolInstance) node.getProtocol(tree);
+        treeNode.updateUsedBandwidth();
         processClientsNodeCycle(node, pid);
         processTreeNodeCycle(node, pid);
 
@@ -91,7 +92,7 @@ public class TreeProtocol extends StateTreeProtocolInstance
     private void processTreeNodeCycle(Node node, int pid){
 
         StateTreeProtocolInstance treeNode = (StateTreeProtocolInstance) node.getProtocol(tree);
-
+        treeNode.updateUsedBandwidth();
         //send data in parallel
         Message message;
         while ((message = treeNode.getParallelMessage()) != null){

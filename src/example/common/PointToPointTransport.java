@@ -18,7 +18,12 @@
 
 package example.common;
 
+import example.saturn.StateTreeProtocol;
+import example.saturn.StateTreeProtocolInstance;
+import example.saturn.TreeProtocol;
+import example.saturn.datatypes.message.types.LocalUpdateMessage;
 import example.saturn.datatypes.message.types.Message;
+import example.saturn.datatypes.message.types.ReadMessage;
 import peersim.config.Configuration;
 import peersim.config.IllegalParameterException;
 import peersim.core.CommonState;
@@ -34,20 +39,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import static example.common.Settings.MAX_DELAY;
-import static example.common.Settings.MIN_DELAY;
-import static example.common.Settings.PARTITION_START_PERCENTAGE;
-import static example.common.Settings.PARTITION_STOP_PERCENTAGE;
-import static example.common.Settings.PRINT_INFO;
-import static example.common.Settings.SHOULD_PARTITION_CLIENTS;
-import static example.common.Settings.SHOULD_PARTITION_DC;
-import static example.common.Settings.PARTITIONS_ARE_DELAYS;
-import static example.common.Settings.PARTITION_STRETCH_L1_PERCENTAGE;
-import static example.common.Settings.PARTITION_STRETCH_L2_PERCENTAGE;
-import static example.common.Settings.PARTITION_STRETCH_L3_PERCENTAGE;
-import static example.common.Settings.PARTITION_MESSAGE_L1_AFFECTED_PERCENTAGE;
-import static example.common.Settings.PARTITION_MESSAGE_L2_AFFECTED_PERCENTAGE;
-import static example.common.Settings.PARTITION_MESSAGE_L3_AFFECTED_PERCENTAGE;
+import static example.common.Settings.*;
 
 
 /**
@@ -282,11 +274,24 @@ public final class PointToPointTransport implements Transport {
             if(msg instanceof Message){
 
                 Message.ChannelType ct = ((Message) msg).getChannelType();
+                StateTreeProtocolInstance srcNode = (StateTreeProtocolInstance) src.getProtocol(TreeProtocol.tree);
+                StateTreeProtocolInstance dstNode = (StateTreeProtocolInstance) src.getProtocol(TreeProtocol.tree);
                 fifo = (ct.equals(Message.ChannelType.TCP));
+
+                delay += (((Message) msg).getMessageSize() + srcNode.getUsedBandwidthUp() + dstNode.getUsedBandwidthDown()) / BANDWIDTH;
+
+                srcNode.useBandwidthUp(((Message) msg).getMessageSize());
+                dstNode.useBandwidthDown(((Message) msg).getMessageSize());
+                if(msg instanceof ReadMessage){
+                    srcNode.useBandwidthUp(-VALUE_SIZE);
+                }
+                if(msg instanceof LocalUpdateMessage){
+                    srcNode.useBandwidthDown(-VALUE_SIZE);
+                }
             }
 
             if (messageIsFromClient(msg)) {
-                delay = Math.round(delay * Settings.CLIENT_NETWORK_STRETCH);
+                delay = delay * 1;
             } else {
                 long messageWillBeReceived = CommonState.getTime() + delay;
                 if(fifo) {
@@ -341,12 +346,13 @@ public final class PointToPointTransport implements Transport {
      * This is not very typeSafe, but we need it to be like this because of Saturn
      */
     private boolean messageIsFromClient(Object msg) {
+        String updateLocal = "LocalUpdateMessage";
         String read = "ReadMessage";
         String update = "LocalUpdate";
         String migrate = "MigrationMessage";
         String msgName = msg.getClass().getSimpleName();
 
-        return msgName.equals(read) || msgName.equals(update) || msgName.equals(migrate);
+        return msgName.equals(read) || msgName.equals(update) || msgName.equals(migrate) || msgName.equals(updateLocal);
     }
 
     private void partitionConnections(String partitionsFile,

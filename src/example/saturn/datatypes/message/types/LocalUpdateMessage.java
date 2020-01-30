@@ -1,5 +1,7 @@
 package example.saturn.datatypes.message.types;
 
+import static example.common.Settings.VALUE_SIZE;
+
 public class LocalUpdateMessage extends Message{
 
 	long value;
@@ -10,6 +12,8 @@ public class LocalUpdateMessage extends Message{
 		super(Type.LOCALUPDATE, key,ChannelType.TCP);
 		this.clientId = clientId;
 		this.value = value;
+		this.setMessageSize(calculateMessageSize());
+
 	}
 
 	public long getValue(){
@@ -22,5 +26,12 @@ public class LocalUpdateMessage extends Message{
 
 	public void setClientId(int clientId){
 		this.clientId = clientId;
+	}
+
+	protected int calculateMessageSize(){
+		int size = super.calculateMessageSize();
+		size += VALUE_SIZE;
+		size += 8; //clientId
+		return size;
 	}
 }
