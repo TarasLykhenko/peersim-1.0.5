@@ -12,9 +12,15 @@ public class ReplicationManager {
 
     AtomicLong logicClock = new AtomicLong(0);
     Broker broker;
+    long nodeID;
+
 
     public ReplicationManager(Broker _broker){
         broker = _broker;
+    }
+
+    public void setNodeID(long nodeId){
+        this.nodeID = nodeId;
     }
 
     public void propagateUpdate(Integer key, Long value){
@@ -22,9 +28,12 @@ public class ReplicationManager {
         Long newUpdateId = logicClock.getAndIncrement();
         broker.newUpdate(newUpdateId);
 
-        List<Long> remoteReplicas = getRemoeReplicasID(key);
+        List<Long> remoteReplicas = getRemoteReplicasID(key);
 
         for (long remoteReplicaID : remoteReplicas) {
+
+            if(remoteReplicaID == this.nodeID) continue;
+
             RemoteUpdateMessage message = new RemoteUpdateMessage(key,value,newUpdateId);
             message.setNodeDestinationID(remoteReplicaID);
             pendingSendUpdates.add(message);
@@ -37,7 +46,7 @@ public class ReplicationManager {
         return pendingSendUpdates.poll();
     }
 
-    public List<Long> getRemoeReplicasID(int key){
+    public List<Long> getRemoteReplicasID(int key){
         return GlobalContext.keysToDcs.get(key);
     }
 }

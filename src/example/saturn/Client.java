@@ -169,8 +169,10 @@ public class Client implements BasicClientInterface {
         }else {
             this.numberUpdates++;
             this.lastOperationTimestamp = CommonState.getTime();
-
             this.lastOperation =  new UpdateOperation(key, 0); //o cliente nao esta a 0 sempre
+
+            GlobalContext.newClientLogEntry(getId(), "  update to node " +  this.originalDC.getNodeId() + " update number " + this.numberUpdates); //LOG
+
             return this.lastOperation;
         }
     }
